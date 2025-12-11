@@ -3,10 +3,14 @@ import Game from './components/Game';
 import type { ShipConfig } from './game/Ship';
 import { SHIP_STATS } from './game/ShipFactory';
 import ShipPreview from './components/ShipPreview';
+import TrackPreview from './components/TrackPreview';
+import { TRACKS } from './game/TrackDefinitions';
 
 function App() {
-  const [screen, setScreen] = useState<'start' | 'selection' | 'game'>('start');
+  const [screen, setScreen] = useState<'start' | 'selection' | 'track_selection' | 'game'>('start');
+  const [gameMode, setGameMode] = useState<'campaign' | 'single_race'>('campaign');
   const [showHelp, setShowHelp] = useState(false);
+  const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
   const [selectedShipConfig, setSelectedShipConfig] = useState<ShipConfig>({
     color: 0xcc0000,
     accelFactor: 0.5,
@@ -16,9 +20,33 @@ function App() {
     type: 'fighter'
   });
 
-  const handleStartGame = (config: ShipConfig) => {
+  const handleNewGame = () => {
+    setGameMode('campaign');
+    setSelectedTrackIndex(0);
+    setScreen('selection');
+  };
+
+  const handleTrackSelectMode = () => {
+    setGameMode('single_race');
+    setScreen('track_selection');
+  };
+
+  const handleShipSelect = (config: ShipConfig) => {
     setSelectedShipConfig(config);
     setScreen('game');
+  };
+
+  const handleTrackSelect = (index: number) => {
+    setSelectedTrackIndex(index);
+    setScreen('selection');
+  };
+
+  const handleBackFromShipSelect = () => {
+    if (gameMode === 'single_race') {
+      setScreen('track_selection');
+    } else {
+      setScreen('start');
+    }
   };
 
   return (
@@ -36,10 +64,16 @@ function App() {
 
           <div className="flex flex-col space-y-4 w-64">
             <button
-              onClick={() => setScreen('selection')}
+              onClick={handleNewGame}
               className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
             >
               NEW GAME
+            </button>
+            <button
+              onClick={handleTrackSelectMode}
+              className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
+            >
+              SELECT TRACK
             </button>
             <button
               onClick={() => setShowHelp(true)}
@@ -63,7 +97,7 @@ function App() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl">
             {/* SHIP 1: SPEEDSTER */}
             <div
-              onClick={() => handleStartGame({ color: 0x00ccff, ...SHIP_STATS.speedster, type: 'speedster' })}
+              onClick={() => handleShipSelect({ color: 0x00ccff, ...SHIP_STATS.speedster, type: 'speedster' })}
               className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-cyan-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
             >
               <div className="h-48 bg-cyan-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
@@ -81,7 +115,7 @@ function App() {
 
             {/* SHIP 2: FIGHTER (Balanced) */}
             <div
-              onClick={() => handleStartGame({ color: 0xcc0000, ...SHIP_STATS.fighter, type: 'fighter' })}
+              onClick={() => handleShipSelect({ color: 0xcc0000, ...SHIP_STATS.fighter, type: 'fighter' })}
               className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-red-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
             >
               <div className="h-48 bg-red-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
@@ -99,7 +133,7 @@ function App() {
 
             {/* SHIP 3: TANK (Heavy) */}
             <div
-              onClick={() => handleStartGame({ color: 0xcccc00, ...SHIP_STATS.tank, type: 'tank' })}
+              onClick={() => handleShipSelect({ color: 0xcccc00, ...SHIP_STATS.tank, type: 'tank' })}
               className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-yellow-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
             >
               <div className="h-48 bg-yellow-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
@@ -117,6 +151,44 @@ function App() {
           </div>
 
           <button
+            onClick={handleBackFromShipSelect}
+            className="mt-8 text-gray-500 hover:text-white underline"
+          >
+            {gameMode === 'single_race' ? 'Back to Track Selection' : 'Back to Menu'}
+          </button>
+        </div>
+      )}
+
+      {/* TRACK SELECTION SCREEN */}
+      {screen === 'track_selection' && (
+        <div className="relative z-10 flex flex-col items-center justify-center h-full p-8">
+          <h2 className="text-4xl font-bold text-white mb-8">SELECT TRACK</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl">
+            {TRACKS.map((track, index) => (
+              <div
+                key={track.id}
+                onClick={() => handleTrackSelect(index)}
+                className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-purple-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
+              >
+                <div className="h-48 bg-black bg-opacity-50 rounded mb-4 flex items-center justify-center overflow-hidden border border-gray-700">
+                  <TrackPreview points={track.points} />
+                </div>
+                <h3 className="text-2xl font-bold text-purple-400 mb-2">{track.name}</h3>
+                <p className="text-gray-400 text-sm mb-4 h-12">{track.description}</p>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500 uppercase">Difficulty:</span>
+                  <div className="flex space-x-1">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className={`w-2 h-2 rounded-full ${i < track.difficulty ? 'bg-purple-500' : 'bg-gray-700'}`} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
             onClick={() => setScreen('start')}
             className="mt-8 text-gray-500 hover:text-white underline"
           >
@@ -125,9 +197,10 @@ function App() {
         </div>
       )}
 
+
       {/* GAME SCREEN */}
       {screen === 'game' && selectedShipConfig && (
-        <Game shipConfig={selectedShipConfig} />
+        <Game shipConfig={selectedShipConfig} initialTrackIndex={selectedTrackIndex} />
       )}
 
       {/* HELP MODAL */}
@@ -141,7 +214,7 @@ function App() {
                 <strong className="text-cyan-400 block">CONTROLS</strong>
                 <ul className="list-disc pl-5 mt-1 space-y-1">
                   <li><span className="text-white">W / Up</span> : Accelerate</li>
-                  <li><span className="text-white">A / D</span> : Lean Left / Right (Strafe))</li>
+                  <li><span className="text-white">A / D</span> : Lean Left / Right (Strafe)</li>
                   <li><span className="text-white">Q / E</span> or <span className="text-white">Left/Right</span> : Steer</li>
                   <li><span className="text-white">A / D</span> : Side Strafe</li>
                   <li><span className="text-white">SPACE</span> : Jump</li>

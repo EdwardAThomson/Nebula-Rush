@@ -1,45 +1,8 @@
 import * as THREE from 'three';
+import type { BoostPad } from './TrackDefinitions';
 
 // Create track path using curve
-export const createTrackCurve = (): THREE.CatmullRomCurve3 => {
-    // Define control points for a MASSIVE circuit (scaled up)
-    // Deformed Oval with 2 massive straights
-    const scale = 12.0;
-    const points = [
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(0, 0, -400),
-        new THREE.Vector3(100, 20, -600), // Slight elevation
-        new THREE.Vector3(300, 40, -800),
-        new THREE.Vector3(500, 20, -600), // Curve right
-        new THREE.Vector3(600, 0, -300),
-        new THREE.Vector3(500, -20, 0),   // Dip down
-        new THREE.Vector3(300, 0, 200),
-        new THREE.Vector3(0, 50, 400),    // Big jump/hill
-        new THREE.Vector3(-300, 30, 600),
-        new THREE.Vector3(-600, 0, 400),  // Wide left turn
-        new THREE.Vector3(-400, 0, 200),  // Smoother transition
-        new THREE.Vector3(0, 0, 200)      // Straight approach to start line (0,0,0) -> (0,0,-400)
-
-    ].map(p => p.multiplyScalar(scale));
-
-
-
-    /* --- new track suggestion
-    new THREE.Vector3(0, 0, 400),       // Finish Line approach
-    new THREE.Vector3(0, 0, 0),         // Start Line
-    new THREE.Vector3(0, 0, -2000),     // Mid-Straight 1
-    new THREE.Vector3(0, 0, -4000),     // End Straight 1
-    new THREE.Vector3(400, 50, -4800),  // Turn 1 Entry (Banking)
-    new THREE.Vector3(1200, 20, -4800), // Turn 1 Apex (Wide)
-    new THREE.Vector3(1600, 0, -4000),  // Turn 1 Exit
-    new THREE.Vector3(1600, 0, -2000),  // Mid-Straight 2
-    new THREE.Vector3(1600, 0, 400),    // End Straight 2
-    new THREE.Vector3(1200, 50, 1000),  // Turn 2 High
-    new THREE.Vector3(600, 20, 800),    // Turn 2 Dive
-    new THREE.Vector3(0, 0, 400)        // Loop Close
-    */
-
-
+export const createTrackCurve = (points: THREE.Vector3[]): THREE.CatmullRomCurve3 => {
     // Close the loop
     // CatmullRomCurve3 is closed by default if 'true' is passed
     return new THREE.CatmullRomCurve3(points, true, 'centripetal');
@@ -107,17 +70,7 @@ export const getTrackFrame = (trackCurve: THREE.Curve<THREE.Vector3>, t: number)
     };
 };
 
-// Create boost pad mesh
-// We need to import BOOST_PADS but to avoid circular deps with PhysicsEngine if we imported it there?
-// PhysicsEngine imports InputManager. TrackFactory imports THREE.
-// Let's pass the pads list or duplicate the locations? 
-// Better: define the interface here or shared file. 
-// For now, I'll copy the logic effectively by re-importing if I can.
-// But PhysicsEngine updates physics. TrackFactory builds mesh.
-// Let's import BOOST_PADS from PhysicsEngine.
-import { BOOST_PADS, type BoostPad } from './PhysicsEngine';
-
-export const createBoostPadMeshes = (trackCurve: THREE.CatmullRomCurve3): THREE.Mesh[] => {
+export const createBoostPadMeshes = (trackCurve: THREE.CatmullRomCurve3, pads: BoostPad[]): THREE.Mesh[] => {
     const meshes: THREE.Mesh[] = [];
     const material = new THREE.MeshBasicMaterial({
         color: 0xff00ff, // Magenta/Neon Pink
@@ -127,7 +80,7 @@ export const createBoostPadMeshes = (trackCurve: THREE.CatmullRomCurve3): THREE.
         blending: THREE.AdditiveBlending
     });
 
-    BOOST_PADS.forEach((pad: BoostPad) => {
+    pads.forEach((pad: BoostPad) => {
         // Generate a curved strip for each pad
         const geometry = new THREE.BufferGeometry();
         const vertices: number[] = [];

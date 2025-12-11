@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import { Ship } from './Ship';
+import { Ship, type ShipConfig } from './Ship';
 import { type ShipType, SHIP_STATS } from './ShipFactory';
 
 import type { InputSource } from './InputManager';
 import type { GameState } from './PhysicsEngine';
+import type { BoostPad } from './TrackDefinitions';
 
 class AIInputController implements InputSource {
     private keys: { [key: string]: boolean } = {};
@@ -48,57 +49,31 @@ class AIInputController implements InputSource {
     }
 }
 
+export interface OpponentConfig extends ShipConfig {
+    id: string;
+    name: string;
+}
+
 export class OpponentManager {
     public opponents: Ship[] = [];
     private controllers: AIInputController[] = [];
 
     private scene: THREE.Scene;
     private trackCurve: THREE.Curve<THREE.Vector3>;
-    private count: number;
 
     constructor(
         scene: THREE.Scene,
         trackCurve: THREE.Curve<THREE.Vector3>,
-        count: number = 19
+        roster: OpponentConfig[]
     ) {
         this.scene = scene;
         this.trackCurve = trackCurve;
-        this.count = count;
-        this.spawnOpponents();
+        this.spawnOpponents(roster);
     }
 
-    private spawnOpponents() {
-        const colors = [0x00cc00, 0x0000cc, 0xcccc00, 0xcc00cc, 0x00cccc, 0xff8800];
-
-        for (let i = 0; i < this.count; i++) {
-            // Select Random Ship Type
-            const shipTypes: ShipType[] = ['fighter', 'speedster', 'tank'];
-            // Weighted randomness? Or equal? Equal is fine.
-            const type = shipTypes[Math.floor(Math.random() * shipTypes.length)];
-
-            // Create Ship with Config
-            // We'll calculate base stats for the type, then apply some variance
-            let basetoConfig = {
-                ...SHIP_STATS[type],
-                color: colors[i % colors.length],
-                type: type
-            };
-
-            // BASE STATS PER ARCHETYPE - LOADED FROM SHIP_STATS
-
-            // Apply Random Variance (+/- 5-10%)
-            basetoConfig.accelFactor *= 1.0 + (Math.random() * 0.1 - 0.05);
-            basetoConfig.friction += (Math.random() * 0.002 - 0.001); // Tiny variance on drag has huge speed impact
-            basetoConfig.turnSpeed *= 1.0 + (Math.random() * 0.2 - 0.1);
-
-            // Override color with the cycling list to keep the grid colorful, 
-            // OR keep archetype colors? 
-            // User probably wants diversity. Let's keep the cycling colors but maybe tint them?
-            // Actually, the cycling colors (Green, Blue, Yellow, Pink, Cyan, Orange) exist.
-            // Let's us the cycling color as the overriding factor.
-            basetoConfig.color = colors[i % colors.length];
-
-            const opponent = new Ship(this.scene, false, basetoConfig);
+    private spawnOpponents(roster: OpponentConfig[]) {
+        roster.forEach((config, i) => {
+            const opponent = new Ship(this.scene, false, config);
 
             // Grid Positioning
             const row = Math.floor(i / 2) + 1;
@@ -125,10 +100,42 @@ export class OpponentManager {
 
             // Initial Mesh Update
             opponent.updateMesh(this.trackCurve);
-        }
+        });
     }
 
-    public update(dt: number, trackLength: number, raceStarted: boolean) {
+    public static generateRoster(count: number): OpponentConfig[] {
+        const colors = [0x00cc00, 0x0000cc, 0xcccc00, 0xcc00cc, 0x00cccc, 0xff8800];
+        const roster: OpponentConfig[] = [];
+
+        for (let i = 0; i < count; i++) {
+            // Select Random Ship Type
+            const shipTypes: ShipType[] = ['fighter', 'speedster', 'tank'];
+            const type = shipTypes[Math.floor(Math.random() * shipTypes.length)];
+
+            // Create Ship with Config
+            // We'll calculate base stats for the type, then apply some variance
+            let basetoConfig = {
+                ...SHIP_STATS[type],
+                color: colors[i % colors.length],
+                type: type
+            };
+
+            // Apply Random Variance (+/- 5-10%)
+            basetoConfig.accelFactor *= 1.0 + (Math.random() * 0.1 - 0.05);
+            basetoConfig.friction += (Math.random() * 0.002 - 0.001);
+            basetoConfig.turnSpeed *= 1.0 + (Math.random() * 0.2 - 0.1);
+            basetoConfig.color = colors[i % colors.length];
+
+            roster.push({
+                ...basetoConfig,
+                id: `ai_${i}`,
+                name: `AI-${Math.floor(Math.random() * 900) + 100}`
+            });
+        }
+        return roster;
+    }
+
+    public update(dt: number, trackLength: number, pads: BoostPad[], raceStarted: boolean) {
         for (let i = 0; i < this.opponents.length; i++) {
             const opponent = this.opponents[i];
             const controller = this.controllers[i];
@@ -137,7 +144,7 @@ export class OpponentManager {
             controller.update(opponent.state);
 
             // 2. Update Physics
-            opponent.update(dt, controller, trackLength, (_msg) => {
+            opponent.update(dt, controller, trackLength, pads, (_msg) => {
                 // Handle lap complete if needed (e.g. AI lap counter)
                 // For now, ignore
             }, raceStarted);

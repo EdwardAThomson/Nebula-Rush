@@ -3,19 +3,30 @@ import * as THREE from 'three';
 import { createTrackCurve, createTrackMesh, getTrackFrame, createBoostPadMeshes, createStartLineMesh, createTrafficLightMesh } from '../game/TrackFactory';
 import { InputManager } from '../game/InputManager';
 import { Ship, type ShipConfig } from '../game/Ship';
-import { OpponentManager } from '../game/OpponentManager';
+import { OpponentManager, type OpponentConfig } from '../game/OpponentManager';
 import { Leaderboard, type RaceResult } from './Leaderboard';
+import { TRACKS } from '../game/TrackDefinitions';
 
 interface GameProps {
   shipConfig: ShipConfig;
+  initialTrackIndex?: number;
 }
 
 const POINTS_TABLE = [100, 93, 87, 82, 78, 75, 72, 69, 66, 63, 60, 58, 56, 54, 52, 50, 48, 46, 44, 42];
 
 type RaceState = 'intro' | 'racing' | 'finished' | 'results';
 
-export default function Game({ shipConfig }: GameProps) {
+export default function Game({ shipConfig, initialTrackIndex = 0 }: GameProps) {
   const mountRef = useRef<HTMLDivElement>(null);
+
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(initialTrackIndex);
+  const currentTrack = TRACKS[currentTrackIndex];
+
+  // Campaign State
+  // Initialize roster once using a ref or state that doesn't reset on track change
+  // Actually, we want it to persist across the entire session.
+  const [roster] = useState<OpponentConfig[]>(() => OpponentManager.generateRoster(19));
+  const [campaignScores, setCampaignScores] = useState<Record<string, number>>({});
 
   const [speed, setSpeed] = useState(0);
   const [lap, setLap] = useState(0); // Lap 0 = Before Start Line
@@ -155,7 +166,7 @@ export default function Game({ shipConfig }: GameProps) {
     playerShip.current = new Ship(scene, true, shipConfig);
 
     // Create track path using curve
-    const trackCurve = createTrackCurve();
+    const trackCurve = createTrackCurve(currentTrack.points);
     const trackLength = trackCurve.getLength();
 
     // Create track mesh (U-shaped half pipe)
@@ -163,7 +174,7 @@ export default function Game({ shipConfig }: GameProps) {
     scene.add(track);
 
     // Create Boost Pads
-    const boostPads = createBoostPadMeshes(trackCurve);
+    const boostPads = createBoostPadMeshes(trackCurve, currentTrack.pads);
     boostPads.forEach(mesh => scene.add(mesh));
 
     // Create Traffic Light
@@ -269,7 +280,7 @@ export default function Game({ shipConfig }: GameProps) {
 
     // Opponent Manager
     // Always create a new manager because 'scene' is new on every mount/effect run.
-    opponentManager.current = new OpponentManager(scene, trackCurve, 19);
+    opponentManager.current = new OpponentManager(scene, trackCurve, roster);
 
 
 
@@ -371,7 +382,7 @@ export default function Game({ shipConfig }: GameProps) {
       // --- PLAYER UPDATE ---
       // If player finished, they can still move? Or auto-pilot?
       // For now, let them drive but ignoring laps.
-      playerShip.current.update(dt, inputManager, trackLength, (msg: any) => {
+      playerShip.current.update(dt, inputManager, trackLength, currentTrack.pads, (msg: any) => {
         if (msg === "INCREMENT") {
           setLap(l => l + 1);
           // Record Lap Time
@@ -398,7 +409,7 @@ export default function Game({ shipConfig }: GameProps) {
       // --- OPPONENT UPDATE ---
       if (opponentManager.current) {
         if (raceStartedRef.current) {
-          opponentManager.current.update(dt, trackLength, raceStartedRef.current);
+          opponentManager.current.update(dt, trackLength, currentTrack.pads, raceStartedRef.current);
         }
       }
 
@@ -442,14 +453,29 @@ export default function Game({ shipConfig }: GameProps) {
             // finishTime is timestamp.
             const totalTime = ship.finishTime - raceStartTime.current;
 
+            // Current Campaign Total (before this race)
+            const currentTotal = campaignScores[ship.id] || 0;
+            const newTotal = currentTotal + points;
+
             return {
               rank: rank,
-              name: ship.isPlayer ? "YOU" : `AI-${Math.floor(Math.random() * 900) + 100}`, // Placeholder Names
+              name: ship.name,
               isPlayer: ship.isPlayer,
               timeStr: formatTime(totalTime),
-              points: points
+              points: points,
+              totalPoints: newTotal
             };
           });
+
+          // Update Campaign Scores Logic
+          const updatedScores: Record<string, number> = { ...campaignScores };
+
+          results.forEach((r, i) => {
+            const ship = allShips[i]; // Determined by sort order, same as map above
+            updatedScores[ship.id] = (updatedScores[ship.id] || 0) + r.points;
+          });
+
+          setCampaignScores(updatedScores);
           setRaceResults(results);
         }
       }
@@ -547,7 +573,25 @@ export default function Game({ shipConfig }: GameProps) {
         mountRef.current.removeChild(renderer.domElement);
       }
     };
-  }, []);
+  }, [currentTrackIndex]);
+
+  const handleNextRace = () => {
+    if (currentTrackIndex < TRACKS.length - 1) {
+      // Reset State
+      setSpeed(0);
+      setLap(0);
+      setRank(1);
+      setHudVisible(true);
+      setRaceState('intro');
+      setCountdown(5);
+      setRaceResults([]);
+      raceStartedRef.current = false;
+      raceFinishedRef.current = false;
+      allFinishedRef.current = false;
+
+      setCurrentTrackIndex(prev => prev + 1);
+    }
+  };
 
   return (
     <div className="w-full h-screen bg-black relative overflow-hidden">
@@ -572,6 +616,11 @@ export default function Game({ shipConfig }: GameProps) {
               <div>SPACE/↓/S: Jump</div>
               <div className="mt-2 cursor-pointer hover:text-white" style={{ color: '#22d3ee' }} onClick={() => handleScreenshot()}>[P] Screenshot</div>
             </div>
+
+            {/* DEBUG: Track Info */}
+            <div className="mt-4 text-gray-400 text-xs">
+              TRACK: {currentTrack.name}
+            </div>
           </div>
         )}
 
@@ -589,7 +638,11 @@ export default function Game({ shipConfig }: GameProps) {
         {/* Leaderboard Overlay */}
         {raceState === 'results' && (
           <div className="pointer-events-auto">
-            <Leaderboard results={raceResults} onRestart={restartRace} />
+            <Leaderboard
+              results={raceResults}
+              onRestart={restartRace}
+              onNextRace={currentTrackIndex < TRACKS.length - 1 ? handleNextRace : undefined}
+            />
           </div>
         )}
 

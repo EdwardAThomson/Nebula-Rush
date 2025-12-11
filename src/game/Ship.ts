@@ -3,6 +3,7 @@ import { createShip, type ShipType } from './ShipFactory';
 import { updatePhysics, INITIAL_GAME_STATE, type GameState } from './PhysicsEngine';
 import { type InputSource } from './InputManager';
 import { getTrackFrame } from './TrackFactory';
+import type { BoostPad } from './TrackDefinitions';
 
 export interface ShipConfig {
     color: number;
@@ -11,6 +12,8 @@ export interface ShipConfig {
     friction: number;
     strafeSpeed: number;
     type: ShipType; // NEW
+    id?: string;
+    name?: string;
 }
 
 export class Ship {
@@ -18,6 +21,9 @@ export class Ship {
     public state: GameState;
     public isPlayer: boolean;
     public lap: number = 0; // 0 = Pitting / Grid, 1 = First Lap
+
+    public id: string;
+    public name: string;
 
     public finished: boolean = false;
     public finishTime: number = 0;
@@ -40,6 +46,9 @@ export class Ship {
             if (config.strafeSpeed !== undefined) this.state.strafeSpeed = config.strafeSpeed;
         }
 
+        this.id = config?.id || 'player';
+        this.name = config?.name || 'Player';
+
         // Initialize Visuals
         const color = config?.color !== undefined ? config.color : 0xcc0000;
         const type = config?.type || 'fighter';
@@ -54,6 +63,7 @@ export class Ship {
         dt: number,
         inputManager: InputSource,
         trackLength: number,
+        pads: BoostPad[],
         onLapComplete?: (msg: any) => void,
         raceStarted: boolean = true // NEW
     ) {
@@ -65,7 +75,7 @@ export class Ship {
         // Actually, preventing progress increment is enough for rank, 
         // but we want them to stop racing eventually.
 
-        updatePhysics(this.state, inputManager, trackLength, dt, (msg) => {
+        updatePhysics(this.state, inputManager, trackLength, pads, dt, (msg) => {
             if (this.finished) return; // Don't process lap events if finished
 
             if (msg === 1) {

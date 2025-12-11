@@ -55,41 +55,13 @@ export const INITIAL_GAME_STATE: GameState = {
     hasCrossedStartLine: false
 };
 
-export interface BoostPad {
-    trackProgress: number; // 0.0 to 1.0
-    lateralPosition: number; // Center of pad
-    width: number;
-    length: number; // In track progress units (approx)
-}
-
-
-// Define Pad Locations
-export const BOOST_PADS: BoostPad[] = [
-    { trackProgress: 0.15, lateralPosition: 0, width: 40, length: 0.02 },
-    { trackProgress: 0.35, lateralPosition: -30, width: 40, length: 0.02 },
-    { trackProgress: 0.55, lateralPosition: 30, width: 40, length: 0.02 },
-    { trackProgress: 0.85, lateralPosition: 0, width: 40, length: 0.02 },
-];
-
-
-// Straight 1 (Southbound): 0.0 -> 0.35
-/*
-{ trackProgress: 0.1, lateralPosition: 0, width: 40, length: 0.002 },
-{ trackProgress: 0.25, lateralPosition: 20, width: 40, length: 0.002 },
-*/
-
-// Straight 2 (Northbound): 0.6 -> 0.85
-/*
-{ trackProgress: 0.65, lateralPosition: -20, width: 40, length: 0.002 },
-{ trackProgress: 0.8, lateralPosition: 0, width: 40, length: 0.002 },
-*/
-
-
+import type { BoostPad } from './TrackDefinitions';
 
 export const updatePhysics = (
     state: GameState,
     inputManager: InputSource,
     trackLength: number,
+    pads: BoostPad[], // New Argument
     dt: number = 1.0,
     onLapComplete?: (msg: any) => void,
     raceStarted: boolean = true // NEW Param
@@ -170,7 +142,7 @@ export const updatePhysics = (
 
     // Check Boost Pad Collisions (Simple AABB-like check on 1D track + 1D lateral)
     // We check if we are currently INSIDE a pad region
-    BOOST_PADS.forEach(pad => {
+    pads.forEach(pad => {
         const progressDiff = Math.abs(state.trackProgress - pad.trackProgress);
         // Handle wrap-around for pads near 0/1 if needed (simplified here)
 
