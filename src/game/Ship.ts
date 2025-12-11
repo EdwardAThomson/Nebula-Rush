@@ -23,8 +23,7 @@ export class Ship {
     public finishTime: number = 0;
 
     // Visual components if we need to animate them (e.g. engine glow)
-    private glowLeft: THREE.Mesh;
-    private glowRight: THREE.Mesh;
+    private glows: THREE.Mesh[] = [];
 
     constructor(scene: THREE.Scene, isPlayer: boolean = false, config?: Partial<ShipConfig>) {
         this.isPlayer = isPlayer;
@@ -44,10 +43,9 @@ export class Ship {
         // Initialize Visuals
         const color = config?.color !== undefined ? config.color : 0xcc0000;
         const type = config?.type || 'fighter';
-        const { mesh, glowLeft, glowRight } = createShip(color, type);
+        const { mesh, glows } = createShip(color, type);
         this.mesh = mesh;
-        this.glowLeft = glowLeft;
-        this.glowRight = glowRight;
+        this.glows = glows;
 
         scene.add(this.mesh);
     }
@@ -84,35 +82,25 @@ export class Ship {
         }, raceStarted);
 
         // Visual Updates (Engine Glow based on Throttle)
-        if (this.glowLeft && this.glowRight) {
+        if (this.glows.length > 0) {
             const glow = 0.5 + this.state.throttle * 0.5;
-            (this.glowLeft.material as THREE.MeshBasicMaterial).opacity = glow;
-            (this.glowRight.material as THREE.MeshBasicMaterial).opacity = glow;
-
-            // Animate Spray (Children of Glow)
             const sprayScale = 0.5 + this.state.throttle * 1.5; // Scale from 0.5x to 2.0x
 
-            if (this.glowLeft.children[0]) {
-                const spray = this.glowLeft.children[0] as THREE.Mesh;
-                // Scale Y because Cone aligns to Y by default (before rotation)
-                // But we attached it rotated... wait.
-                // We rotated the geometry or the mesh?
-                // created mesh, set rotation.x = PI/2.
-                // Scaling the Mesh's LOCAL Y axis will stretch it along the cone's length.
-                spray.scale.set(1, sprayScale, 1);
+            this.glows.forEach(glowMesh => {
+                if (glowMesh.material instanceof THREE.MeshBasicMaterial) {
+                    glowMesh.material.opacity = glow;
+                }
 
-                // Jitter effect for "flame"
-                spray.scale.x = 1.0 + (Math.random() - 0.5) * 0.1;
-                spray.scale.z = 1.0 + (Math.random() - 0.5) * 0.1;
-            }
+                // Animate Spray (Children of Glow)
+                if (glowMesh.children[0]) {
+                    const spray = glowMesh.children[0] as THREE.Mesh;
+                    spray.scale.set(1, sprayScale, 1);
 
-            if (this.glowRight.children[0]) {
-                const spray = this.glowRight.children[0] as THREE.Mesh;
-                spray.scale.set(1, sprayScale, 1);
-                // Jitter effect
-                spray.scale.x = 1.0 + (Math.random() - 0.5) * 0.1;
-                spray.scale.z = 1.0 + (Math.random() - 0.5) * 0.1;
-            }
+                    // Jitter effect for "flame"
+                    spray.scale.x = 1.0 + (Math.random() - 0.5) * 0.1;
+                    spray.scale.z = 1.0 + (Math.random() - 0.5) * 0.1;
+                }
+            });
         }
     }
 

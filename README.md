@@ -1,42 +1,88 @@
 # Nebula Rush (Sci-Fi Racing Game)
 
-A high-speed sci-fi racing game built with React, Three.js, and Tailwind CSS. Inspired by F Zero.
+<div align="center">
+
+![Nebula Rush]()
+
+*High-speed anti-gravity racing inspired by F-Zero and Wipeout.*
+
+</div>
+
+## Overview
+
+**Nebula Rush** is a high-speed 3D racing game built directly in the browser using modern web technologies. Pilot an anti-gravity ship through a procedural infinite track, manage your boost resources, and compete against 19 AI opponents to top the leaderboard.
+
+This project demonstrates a custom physics engine, procedural mesh generation, and performant 3D rendering with Three.js.
+
+### YouTube dev videos
+I originally started building this game for free using Claude in the web browser. The free version of the model seems to be inhibited, so I eventually took it to my IDE. The first version was pretty rough!
+
+* [F-Zero Clone for $0](https://www.youtube.com/watch?v=KXRh0A3ztOU)
+
+
+![Screenshot](./nebula_rush.png)
+
 
 ## Features
 
--   **High-Speed Racing**: Experience thrill with dynamic speed and acceleration.
--   **3D Graphics**: Built using Three.js for immersive 3D rendering.
--   **Physics-based Movement**: Smooth handling with drift mechanics and jumping.
--   **Procedural Track**: Infinite racing on a generated track.
--   **Minimap**: Real-time position tracking.
+-   **High-Speed Anti-Gravity Physics**: specialized handling model featuring hovering, banking, drifting, and air-braking.
+-   **Procedural Track Generation**:
+    -   Complex 3D spline-based tracks with loops, banked turns, and verticality.
+    -   Dynamic mesh generation for track surfaces and walls.
+-   **19 Opponent AI**: Competitive AI agents that race alongside you, complete with lane-switching logic.
+-   **Combat & Speed mechanics**:
+    -   **Boost Pads**: Drivers must hit energized zones for speed bursts.
+    -   **Strafing**: dedicated side-thrusters for tight cornering.
+    -   **Jumping**: Vertical thrusters to hop over obstacles or cut corners.
+-   **Full Race Loop**:
+    -   Start sequence with functional traffic lights.
+    -   5-Lap races with lap timing.
+    -   Post-race leaderboard tracking rank and points.
+-   **Dynamic Camera**: Smart camera system that prevents motion sickness while maintaining the sensation of extreme speed.
+-   **Minimap**: Real-time track position visualization.
+
+## Controls
+
+| Action | Primary Key | Secondary Key |
+| :--- | :--- | :--- |
+| **Accelerate** | `W` | `Arrow Up` |
+| **Steer Left/Right** | `Q` / `E` | `←` / `→` |
+| **Strafe (Side Thrust)** | `A` / `D` | - |
+| **Jump** | `Space` | `S` / `↓` |
+| **Screenshot** | `P` | - |
+| **Cheat: Instant Win** | `F` | - |
+| **Cheat: Finish Opponents** | `G` | - |
+| **Toggle HUD** | `H` | - |
+
+> **Pro Tip**: Combine *Steer* and *Strafe* to drift through tight corners without losing speed!
 
 ## Tech Stack
 
--   [React](https://react.dev/)
--   [TypeScript](https://www.typescriptlang.org/)
--   [Vite](https://vitejs.dev/)
--   [Three.js](https://threejs.org/)
--   [Tailwind CSS](https://tailwindcss.com/)
+-   **Runtime**: [React 19](https://react.dev/) + [Vite](https://vitejs.dev/)
+-   **Language**: [TypeScript](https://www.typescriptlang.org/)
+-   **3D Engine**: [Three.js](https://threejs.org/)
+-   **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+
+## Architecture
+
+-   **`src/components/Game.tsx`**: Main entry point. Handles the race state machine (`intro`, `racing`, `finished`, `results`), game loop, and rendering coordination.
+-   **`src/game/PhysicsEngine.ts`**: Core physics simulation. Calculates velocity, friction, hover suspension, and collision response. State is detached from Three.js objects for stability.
+-   **`src/game/TrackFactory.ts`**: Procedural content generation. Uses Catmull-Rom splines to generate the race track geometry and placement of game elements (boost pads, start line).
+-   **`src/game/OpponentManager.ts`**: Manages entity lifecycle for AI opponents and their simple steering behaviors.
 
 ## Getting Started
 
-1.  Install dependencies:
+1.  **Install dependencies**:
     ```bash
     npm install
     ```
 
-2.  Run development server:
+2.  **Start the development server**:
     ```bash
     npm run dev
     ```
 
-3.  Build for production:
+3.  **Build for production**:
     ```bash
     npm run build
     ```
-
-## Controls
-
--   **Accelerate**: `W` or `Arrow Up`
--   **Steer**: `A` / `D` or `Arrow Left` / `Arrow Right`
--   **Jump**: `Space`, `S`, or `Arrow Down`

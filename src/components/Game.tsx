@@ -16,9 +16,11 @@ type RaceState = 'intro' | 'racing' | 'finished' | 'results';
 
 export default function Game({ shipConfig }: GameProps) {
   const mountRef = useRef<HTMLDivElement>(null);
+
   const [speed, setSpeed] = useState(0);
   const [lap, setLap] = useState(0); // Lap 0 = Before Start Line
   const [rank, setRank] = useState(1);
+  const [hudVisible, setHudVisible] = useState(true);
 
   const [raceState, setRaceState] = useState<RaceState>('intro');
   const [countdown, setCountdown] = useState(5);
@@ -55,7 +57,7 @@ export default function Game({ shipConfig }: GameProps) {
   const playerShip = useRef<Ship | null>(null);
   const opponentManager = useRef<OpponentManager | null>(null);
 
-  const screenshotRequested = useRef(false);
+  const screenshotRequested = useRef<boolean>(false);
 
   const handleScreenshot = () => {
     screenshotRequested.current = true;
@@ -88,6 +90,10 @@ export default function Game({ shipConfig }: GameProps) {
             o.finishTime = Date.now() + Math.random() * 10000;
           });
         }
+      }
+      // Toggle HUD
+      if (e.key === 'h' || e.key === 'H') {
+        setHudVisible(v => !v);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -125,7 +131,11 @@ export default function Game({ shipConfig }: GameProps) {
       6000 // Massive far clipping plane
     );
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      logarithmicDepthBuffer: true,
+      preserveDrawingBuffer: true // Required for screenshots
+    });
     renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
     mountRef.current.appendChild(renderer.domElement);
 
@@ -494,11 +504,14 @@ export default function Game({ shipConfig }: GameProps) {
 
       if (screenshotRequested.current) {
         screenshotRequested.current = false;
-        const dataURL = renderer.domElement.toDataURL('image/png');
-        const link = document.createElement('a');
-        link.download = `fzero_screenshot_${Date.now()}.png`;
-        link.href = dataURL;
-        link.click();
+
+        if (mountRef.current) {
+          const glDataURL = renderer.domElement.toDataURL('image/png');
+          const link = document.createElement('a');
+          link.download = `nebula_rush_screenshot_${Date.now()}.png`;
+          link.href = glDataURL;
+          link.click();
+        }
       }
     };
 
@@ -540,73 +553,80 @@ export default function Game({ shipConfig }: GameProps) {
     <div className="w-full h-screen bg-black relative overflow-hidden">
       <div ref={mountRef} className="w-full h-full" />
 
-      {/* HUD - Hide on Results */}
-      {raceState !== 'results' && (
-        <div className="absolute top-4 left-4 text-white font-mono z-10 bg-black bg-opacity-50 p-4 rounded">
-          <div className="text-4xl font-bold text-cyan-400 mb-2">{speed} km/h</div>
-          <div className="text-xl">LAP: {Math.min(lap, 5)} / 5</div>
-          <div className="text-xl text-yellow-400">TIME: {formatTime(currentLapTime)}</div>
-          {lastLapTime > 0 && <div className="text-lg text-green-400">LAST: {formatTime(lastLapTime)}</div>}
-          <div className="text-xl mt-2 text-purple-400">RANK: {rank} / {opponentManager.current ? opponentManager.current.opponents.length + 1 : 20}</div>
-          <div className="text-sm mt-4 border-t border-gray-600 pt-2">
-            <div>↑/W: Accelerate</div>
-            <div>←/→ or Q/E: Steer</div>
-            <div>A/D: Side Thrusters</div>
-            <div>SPACE/↓/S: Jump</div>
-            <div className="mt-2 text-cyan-400 cursor-pointer hover:text-white" onClick={handleScreenshot}>[P] Screenshot</div>
-          </div>
-        </div>
-      )}
+      {/* UI Overlay Container for Screenshots */}
+      <div className="absolute inset-0 pointer-events-none">
 
-      {/* Waiting Overlay */}
-      {raceState === 'finished' && (
-        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-40">
-          <div className="bg-black bg-opacity-80 text-white px-8 py-4 rounded-lg border border-yellow-500 animate-pulse">
-            <div className="text-3xl font-bold text-yellow-500 text-center">FINISHED!</div>
-            <div className="text-xl text-center mt-2">Waiting for opponents...</div>
-            <div className="text-4xl font-bold text-center mt-2 text-cyan-400">Rank: {rank}</div>
+        {/* HUD - Hide on Results or Toggle */}
+        {raceState !== 'results' && hudVisible && (
+          // Use style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} instead of bg-black bg-opacity-50 (which might use oklch in TW4)
+          <div className="absolute top-4 left-4 font-mono z-10 p-4 rounded pointer-events-auto" style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: '#ffffff' }}>
+            <div className="text-4xl font-bold mb-2" style={{ color: '#22d3ee' }}>{speed} km/h</div>
+            <div className="text-xl">LAP: {Math.min(lap, 5)} / 5</div>
+            <div className="text-xl" style={{ color: '#facc15' }}>TIME: {formatTime(currentLapTime)}</div>
+            {lastLapTime > 0 && <div className="text-lg" style={{ color: '#4ade80' }}>LAST: {formatTime(lastLapTime)}</div>}
+            <div className="text-xl mt-2" style={{ color: '#c084fc' }}>RANK: {rank} / {opponentManager.current ? opponentManager.current.opponents.length + 1 : 20}</div>
+            <div className="text-sm mt-4 border-t border-gray-600 pt-2">
+              <div>↑/W: Accelerate</div>
+              <div>←/→ or Q/E: Steer</div>
+              <div>A/D: Side Thrusters</div>
+              <div>SPACE/↓/S: Jump</div>
+              <div className="mt-2 cursor-pointer hover:text-white" style={{ color: '#22d3ee' }} onClick={() => handleScreenshot()}>[P] Screenshot</div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Leaderboard Overlay */}
-      {raceState === 'results' && (
-        <Leaderboard results={raceResults} onRestart={restartRace} />
-      )}
+        {/* Waiting Overlay */}
+        {raceState === 'finished' && (
+          <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-40">
+            <div className="text-white px-8 py-4 rounded-lg border animate-pulse" style={{ backgroundColor: 'rgba(0,0,0,0.8)', borderColor: '#eab308' }}>
+              <div className="text-3xl font-bold text-center" style={{ color: '#eab308' }}>FINISHED!</div>
+              <div className="text-xl text-center mt-2">Waiting for opponents...</div>
+              <div className="text-4xl font-bold text-center mt-2" style={{ color: '#22d3ee' }}>Rank: {rank}</div>
+            </div>
+          </div>
+        )}
 
-      {/* Countdown Overlay (Only shows if > 0 and not started) */}
-      {!raceStartedRef.current && countdown > 0 && (
-        <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none">
-          <div className="text-9xl font-bold text-red-500 animate-pulse drop-shadow-lg">
-            {countdown}
+        {/* Leaderboard Overlay */}
+        {raceState === 'results' && (
+          <div className="pointer-events-auto">
+            <Leaderboard results={raceResults} onRestart={restartRace} />
           </div>
-        </div>
-      )}
-      {!raceStartedRef.current && countdown === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none">
-          <div className="text-9xl font-bold text-green-500 animate-pulse drop-shadow-lg">
-            GO!
-          </div>
-        </div>
-      )}
+        )}
 
-      {/* Debug Info & Minimap - Hide on results */}
-      {raceState !== 'results' && (
-        <>
-          <div className="absolute top-4 right-4 text-white font-mono text-xs bg-black bg-opacity-50 p-2 rounded z-10">
-            <div>Track Progress: {
-              (lap === 0 && debugInfo.trackProgress > 50)
-                ? (debugInfo.trackProgress - 100).toFixed(1)
-                : debugInfo.trackProgress.toFixed(1)
-            }%</div>
-            <div>Position: ({debugInfo.lateralPosition.toFixed(1)}, {debugInfo.verticalPosition.toFixed(1)})</div>
+        {/* Countdown Overlay (Only shows if > 0 and not started) */}
+        {!raceStartedRef.current && countdown > 0 && (
+          <div className="absolute inset-0 flex items-center justify-center z-40">
+            <div className="text-9xl font-bold animate-pulse drop-shadow-lg" style={{ color: '#ef4444' }}>
+              {countdown}
+            </div>
           </div>
-          <div className="absolute bottom-4 right-4 bg-black bg-opacity-70 p-2 rounded z-10">
-            <div className="text-white text-xs mb-1">MINIMAP</div>
-            <div ref={minimapRef} className="border-2 border-cyan-400"></div>
+        )}
+        {!raceStartedRef.current && countdown === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center z-40">
+            <div className="text-9xl font-bold animate-pulse drop-shadow-lg" style={{ color: '#22c55e' }}>
+              GO!
+            </div>
           </div>
-        </>
-      )}
+        )}
+
+        {/* Debug Info & Minimap - Hide on results */}
+        {raceState !== 'results' && (
+          <>
+            <div className="absolute top-4 right-4 text-white font-mono text-xs p-2 rounded z-10" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+              <div>Track Progress: {
+                (lap === 0 && debugInfo.trackProgress > 50)
+                  ? (debugInfo.trackProgress - 100).toFixed(1)
+                  : debugInfo.trackProgress.toFixed(1)
+              }%</div>
+              <div>Position: ({debugInfo.lateralPosition.toFixed(1)}, {debugInfo.verticalPosition.toFixed(1)})</div>
+            </div>
+            <div className="absolute bottom-4 right-4 p-2 rounded z-10" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
+              <div className="text-white text-xs mb-1">MINIMAP</div>
+              <div ref={minimapRef} className="border-2" style={{ borderColor: '#22d3ee' }}></div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 };

@@ -33,8 +33,8 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart }) 
                         <div
                             key={result.rank}
                             className={`grid grid-cols-12 gap-4 items-center p-3 rounded ${result.isPlayer
-                                    ? 'bg-cyan-900 bg-opacity-40 border border-cyan-500/50'
-                                    : 'bg-gray-800 bg-opacity-40 hover:bg-gray-700'
+                                ? 'bg-cyan-900 bg-opacity-40 border border-cyan-500/50'
+                                : 'bg-gray-800 bg-opacity-40 hover:bg-gray-700'
                                 }`}
                         >
                             <div className="col-span-2 text-center text-2xl font-bold text-white">

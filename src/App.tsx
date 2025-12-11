@@ -160,7 +160,7 @@ function App() {
 
               <div className="pt-4 border-t border-gray-700 text-xs text-gray-500">
                 <p>Created by Edward Thomson</p>
-                <p>Website: <a href="#" className="text-blue-400 hover:underline">edthomson.com</a></p>
+                <p>Website: <a href="https://edthomson.com" className="text-blue-400 hover:underline">edthomson.com</a></p>
               </div>
             </div>
 

@@ -2,17 +2,16 @@ import * as THREE from 'three';
 
 export interface ShipParts {
     mesh: THREE.Group;
-    glowLeft: THREE.Mesh;
-    glowRight: THREE.Mesh;
+    glows: THREE.Mesh[];
 }
 
 export type ShipType = 'fighter' | 'speedster' | 'tank';
 
 export const SHIP_STATS: Record<ShipType, { accelFactor: number, turnSpeed: number, friction: number, strafeSpeed: number }> = {
     fighter: {
-        accelFactor: 0.5,
+        accelFactor: 0.55,
         turnSpeed: 0.001,
-        friction: 0.99,
+        friction: 0.9911,
         strafeSpeed: 0.011
     },
     speedster: {
@@ -24,13 +23,14 @@ export const SHIP_STATS: Record<ShipType, { accelFactor: number, turnSpeed: numb
     tank: {
         accelFactor: 0.65,
         turnSpeed: 0.0011,
-        friction: 0.985,
+        friction: 0.988,
         strafeSpeed: 0.015
     }
 };
 
 export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter'): ShipParts => {
     const ship = new THREE.Group();
+    const glows: THREE.Mesh[] = [];
 
     // Shared Materials
     const bodyMaterial = new THREE.MeshPhongMaterial({ color: color, shininess: 80 });
@@ -204,17 +204,6 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
     spotLightTarget.position.set(0, 0, -50);
     spotLight.target = spotLightTarget;
 
-    // Create Glows for all engine positions
-    // We need to return left/right glows for simple animation linkage if needed
-    // But now we might have 4 engines. The Game only animates scale of 2 generally.
-    // Let's create a container for glows to return, or just return the first two as "left/right" proxies.
-
-    // Actually, create 2 main glows to satisfy interface, and others as children?
-    // Or just create new meshes.
-
-    const glowL = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), glowMaterial);
-    const glowR = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), glowMaterial);
-
     // Afterburner Spray
     const sprayGeometry = new THREE.ConeGeometry(0.3, 2.0, 16, 1, true);
     sprayGeometry.translate(0, 1.0, 0);
@@ -227,8 +216,8 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         blending: THREE.AdditiveBlending
     });
 
-    const addGlow = (pos: THREE.Vector3, parent: THREE.Mesh) => {
-        const glow = parent.clone(); // Clone mesh structure
+    const addGlow = (pos: THREE.Vector3) => {
+        const glow = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), glowMaterial);
         glow.position.copy(pos);
         ship.add(glow);
 
@@ -236,35 +225,14 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         spray.rotation.x = Math.PI / 2;
         glow.add(spray);
 
+        glows.push(glow);
         return glow;
     };
 
-    // We need to allow the Game to reference these for animation scaling.
-    // If the game scales 'glowLeft', it expects one mesh.
-    // If we have 4 engines, we ideally want to scale all of them.
-    // But the Game.tsx only tracks glowLeft/glowRight.
-    // Let's just return the first 2 as the handles.
+    // Create glows for ALL engine positions
+    enginePositions.forEach(pos => {
+        addGlow(pos);
+    });
 
-    // Assign positions
-    if (enginePositions.length >= 1) {
-        glowL.position.copy(enginePositions[0]);
-        ship.add(glowL);
-        const spray = new THREE.Mesh(sprayGeometry, sprayMaterial);
-        spray.rotation.x = Math.PI / 2;
-        glowL.add(spray);
-    }
-    if (enginePositions.length >= 2) {
-        glowR.position.copy(enginePositions[1]);
-        ship.add(glowR);
-        const spray = new THREE.Mesh(sprayGeometry, sprayMaterial);
-        spray.rotation.x = Math.PI / 2;
-        glowR.add(spray);
-    }
-
-    // Extra engines (Tank)
-    for (let i = 2; i < enginePositions.length; i++) {
-        addGlow(enginePositions[i], glowL); // Just visual, no ref needed
-    }
-
-    return { mesh: ship, glowLeft: glowL, glowRight: glowR };
+    return { mesh: ship, glows: glows };
 };
