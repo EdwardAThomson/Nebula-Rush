@@ -167,11 +167,11 @@ export const TRACK_4: TrackConfig = {
         new THREE.Vector3(-600, 0, -1500),   // Return Straight
 
         // Final Approach (Looping around to align with start)
-        new THREE.Vector3(-400, 0, -1000),   // Long Return
-        new THREE.Vector3(-300, 0, -500),    // Approach
-        new THREE.Vector3(-250, 0, 0),       // Passing Start Line (Wide Left)
-        new THREE.Vector3(-150, 0, 300),     // Final Turn In
-        new THREE.Vector3(0, 0, 400),        // Final Straight Alignment (Back of grid)
+        new THREE.Vector3(-550, 0, -1200),   // Long Return (shifted left)
+        new THREE.Vector3(-600, 0, -600),    // Wide Left Approach
+        new THREE.Vector3(-500, 0, 0),       // Abeam Start (Wide)
+        new THREE.Vector3(-300, 0, 500),     // Turn In Base
+        new THREE.Vector3(0, 0, 600),        // Final Alignment (Back of grid)
         // Next point is Start (0,0,0) -> (0,0,-600), creating a perfect straight line through the finish.
     ].map(p => p.multiplyScalar(SCALE)),
     pads: [
