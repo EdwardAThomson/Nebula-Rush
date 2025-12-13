@@ -5,13 +5,16 @@ import { SHIP_STATS } from './game/ShipFactory';
 import ShipPreview from './components/ShipPreview';
 import TrackPreview from './components/TrackPreview';
 import TrackAnalysis from './components/TrackAnalysis';
+import PilotSelection from './components/PilotSelection';
+import type { Pilot } from './game/PilotDefinitions';
 import { TRACKS } from './game/TrackDefinitions';
 
 function App() {
-  const [screen, setScreen] = useState<'start' | 'selection' | 'track_selection' | 'game' | 'analysis'>('start');
+  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'game' | 'analysis'>('start');
   const [gameMode, setGameMode] = useState<'campaign' | 'single_race'>('campaign');
   const [showHelp, setShowHelp] = useState(false);
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
+  const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
   const [selectedShipConfig, setSelectedShipConfig] = useState<ShipConfig>({
     color: 0xcc0000,
     accelFactor: 0.5,
@@ -24,7 +27,16 @@ function App() {
   const handleNewGame = () => {
     setGameMode('campaign');
     setSelectedTrackIndex(0);
+    setScreen('pilot_selection');
+  };
+
+  const handlePilotSelect = (pilot: Pilot) => {
+    setSelectedPilot(pilot);
     setScreen('selection');
+  };
+
+  const handleBackFromPilotSelect = () => {
+    setScreen('start');
   };
 
   const handleTrackSelectMode = () => {
@@ -46,7 +58,7 @@ function App() {
     if (gameMode === 'single_race') {
       setScreen('track_selection');
     } else {
-      setScreen('start');
+      setScreen('pilot_selection');
     }
   };
 
@@ -98,6 +110,14 @@ function App() {
             Created by Edward Thomson
           </div>
         </div>
+      )}
+
+      {/* PILOT SELECTION SCREEN */}
+      {screen === 'pilot_selection' && (
+        <PilotSelection
+          onSelect={handlePilotSelect}
+          onBack={handleBackFromPilotSelect}
+        />
       )}
 
       {/* SHIP SELECTION SCREEN */}
@@ -165,7 +185,7 @@ function App() {
             onClick={handleBackFromShipSelect}
             className="mt-8 text-gray-500 hover:text-white underline"
           >
-            {gameMode === 'single_race' ? 'Back to Track Selection' : 'Back to Menu'}
+            {gameMode === 'single_race' ? 'Back to Track Selection' : 'Back to Pilot Selection'}
           </button>
         </div>
       )}
@@ -219,7 +239,14 @@ function App() {
       {/* GAME SCREEN */}
       {screen === 'game' && selectedShipConfig && (
         <Game
-          shipConfig={selectedShipConfig}
+          // Apply Pilot Modifiers to Ship Config
+          shipConfig={{
+            ...selectedShipConfig,
+            accelFactor: selectedShipConfig.accelFactor + (selectedPilot ? selectedPilot.stats.acceleration * 0.02 : 0),
+            turnSpeed: selectedShipConfig.turnSpeed + (selectedPilot ? selectedPilot.stats.handling * 0.00005 : 0),
+            // Friction is tricky: Higher is less drag (faster). So +Velocity means +Friction
+            friction: selectedShipConfig.friction + (selectedPilot ? selectedPilot.stats.velocity * 0.0005 : 0),
+          }}
           initialTrackIndex={selectedTrackIndex}
           isCampaign={gameMode === 'campaign'}
           onExit={handleGameExit}
