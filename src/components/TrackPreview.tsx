@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { createTrackCurve } from '../game/TrackFactory';
 
 interface TrackPreviewProps {
     points: THREE.Vector3[];
@@ -25,14 +26,21 @@ export default function TrackPreview({ points, color = '#22d3ee', className = ''
         // Clear
         ctx.clearRect(0, 0, size, size);
 
-        // Calculate bounds
+        // Calculate bounds using the actual curve to ensure it fits
+        const curve = createTrackCurve(points);
+        const samples = 200; // Resolution for drawing
         let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-        points.forEach(p => {
-            minX = Math.min(minX, p.x);
-            maxX = Math.max(maxX, p.x);
-            minZ = Math.min(minZ, p.z);
-            maxZ = Math.max(maxZ, p.z);
-        });
+
+        // Sample points for bounds and drawing
+        const drawnPoints: { x: number, z: number }[] = [];
+        for (let i = 0; i <= samples; i++) {
+            const pt = curve.getPoint(i / samples);
+            minX = Math.min(minX, pt.x);
+            maxX = Math.max(maxX, pt.x);
+            minZ = Math.min(minZ, pt.z);
+            maxZ = Math.max(maxZ, pt.z);
+            drawnPoints.push({ x: pt.x, z: pt.z });
+        }
 
         // Add padding
         const padding = 20;
@@ -40,8 +48,9 @@ export default function TrackPreview({ points, color = '#22d3ee', className = ''
         const height = maxZ - minZ;
 
         // Determine scale to fit
-        const scaleX = (size - padding * 2) / width;
-        const scaleZ = (size - padding * 2) / height;
+        // Prevent divide by zero
+        const scaleX = width > 0 ? (size - padding * 2) / width : 1;
+        const scaleZ = height > 0 ? (size - padding * 2) / height : 1;
         const scale = Math.min(scaleX, scaleZ);
 
         const offsetX = (size - width * scale) / 2 - minX * scale;
@@ -54,7 +63,7 @@ export default function TrackPreview({ points, color = '#22d3ee', className = ''
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
-        points.forEach((p, i) => {
+        drawnPoints.forEach((p, i) => {
             const x = p.x * scale + offsetX;
             const z = p.z * scale + offsetZ;
             if (i === 0) ctx.moveTo(x, z);

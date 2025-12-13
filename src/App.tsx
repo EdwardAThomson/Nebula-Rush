@@ -4,10 +4,11 @@ import type { ShipConfig } from './game/Ship';
 import { SHIP_STATS } from './game/ShipFactory';
 import ShipPreview from './components/ShipPreview';
 import TrackPreview from './components/TrackPreview';
+import TrackAnalysis from './components/TrackAnalysis';
 import { TRACKS } from './game/TrackDefinitions';
 
 function App() {
-  const [screen, setScreen] = useState<'start' | 'selection' | 'track_selection' | 'game'>('start');
+  const [screen, setScreen] = useState<'start' | 'selection' | 'track_selection' | 'game' | 'analysis'>('start');
   const [gameMode, setGameMode] = useState<'campaign' | 'single_race'>('campaign');
   const [showHelp, setShowHelp] = useState(false);
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
@@ -49,6 +50,10 @@ function App() {
     }
   };
 
+  const handleGameExit = () => {
+    setScreen('start');
+  };
+
   return (
     <div className="w-full h-screen bg-black text-white font-mono overflow-hidden relative">
 
@@ -75,6 +80,12 @@ function App() {
             >
               SELECT TRACK
             </button>
+            {/* <button
+              onClick={() => setScreen('analysis')}
+              className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-cyan-400 font-bold rounded shadow-lg transform hover:scale-105 transition-all border border-cyan-800"
+            >
+              TRACK ANALYSIS
+            </button> */}
             <button
               onClick={() => setShowHelp(true)}
               className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold rounded shadow-lg transform hover:scale-105 transition-all"
@@ -197,10 +208,22 @@ function App() {
         </div>
       )}
 
+      {/* ANALYSIS SCREEN */}
+      {screen === 'analysis' && (
+        <div className="relative z-10 h-full w-full">
+          <TrackAnalysis onBack={() => setScreen('start')} />
+        </div>
+      )}
+
 
       {/* GAME SCREEN */}
       {screen === 'game' && selectedShipConfig && (
-        <Game shipConfig={selectedShipConfig} initialTrackIndex={selectedTrackIndex} />
+        <Game
+          shipConfig={selectedShipConfig}
+          initialTrackIndex={selectedTrackIndex}
+          isCampaign={gameMode === 'campaign'}
+          onExit={handleGameExit}
+        />
       )}
 
       {/* HELP MODAL */}

@@ -10,13 +10,15 @@ import { TRACKS } from '../game/TrackDefinitions';
 interface GameProps {
   shipConfig: ShipConfig;
   initialTrackIndex?: number;
+  isCampaign?: boolean;
+  onExit?: () => void;
 }
 
 const POINTS_TABLE = [100, 93, 87, 82, 78, 75, 72, 69, 66, 63, 60, 58, 56, 54, 52, 50, 48, 46, 44, 42];
 
 type RaceState = 'intro' | 'racing' | 'finished' | 'results';
 
-export default function Game({ shipConfig, initialTrackIndex = 0 }: GameProps) {
+export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = true, onExit }: GameProps) {
   const mountRef = useRef<HTMLDivElement>(null);
 
   const [currentTrackIndex, setCurrentTrackIndex] = useState(initialTrackIndex);
@@ -166,7 +168,9 @@ export default function Game({ shipConfig, initialTrackIndex = 0 }: GameProps) {
     playerShip.current = new Ship(scene, true, shipConfig);
 
     // Create track path using curve
-    const trackCurve = createTrackCurve(currentTrack.points);
+    // Create Track
+    const points = TRACKS[currentTrackIndex].points;
+    const trackCurve = createTrackCurve(points);
     const trackLength = trackCurve.getLength();
 
     // Create track mesh (U-shaped half pipe)
@@ -641,7 +645,13 @@ export default function Game({ shipConfig, initialTrackIndex = 0 }: GameProps) {
             <Leaderboard
               results={raceResults}
               onRestart={restartRace}
-              onNextRace={currentTrackIndex < TRACKS.length - 1 ? handleNextRace : undefined}
+              onNextRace={
+                isCampaign && currentTrackIndex < TRACKS.length - 1
+                  ? handleNextRace
+                  : undefined
+              }
+              onExit={onExit}
+              isCampaign={isCampaign}
             />
           </div>
         )}

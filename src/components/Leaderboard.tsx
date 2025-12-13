@@ -13,15 +13,17 @@ interface LeaderboardProps {
     results: RaceResult[];
     onRestart: () => void;
     onNextRace?: () => void;
+    onExit?: () => void;
+    isCampaign?: boolean;
 }
 
-export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, onNextRace }) => {
+export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, onNextRace, onExit, isCampaign = false }) => {
     const [viewMode, setViewMode] = useState<'race' | 'campaign'>('race');
 
     // Sort results based on view mode
     const displayedResults = [...results].sort((a, b) => {
         if (viewMode === 'race') {
-            return a.rank - b.rank; // Already sorted by rank usually, but safe to enforce
+            return a.rank - b.rank;
         } else {
             return (b.totalPoints || 0) - (a.totalPoints || 0);
         }
@@ -30,20 +32,28 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, on
     return (
         <div className="absolute inset-0 flex items-center justify-center z-50 bg-black bg-opacity-90">
             <div className="w-full max-w-2xl bg-gray-900 border-2 border-cyan-500 rounded-lg p-8 shadow-[0_0_50px_rgba(0,255,255,0.3)]">
-                <div className="flex justify-center mb-6 space-x-4">
-                    <button
-                        onClick={() => setViewMode('race')}
-                        className={`text-2xl font-bold uppercase tracking-widest px-4 py-2 border-b-4 transition-colors ${viewMode === 'race' ? 'text-cyan-400 border-cyan-400' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
-                    >
-                        Race Results
-                    </button>
-                    <button
-                        onClick={() => setViewMode('campaign')}
-                        className={`text-2xl font-bold uppercase tracking-widest px-4 py-2 border-b-4 transition-colors ${viewMode === 'campaign' ? 'text-yellow-400 border-yellow-400' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
-                    >
-                        Campaign
-                    </button>
-                </div>
+                {/* Tabs - Only show if Campaign Mode */}
+                {isCampaign && (
+                    <div className="flex justify-center mb-6 space-x-4">
+                        <button
+                            onClick={() => setViewMode('race')}
+                            className={`text-2xl font-bold uppercase tracking-widest px-4 py-2 border-b-4 transition-colors ${viewMode === 'race' ? 'text-cyan-400 border-cyan-400' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
+                        >
+                            Race Results
+                        </button>
+                        <button
+                            onClick={() => setViewMode('campaign')}
+                            className={`text-2xl font-bold uppercase tracking-widest px-4 py-2 border-b-4 transition-colors ${viewMode === 'campaign' ? 'text-yellow-400 border-yellow-400' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
+                        >
+                            Campaign
+                        </button>
+                    </div>
+                )}
+
+                {/* Single Race Header if valid */}
+                {!isCampaign && (
+                    <h1 className="text-4xl font-bold text-center text-cyan-400 mb-8 tracking-widest uppercase">Race Results</h1>
+                )}
 
                 <div className="space-y-2 mb-8 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
                     {/* Header */}
@@ -51,8 +61,9 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, on
                         <div className="col-span-2 text-center">Rank</div>
                         <div className="col-span-4">Pilot</div>
                         {viewMode === 'race' && <div className="col-span-2 text-right">Time</div>}
-                        <div className="col-span-2 text-right">{viewMode === 'race' ? '+ Points' : 'Last Pts'}</div>
-                        <div className="col-span-2 text-right">Total</div>
+                        {isCampaign && <div className="col-span-2 text-right">{viewMode === 'race' ? '+ Points' : 'Last Pts'}</div>}
+                        {!isCampaign && <div className="col-span-2 text-right">Points</div>}
+                        {isCampaign && <div className="col-span-2 text-right">Total</div>}
                     </div>
 
                     {/* Rows */}
@@ -86,9 +97,11 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, on
                                 <div className="col-span-2 text-right font-bold text-white text-lg opacity-70">
                                     {result.points}
                                 </div>
-                                <div className={`col-span-2 text-right font-bold text-xl ${viewMode === 'campaign' ? 'text-yellow-400 scale-110' : 'text-cyan-400'}`}>
-                                    {result.totalPoints ?? result.points}
-                                </div>
+                                {isCampaign && (
+                                    <div className={`col-span-2 text-right font-bold text-xl ${viewMode === 'campaign' ? 'text-yellow-400 scale-110' : 'text-cyan-400'}`}>
+                                        {result.totalPoints ?? result.points}
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
@@ -101,13 +114,22 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, on
                     >
                         Restart
                     </button>
-                    {onNextRace && (
+                    {onNextRace ? (
                         <button
                             onClick={onNextRace}
                             className="px-8 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded uppercase tracking-widest transition-all transform hover:scale-105 shadow-[0_0_20px_rgba(0,255,255,0.4)]"
                         >
                             Next Race
                         </button>
+                    ) : (
+                        onExit && (
+                            <button
+                                onClick={onExit}
+                                className="px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded uppercase tracking-widest transition-all"
+                            >
+                                Main Menu
+                            </button>
+                        )
                     )}
                 </div>
             </div>

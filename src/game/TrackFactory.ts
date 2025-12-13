@@ -106,11 +106,11 @@ export const createBoostPadMeshes = (trackCurve: THREE.CatmullRomCurve3, pads: B
 
             // Left Point
             const leftOffset = binormal.clone().multiplyScalar(padCenterLateral - width / 2);
-            const leftPos = position.clone().add(leftOffset).add(normal.clone().multiplyScalar(0.3)); // slightly higher (0.3)
+            const leftPos = position.clone().add(leftOffset).add(normal.clone().multiplyScalar(0.9)); // slightly higher (0.9)
 
             // Right Point
             const rightOffset = binormal.clone().multiplyScalar(padCenterLateral + width / 2);
-            const rightPos = position.clone().add(rightOffset).add(normal.clone().multiplyScalar(0.3));
+            const rightPos = position.clone().add(rightOffset).add(normal.clone().multiplyScalar(0.9));
 
             vertices.push(leftPos.x, leftPos.y, leftPos.z);
             vertices.push(rightPos.x, rightPos.y, rightPos.z);
@@ -264,6 +264,42 @@ export const createTrackMesh = (trackCurve: THREE.CatmullRomCurve3): THREE.Mesh 
     });
 
     return new THREE.Mesh(geometry, material);
+};
+
+export interface TrackAnalysisData {
+    maxCurvature: number;
+    avgCurvature: number;
+    hotspots: { t: number, curvature: number }[];
+}
+
+export const getTrackAnalysis = (trackCurve: THREE.CatmullRomCurve3): TrackAnalysisData => {
+    const samples = 2000; // High resolution
+    let maxCurvature = 0;
+    let totalCurvature = 0;
+    const hotspots: { t: number, curvature: number }[] = [];
+
+    for (let i = 0; i < samples; i++) {
+        const t = i / samples;
+        const tangent = trackCurve.getTangent(t).normalize();
+        const nextTangent = trackCurve.getTangent((t + 0.005) % 1).normalize();
+
+        const dot = tangent.dot(nextTangent);
+        const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+        const degree = angle * 180 / Math.PI;
+
+        if (degree > maxCurvature) maxCurvature = degree;
+        totalCurvature += degree;
+
+        if (degree > 0.5) { // Threshold for "hotspot" (approx 30 deg sharp turn / step)
+            hotspots.push({ t, curvature: degree });
+        }
+    }
+
+    return {
+        maxCurvature,
+        avgCurvature: totalCurvature / samples,
+        hotspots
+    };
 };
 // Create 3D Traffic Light
 export const createTrafficLightMesh = (): THREE.Group => {
