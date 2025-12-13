@@ -180,7 +180,7 @@ export class EnvironmentManager {
 
             if (trackId === 'track_4') {
                 numGlobes = 50; // High count for visual density
-                lightBoost = 3.0; // DOUBLE brightness because we have fewer real lights per meter
+                lightBoost = 10.0; // DOUBLE brightness because we have fewer real lights per meter
             }
 
             // SAFETY LIMIT: WebGL typically crashes with > 50-100 forward lights depending on driver.
@@ -226,7 +226,7 @@ export class EnvironmentManager {
                 this.scene.add(globe);
 
                 // Add Point Light
-                const pointLight = new THREE.PointLight(color, 1500 * intensityMult, 4800, 1.3);
+                const pointLight = new THREE.PointLight(color, 1500 * intensityMult * lightBoost, 4800, 1.3);
                 pointLight.position.copy(globePos);
                 this.scene.add(pointLight);
 
