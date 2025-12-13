@@ -9,12 +9,13 @@ import EnvironmentTest from './components/EnvironmentTest';
 import EnvironmentSelection from './components/EnvironmentSelection';
 import LightingPlayground from './components/LightingPlayground';
 import PilotSelection from './components/PilotSelection';
+import ShipDemo from './components/ShipDemo';
 import type { Pilot } from './game/PilotDefinitions';
 import type { EnvironmentConfig } from './game/EnvironmentManager';
 import { TRACKS } from './game/TrackDefinitions';
 
 function App() {
-  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test'>('start');
+  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo'>('start');
   const [gameMode, setGameMode] = useState<'campaign' | 'single_race'>('campaign');
   const [isLoading, setIsLoading] = useState(false); // NEW: Loading state
   const [showHelp, setShowHelp] = useState(false);
@@ -144,6 +145,12 @@ function App() {
               className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
             >
               SELECT TRACK
+            </button>
+            <button
+              onClick={() => setScreen('ship_demo')}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
+            >
+              SHIP DEMO
             </button>
             {/* 
             <button
@@ -364,6 +371,13 @@ function App() {
             pilot={selectedPilot}
             onExit={handleGameExit}
           />
+        )
+      }
+
+      {/* SHIP DEMO SCREEN */}
+      {
+        screen === 'ship_demo' && (
+          <ShipDemo onBack={() => setScreen('start')} />
         )
       }
 

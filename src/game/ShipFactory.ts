@@ -64,6 +64,117 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
     let enginePositions: THREE.Vector3[] = [];
 
     if (type === 'speedster') {
+        // --- BEVELED SPEEDSTER (Original Design + Smooth Edges) ---
+
+        // Helper helper: Rounded Rect Shape
+        const createRoundedRect = (w: number, h: number, r: number) => {
+            const shape = new THREE.Shape();
+            const x = -w / 2;
+            const y = -h / 2;
+            shape.moveTo(x + r, y);
+            shape.lineTo(x + w - r, y);
+            shape.quadraticCurveTo(x + w, y, x + w, y + r);
+            shape.lineTo(x + w, y + h - r);
+            shape.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            shape.lineTo(x + r, y + h);
+            shape.quadraticCurveTo(x, y + h, x, y + h - r);
+            shape.lineTo(x, y + r);
+            shape.quadraticCurveTo(x, y, x + r, y);
+            return shape;
+        };
+
+        // 1. Body: Long Rounded Box
+        // Original: 0.8 x 0.8 x 7.0
+        const bodyWidth = 0.8;
+        const bodyHeight = 0.8;
+        const bodyLength = 7.0;
+        const bodyBevel = 0.1;
+
+        // Create shape slightly smaller to account for bevel
+        const bodyShape = createRoundedRect(bodyWidth - bodyBevel, bodyHeight - bodyBevel, bodyBevel);
+
+        const bodyExtrudeSettings = {
+            steps: 2,
+            depth: bodyLength,
+            bevelEnabled: true,
+            bevelThickness: bodyBevel,
+            bevelSize: bodyBevel,
+            bevelSegments: 5,
+            bevelOffset: 0
+        };
+
+        const fuselageGeo = getGeometry('speedster_beveled_body', () => new THREE.ExtrudeGeometry(bodyShape, bodyExtrudeSettings));
+        const body = new THREE.Mesh(fuselageGeo, bodyMaterial);
+
+        // Extrude starts at Z=0 and goes to +Length. Center needs to be adjusted.
+        // We probably want it centered around Z=0 for easy nose/engine attachment.
+        body.position.set(0, 0.4, -bodyLength / 2);
+        ship.add(body);
+
+        // 2. Nose: Smooth Cone (instead of 4-sided)
+        // Original: 0.5 radius, 3.0 length.
+        const noseGeo = getGeometry('speedster_smooth_nose', () => new THREE.ConeGeometry(0.45, 3.0, 32));
+        const nose = new THREE.Mesh(noseGeo, bodyMaterial);
+        nose.rotation.x = -Math.PI / 2;
+        // Positioned at the front of the body
+        // Body (centered) ends at -bodyLength/2? No, let's check coordinate.
+        // Body Pos: 0, 0.4, -3.5. Extrude goes 0 to 7. Local Z goes 0 to 7.
+        // Global Z: -3.5 to 3.5.
+        // Front is at Z = -3.5.
+        nose.position.set(0, 0.4, -5.0); // -3.5 (front) - 1.5 (half cone height)
+        ship.add(nose);
+
+        // 3. Wings: Rounded Plates
+        // Original: 2.0 x 0.1 x 4.0
+        const wingShape = createRoundedRect(2.0, 0.1, 0.02);
+        const wingSettings = {
+            steps: 1,
+            depth: 4.0,
+            bevelEnabled: true,
+            bevelThickness: 0.05,
+            bevelSize: 0.05,
+            bevelSegments: 3
+        };
+        const wingGeo = getGeometry('speedster_beveled_wing', () => new THREE.ExtrudeGeometry(wingShape, wingSettings));
+
+        const leftWing = new THREE.Mesh(wingGeo, wingMaterial);
+        // Wing is drawn 2.0 wide (X), 0.1 high (Y), extruded 4.0 (Z).
+        // Rotate to match.
+        // Original wings were at +/- 1.2, 0.3, 1.0. and Rotated Y +/- PI/12.
+        leftWing.position.set(-1.2, 0.3, -1.0); // Adjustment for extrude offset
+        leftWing.rotation.y = Math.PI / 12;
+        ship.add(leftWing);
+
+        const rightWing = new THREE.Mesh(wingGeo, wingMaterial);
+        rightWing.position.set(1.2, 0.3, -1.0);
+        rightWing.rotation.y = -Math.PI / 12;
+        ship.add(rightWing);
+
+        // 4. Cabin
+        const cabinGeo = getGeometry('speedster_cabin_sphere', () => new THREE.SphereGeometry(0.5, 32, 16));
+        const cabin = new THREE.Mesh(cabinGeo, cockpitMaterial);
+        cabin.scale.set(0.8, 1.0, 2.0);
+        cabin.position.set(0, 0.8, 1.0);
+        ship.add(cabin);
+
+        // 5. Engines
+        const engineGeo = getGeometry('speedster_smooth_engine_cyl', () => new THREE.CylinderGeometry(0.5, 0.5, 3.0, 32));
+
+        const leftEng = new THREE.Mesh(engineGeo, engineMaterial);
+        leftEng.rotation.x = Math.PI / 2;
+        leftEng.position.set(-2.0, 0.3, 2.0);
+        ship.add(leftEng);
+
+        const rightEng = new THREE.Mesh(engineGeo, engineMaterial);
+        rightEng.rotation.x = Math.PI / 2;
+        rightEng.position.set(2.0, 0.3, 2.0);
+        ship.add(rightEng);
+
+        enginePositions.push(new THREE.Vector3(-2.0, 0.3, 3.5));
+        enginePositions.push(new THREE.Vector3(2.0, 0.3, 3.5));
+
+        /* 
+        // --- OLD BLOCKY SPEEDSTER (Deprecating) ---
         const bodyGeo = getGeometry('speedster_body', () => new THREE.BoxGeometry(0.8, 0.8, 7.0));
         const body = new THREE.Mesh(bodyGeo, bodyMaterial);
         body.position.set(0, 0.4, 0);
@@ -75,7 +186,7 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         nose.rotation.y = Math.PI / 4;
         nose.position.set(0, 0.4, -5.0);
         ship.add(nose);
-
+        
         const cabinGeo = getGeometry('speedster_cabin', () => new THREE.SphereGeometry(0.4, 16, 16));
         const cabin = new THREE.Mesh(cabinGeo, cockpitMaterial);
         cabin.scale.z = 2.0;
@@ -106,6 +217,11 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
 
         enginePositions.push(new THREE.Vector3(-2.0, 0.3, 3.5));
         enginePositions.push(new THREE.Vector3(2.0, 0.3, 3.5));
+
+        // ... (rest of old code simplified out for diff readability)
+        */
+
+
 
     } else if (type === 'tank') {
         const bodyGeo = getGeometry('tank_body', () => new THREE.BoxGeometry(2.5, 1.2, 4.5));

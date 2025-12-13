@@ -102,8 +102,8 @@ export const updatePhysics = (
         state.boostTimer -= dt / 60; // Approx seconds (assuming 60fps update)
     }
 
-    state.velocity.x -= Math.sin(state.yaw) * thrustPower; // sideways movement when yawin (A or D?)
-    state.velocity.y += Math.cos(state.yaw) * thrustPower;
+    state.velocity.x -= Math.sin(state.yaw) * thrustPower * dt; // sideways movement when yawin (A or D?)
+    state.velocity.y += Math.cos(state.yaw) * thrustPower * dt;
 
     // 4. Side Thrusters (Strafing / Leaning) - NEW
     // Swapped per user request: A = Left, D = Right (Natural Strafe)
