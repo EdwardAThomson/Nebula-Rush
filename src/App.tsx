@@ -170,10 +170,13 @@ function App() {
               className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold rounded shadow-lg transform hover:scale-105 transition-all"
             >
               HELP
+
             </button>
           </div>
 
-          {/* ... (End of Start Screen block) */}
+          <div className="absolute bottom-8 text-gray-500 text-sm">
+            Created by Edward Thomson
+          </div>
 
         </div>
       )}
@@ -193,13 +196,6 @@ function App() {
           debugLighting={true}
         />
       )}
-
-
-
-      <div className="mt-12 text-gray-500 text-sm">
-        Created by Edward Thomson
-      </div>
-
 
       {/* PILOT SELECTION SCREEN */}
       {
