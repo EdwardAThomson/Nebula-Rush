@@ -11,7 +11,8 @@ export interface ShipConfig {
     turnSpeed: number;
     friction: number;
     strafeSpeed: number;
-    type: ShipType; // NEW
+    slideFactor: number; // NEW
+    type: ShipType;
     id?: string;
     name?: string;
 }
@@ -44,6 +45,7 @@ export class Ship {
             if (config.turnSpeed !== undefined) this.state.turnSpeed = config.turnSpeed;
             if (config.friction !== undefined) this.state.friction = config.friction;
             if (config.strafeSpeed !== undefined) this.state.strafeSpeed = config.strafeSpeed;
+            if (config.slideFactor !== undefined) this.state.slideFactor = config.slideFactor;
         }
 
         this.id = config?.id || 'player';

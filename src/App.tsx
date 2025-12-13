@@ -28,6 +28,7 @@ function App() {
     turnSpeed: 0.001,
     friction: 0.99,
     strafeSpeed: 0.01,
+    slideFactor: 0.95,
     type: 'fighter'
   });
 
@@ -272,6 +273,42 @@ function App() {
                   <StatBar label="Speed" value={60} color="bg-cyan-500" />
                   <StatBar label="Accel" value={95} color="bg-yellow-500" />
                   <StatBar label="Handling" value={90} color="bg-green-500" />
+                </div>
+              </div>
+
+              {/* SHIP 4: INTERCEPTOR (Bi-Plane) */}
+              <div
+                onClick={() => handleShipSelect({ color: 0x00ff00, ...SHIP_STATS.interceptor, type: 'interceptor' })}
+                className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-green-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
+              >
+                <div className="h-48 bg-green-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
+                  <ShipPreview color={0x00ff00} type="interceptor" />
+                </div>
+                <h3 className="text-2xl font-bold text-green-500 mb-2">INTERCEPTOR</h3>
+                <p className="text-gray-400 text-sm mb-4">Bi-plane design. Best-in-class acceleration and turning.</p>
+
+                <div className="space-y-2">
+                  <StatBar label="Speed" value={70} color="bg-cyan-500" />
+                  <StatBar label="Accel" value={98} color="bg-yellow-500" />
+                  <StatBar label="Handling" value={95} color="bg-green-500" />
+                </div>
+              </div>
+
+              {/* SHIP 5: CORSAIR (Drifter) */}
+              <div
+                onClick={() => handleShipSelect({ color: 0x5500aa, ...SHIP_STATS.corsair, type: 'corsair' })}
+                className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-purple-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
+              >
+                <div className="h-48 bg-purple-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
+                  <ShipPreview color={0x5500aa} type="corsair" />
+                </div>
+                <h3 className="text-2xl font-bold text-purple-500 mb-2">CORSAIR</h3>
+                <p className="text-gray-400 text-sm mb-4">Aggressive styling. High speed and extreme drift capabilities.</p>
+
+                <div className="space-y-2">
+                  <StatBar label="Speed" value={90} color="bg-cyan-500" />
+                  <StatBar label="Accel" value={75} color="bg-yellow-500" />
+                  <StatBar label="Drift" value={95} color="bg-pink-500" />
                 </div>
               </div>
             </div>

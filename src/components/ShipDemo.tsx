@@ -7,7 +7,7 @@ interface ShipDemoProps {
 }
 
 export default function ShipDemo({ onBack }: ShipDemoProps) {
-    const shipTypes: ShipType[] = ['speedster', 'fighter', 'tank'];
+    const shipTypes: ShipType[] = ['speedster', 'fighter', 'tank', 'interceptor', 'corsair'];
     const [currentIndex, setCurrentIndex] = useState(0);
 
     const currentType = shipTypes[currentIndex];
@@ -16,7 +16,9 @@ export default function ShipDemo({ onBack }: ShipDemoProps) {
     const shipColors: Record<ShipType, number> = {
         speedster: 0x00ccff, // Cyan
         fighter: 0xcc0000,   // Red
-        tank: 0xcccc00       // Yellow
+        tank: 0xcccc00,      // Yellow
+        interceptor: 0x00ff00, // Green
+        corsair: 0x5500aa    // Purple
     };
 
     const handleNext = () => {
