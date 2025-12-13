@@ -207,7 +207,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     const envManager = new EnvironmentManager(scene);
     environmentManagerRef.current = envManager;
     const envConfig = forcedEnvironment || EnvironmentManager.generateRandomConfig();
-    envManager.setup(envConfig, trackCurve);
+    envManager.setup(envConfig, trackCurve, currentTrack.id);
     setEnvironment(envConfig);
 
     // Create Boost Pads
@@ -332,8 +332,11 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       const deltaMs = now - lastTime;
       lastTime = now;
 
-      // Calculate dt (delta time) relative to 60 FPS (16.67ms)
-      const dt = Math.min(deltaMs / 16.67, 4.0);
+      // Calculate dt (delta time) as actual time elapsed, normalized to 60 FPS baseline
+      // At 60 FPS: deltaMs ≈ 16.67ms → dt = 1.0
+      // At 144 FPS: deltaMs ≈ 6.94ms → dt = 1.0 (capped to prevent running faster)
+      // This ensures physics runs at consistent speed regardless of frame rate
+      const dt = Math.min(deltaMs / 16.67, 1.0); // Cap at 1.0 to prevent speed-up on high refresh rates
 
       const currentState = playerShip.current.state;
       const currentNow = Date.now();

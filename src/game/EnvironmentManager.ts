@@ -101,7 +101,7 @@ export class EnvironmentManager {
         return { timeOfDay: time, weather: weather };
     }
 
-    public setup(config: EnvironmentConfig, trackCurve?: THREE.Curve<THREE.Vector3>) {
+    public setup(config: EnvironmentConfig, trackCurve?: THREE.Curve<THREE.Vector3>, trackId?: string) {
         // Clean up old if needed (though we usually make a new manager/scene)
 
         const timeSettings = TIME_SETTINGS[config.timeOfDay];
@@ -173,7 +173,20 @@ export class EnvironmentManager {
         const globes: { mesh: THREE.Mesh, light: THREE.PointLight }[] = [];
         if (useLights && trackCurve) {
             const globeGeo = new THREE.SphereGeometry(4, 16, 16);
-            const numGlobes = 40;
+
+            // Custom Globe Count for specific tracks
+            let numGlobes = 40;
+            let lightBoost = 1.0; // Default brightness
+
+            if (trackId === 'track_4') {
+                numGlobes = 50; // High count for visual density
+                lightBoost = 3.0; // DOUBLE brightness because we have fewer real lights per meter
+            }
+
+            // SAFETY LIMIT: WebGL typically crashes with > 50-100 forward lights depending on driver.
+            // We set a hard safe limit for REAL lights.
+            // const MAX_REAL_LIGHTS = 40;   /// nut sure.
+            // const lightInterval = Math.ceil(numGlobes / MAX_REAL_LIGHTS);
 
             const globeMat = new THREE.MeshStandardMaterial({
                 color: 0x111111, // Dark base
