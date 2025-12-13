@@ -28,48 +28,64 @@ export const SHIP_STATS: Record<ShipType, { accelFactor: number, turnSpeed: numb
     }
 };
 
+// Caches
+const geometryCache: Record<string, THREE.BufferGeometry> = {};
+const materialCache: Record<string, THREE.Material> = {};
+
 export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter'): ShipParts => {
     const ship = new THREE.Group();
     const glows: THREE.Mesh[] = [];
 
+    // Helper: Get or Create Material
+    const getMaterial = (name: string, params: THREE.MeshPhongMaterialParameters | THREE.MeshBasicMaterialParameters, Type: typeof THREE.MeshPhongMaterial | typeof THREE.MeshBasicMaterial = THREE.MeshPhongMaterial) => {
+        const key = `${name}_${JSON.stringify(params)}`;
+        if (!materialCache[key]) {
+            materialCache[key] = new Type(params);
+        }
+        return materialCache[key];
+    };
+
     // Shared Materials
-    const bodyMaterial = new THREE.MeshPhongMaterial({ color: color, shininess: 80 });
-    const wingMaterial = new THREE.MeshPhongMaterial({ color: 0xeeeeee, shininess: 80 });
-    const engineMaterial = new THREE.MeshPhongMaterial({ color: 0x444444 });
-    const cockpitMaterial = new THREE.MeshPhongMaterial({ color: 0xffee00, transparent: true, opacity: 0.8, emissive: 0xaa8800 });
-    const glowMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.9 });
+    const bodyMaterial = getMaterial('body', { color: color, shininess: 80 }) as THREE.MeshPhongMaterial;
+    const wingMaterial = getMaterial('wing', { color: 0xeeeeee, shininess: 80 }) as THREE.MeshPhongMaterial;
+    const engineMaterial = getMaterial('engine', { color: 0x444444 }) as THREE.MeshPhongMaterial;
+    const cockpitMaterial = getMaterial('cockpit', { color: 0xffee00, transparent: true, opacity: 0.8, emissive: 0xaa8800 }) as THREE.MeshPhongMaterial;
+    const glowMaterial = getMaterial('glow', { color: 0x00ffff, transparent: true, opacity: 0.9 }, THREE.MeshBasicMaterial) as THREE.MeshBasicMaterial;
+
+    // Helper: Get or Create Geometry
+    const getGeometry = (name: string, factory: () => THREE.BufferGeometry) => {
+        if (!geometryCache[name]) {
+            geometryCache[name] = factory();
+        }
+        return geometryCache[name];
+    };
 
     // --- GEOMETRY GENERATION ---
     let enginePositions: THREE.Vector3[] = [];
 
     if (type === 'speedster') {
-        // --- SPEEDSTER: Long, thin, forward swept wings ---
-        // Body
-        const bodyGeo = new THREE.BoxGeometry(0.8, 0.8, 7.0);
+        const bodyGeo = getGeometry('speedster_body', () => new THREE.BoxGeometry(0.8, 0.8, 7.0));
         const body = new THREE.Mesh(bodyGeo, bodyMaterial);
         body.position.set(0, 0.4, 0);
         ship.add(body);
 
-        // Nose Cone (Pointy)
-        const noseGeo = new THREE.ConeGeometry(0.5, 3.0, 4);
+        const noseGeo = getGeometry('speedster_nose', () => new THREE.ConeGeometry(0.5, 3.0, 4));
         const nose = new THREE.Mesh(noseGeo, bodyMaterial);
-        nose.rotation.x = -Math.PI / 2; // Point forward (-Z)
-        nose.rotation.y = Math.PI / 4; // Diamond
-        nose.position.set(0, 0.4, -5.0); // Attach to front
+        nose.rotation.x = -Math.PI / 2;
+        nose.rotation.y = Math.PI / 4;
+        nose.position.set(0, 0.4, -5.0);
         ship.add(nose);
 
-        // Cockpit (Further back)
-        const cabinGeo = new THREE.SphereGeometry(0.4, 16, 16);
+        const cabinGeo = getGeometry('speedster_cabin', () => new THREE.SphereGeometry(0.4, 16, 16));
         const cabin = new THREE.Mesh(cabinGeo, cockpitMaterial);
         cabin.scale.z = 2.0;
         cabin.position.set(0, 0.7, 1.0);
         ship.add(cabin);
 
-        // Wings (Swept Forward)
-        const wingGeo = new THREE.BoxGeometry(2.0, 0.1, 4.0);
+        const wingGeo = getGeometry('speedster_wing', () => new THREE.BoxGeometry(2.0, 0.1, 4.0));
         const leftWing = new THREE.Mesh(wingGeo, wingMaterial);
         leftWing.position.set(-1.2, 0.3, 1.0);
-        leftWing.rotation.y = Math.PI / 12; // Sweep forward
+        leftWing.rotation.y = Math.PI / 12;
         ship.add(leftWing);
 
         const rightWing = new THREE.Mesh(wingGeo, wingMaterial);
@@ -77,8 +93,7 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         rightWing.rotation.y = -Math.PI / 12;
         ship.add(rightWing);
 
-        // Engines (Massive, on wings)
-        const engineGeo = new THREE.CylinderGeometry(0.5, 0.5, 3.0, 12);
+        const engineGeo = getGeometry('speedster_engine', () => new THREE.CylinderGeometry(0.5, 0.5, 3.0, 12));
         const leftEng = new THREE.Mesh(engineGeo, engineMaterial);
         leftEng.rotation.x = Math.PI / 2;
         leftEng.position.set(-2.0, 0.3, 2.0);
@@ -93,27 +108,22 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         enginePositions.push(new THREE.Vector3(2.0, 0.3, 3.5));
 
     } else if (type === 'tank') {
-        // --- TANK: Wide, heavy, armored ---
-        // Body (Wide)
-        const bodyGeo = new THREE.BoxGeometry(2.5, 1.2, 4.5);
+        const bodyGeo = getGeometry('tank_body', () => new THREE.BoxGeometry(2.5, 1.2, 4.5));
         const body = new THREE.Mesh(bodyGeo, bodyMaterial);
         body.position.set(0, 0.6, 0.5);
         ship.add(body);
 
-        // Armor Plating
-        const plateGeo = new THREE.BoxGeometry(2.7, 0.5, 3.0);
-        const plate = new THREE.Mesh(plateGeo, wingMaterial); // White armor
+        const plateGeo = getGeometry('tank_plate', () => new THREE.BoxGeometry(2.7, 0.5, 3.0));
+        const plate = new THREE.Mesh(plateGeo, wingMaterial);
         plate.position.set(0, 1.0, 0.0);
         ship.add(plate);
 
-        // Cockpit (Small, protected)
-        const cabinGeo = new THREE.BoxGeometry(1.0, 0.6, 1.5);
+        const cabinGeo = getGeometry('tank_cabin', () => new THREE.BoxGeometry(1.0, 0.6, 1.5));
         const cabin = new THREE.Mesh(cabinGeo, cockpitMaterial);
         cabin.position.set(0, 1.1, -0.5);
         ship.add(cabin);
 
-        // Engines (Quad)
-        const engineGeo = new THREE.CylinderGeometry(0.6, 0.6, 1.0, 8);
+        const engineGeo = getGeometry('tank_engine', () => new THREE.CylinderGeometry(0.6, 0.6, 1.0, 8));
         const posOffsets = [
             { x: -1.5, y: 0.5 }, { x: 1.5, y: 0.5 },
             { x: -1.0, y: 1.0 }, { x: 1.0, y: 1.0 }
@@ -128,23 +138,20 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         });
 
     } else {
-        // --- FIGHTER (Original Design) ---
-        // 1. Central Fuselage
-        const bodyGeometry = new THREE.BoxGeometry(1.4, 1.0, 5.0);
+        // FIGHTER
+        const bodyGeometry = getGeometry('fighter_body', () => new THREE.BoxGeometry(1.4, 1.0, 5.0));
         const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
         body.position.set(0, 0.4, 0.5);
         ship.add(body);
 
-        // 2. Nose Cone
-        const noseGeometry = new THREE.ConeGeometry(0.7, 3.5, 4);
+        const noseGeometry = getGeometry('fighter_nose', () => new THREE.ConeGeometry(0.7, 3.5, 4));
         const nose = new THREE.Mesh(noseGeometry, bodyMaterial);
         nose.rotation.x = -Math.PI / 2;
         nose.rotation.y = Math.PI / 4;
         nose.position.set(0, 0.4, -3.7);
         ship.add(nose);
 
-        // 3. Side Wings
-        const wingGeometry = new THREE.BoxGeometry(1.5, 0.4, 3.5);
+        const wingGeometry = getGeometry('fighter_wing', () => new THREE.BoxGeometry(1.5, 0.4, 3.5));
         const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
         leftWing.position.set(-1.6, 0.2, 1.5);
         ship.add(leftWing);
@@ -153,8 +160,7 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         rightWing.position.set(1.6, 0.2, 1.5);
         ship.add(rightWing);
 
-        // 3b. Fins
-        const finGeometry = new THREE.BoxGeometry(0.2, 1.2, 1.5);
+        const finGeometry = getGeometry('fighter_fin', () => new THREE.BoxGeometry(0.2, 1.2, 1.5));
         const rightFin = new THREE.Mesh(finGeometry, wingMaterial);
         rightFin.position.set(2.4, 0.8, 1.5);
         ship.add(rightFin);
@@ -163,8 +169,7 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         leftFin.position.set(-2.4, 0.8, 1.5);
         ship.add(leftFin);
 
-        // 4. Engines
-        const engineGeometry = new THREE.CylinderGeometry(0.4, 0.4, 1.5, 12);
+        const engineGeometry = getGeometry('fighter_engine', () => new THREE.CylinderGeometry(0.4, 0.4, 1.5, 12));
         const leftEngine = new THREE.Mesh(engineGeometry, engineMaterial);
         leftEngine.rotation.x = Math.PI / 2;
         leftEngine.position.set(-0.9, 0.4, 3.5);
@@ -178,8 +183,7 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         enginePositions.push(new THREE.Vector3(-0.9, 0.4, 4.25));
         enginePositions.push(new THREE.Vector3(0.9, 0.4, 4.25));
 
-        // 5. Cockpit
-        const cockpitGeometry = new THREE.SphereGeometry(0.55, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+        const cockpitGeometry = getGeometry('fighter_cockpit', () => new THREE.SphereGeometry(0.55, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2));
         const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
         cockpit.rotation.x = -0.5;
         cockpit.scale.z = 1.6;
@@ -205,19 +209,25 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
     spotLight.target = spotLightTarget;
 
     // Afterburner Spray
-    const sprayGeometry = new THREE.ConeGeometry(0.3, 2.0, 16, 1, true);
-    sprayGeometry.translate(0, 1.0, 0);
-    const sprayMaterial = new THREE.MeshBasicMaterial({
+    const sprayGeometry = getGeometry('spray', () => {
+        const geo = new THREE.ConeGeometry(0.3, 2.0, 16, 1, true);
+        geo.translate(0, 1.0, 0);
+        return geo;
+    });
+
+    const sprayMaterial = getMaterial('spray', {
         color: 0x00ffff,
         transparent: true,
         opacity: 0.4,
         side: THREE.DoubleSide,
         depthWrite: false,
         blending: THREE.AdditiveBlending
-    });
+    }, THREE.MeshBasicMaterial);
+
+    const glowGeometry = getGeometry('glow_sphere', () => new THREE.SphereGeometry(0.3, 8, 8));
 
     const addGlow = (pos: THREE.Vector3) => {
-        const glow = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), glowMaterial);
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
         glow.position.copy(pos);
         ship.add(glow);
 

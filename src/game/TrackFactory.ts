@@ -187,7 +187,7 @@ export const createStartLineMesh = (trackCurve: THREE.CatmullRomCurve3): THREE.M
 };
 
 export const createTrackMesh = (trackCurve: THREE.CatmullRomCurve3): THREE.Mesh => {
-    const trackSegments = 2400; // Increased resolution for massive track (was 800)
+    const trackSegments = 1600; // Optimized resolution (was 2400)
     // const trackWidth = 20;
     const trackDepth = 10; // Deeper walls for wider track
     const flatBottomWidth = 120; // Double track width (was 60)

@@ -4,21 +4,29 @@ import { createTrackCurve, createTrackMesh, getTrackFrame, createBoostPadMeshes,
 import { InputManager } from '../game/InputManager';
 import { Ship, type ShipConfig } from '../game/Ship';
 import { OpponentManager, type OpponentConfig } from '../game/OpponentManager';
+import { EnvironmentManager, type EnvironmentConfig } from '../game/EnvironmentManager';
 import { Leaderboard, type RaceResult } from './Leaderboard';
 import { TRACKS } from '../game/TrackDefinitions';
+import type { Pilot } from '../game/PilotDefinitions';
+import { DebugLightingPanel } from './DebugLightingPanel';
 
 interface GameProps {
   shipConfig: ShipConfig;
   initialTrackIndex?: number;
   isCampaign?: boolean;
+  forcedEnvironment?: EnvironmentConfig;
+  pilot?: Pilot | null;
+  opponentCount?: number;
+
   onExit?: () => void;
+  debugLighting?: boolean;
 }
 
 const POINTS_TABLE = [100, 93, 87, 82, 78, 75, 72, 69, 66, 63, 60, 58, 56, 54, 52, 50, 48, 46, 44, 42];
 
 type RaceState = 'intro' | 'racing' | 'finished' | 'results';
 
-export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = true, onExit }: GameProps) {
+export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = true, forcedEnvironment, pilot, opponentCount = 19, onExit, debugLighting = false }: GameProps) {
   const mountRef = useRef<HTMLDivElement>(null);
 
   const [currentTrackIndex, setCurrentTrackIndex] = useState(initialTrackIndex);
@@ -27,7 +35,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   // Campaign State
   // Initialize roster once using a ref or state that doesn't reset on track change
   // Actually, we want it to persist across the entire session.
-  const [roster] = useState<OpponentConfig[]>(() => OpponentManager.generateRoster(19));
+  const [roster] = useState<OpponentConfig[]>(() => OpponentManager.generateRoster(opponentCount));
   const [campaignScores, setCampaignScores] = useState<Record<string, number>>({});
 
   const [speed, setSpeed] = useState(0);
@@ -38,6 +46,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const [raceState, setRaceState] = useState<RaceState>('intro');
   const [countdown, setCountdown] = useState(5);
   const [debugInfo, setDebugInfo] = useState({ trackProgress: 0, lateralPosition: 0, verticalPosition: 0 });
+  const [environment, setEnvironment] = useState<EnvironmentConfig | null>(null);
 
   // Results State
   const [raceResults, setRaceResults] = useState<RaceResult[]>([]);
@@ -69,6 +78,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   // Store the player ship instance
   const playerShip = useRef<Ship | null>(null);
   const opponentManager = useRef<OpponentManager | null>(null);
+  const environmentManagerRef = useRef<EnvironmentManager | null>(null);
 
   const screenshotRequested = useRef<boolean>(false);
 
@@ -133,9 +143,6 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
     let animationId: number;
     const scene = new THREE.Scene();
-    const skyColor = 0x87CEEB; // Sky Blue
-    scene.fog = new THREE.Fog(skyColor, 1000, 5000); // Massive fog distance
-    scene.background = new THREE.Color(skyColor);
 
     const camera = new THREE.PerspectiveCamera(
       75,
@@ -152,30 +159,56 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
     mountRef.current.appendChild(renderer.domElement);
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambientLight);
+    // Creates Player Ship with Pilot Modifiers
+    let finalShipConfig = { ...shipConfig };
 
-    const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 3.0);
-    scene.add(hemisphereLight);
+    if (pilot) {
+      finalShipConfig.name = pilot.name;
+      finalShipConfig.id = pilot.id;
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 4.0);
-    directionalLight.position.set(50, 100, 50);
-    directionalLight.castShadow = true;
-    scene.add(directionalLight);
+      // Apply Stats
+      // Acceleration: +/- 10% per point
+      if (pilot.stats.acceleration !== 0) {
+        // Base accelFactor is around 0.5 - 0.9.
+        // Let's being conservative: 5% per point.
+        const modifier = 1 + (pilot.stats.acceleration * 0.05);
+        finalShipConfig.accelFactor *= modifier;
+      }
 
-    // Initialize    // Create Player Ship
-    playerShip.current = new Ship(scene, true, shipConfig);
+      // Handling: +/- 10% per point to turnSpeed
+      if (pilot.stats.handling !== 0) {
+        const modifier = 1 + (pilot.stats.handling * 0.1);
+        finalShipConfig.turnSpeed *= modifier;
+        // Also affect strafe speed slightly?
+        finalShipConfig.strafeSpeed *= modifier;
+      }
 
-    // Create track path using curve
-    // Create Track
-    const points = TRACKS[currentTrackIndex].points;
-    const trackCurve = createTrackCurve(points);
+      // Velocity: Modifies Friction (Top Speed)
+      // Base friction is 0.99.
+      // +2 Velocity = 0.992 (Less drag)
+      // -2 Velocity = 0.988 (More drag)
+      if (pilot.stats.velocity !== 0) {
+        // Friction is 0-1, closer to 1 is less drag.
+        // We add/subtract a tiny amount.
+        finalShipConfig.friction += (pilot.stats.velocity * 0.001);
+      }
+    }
+
+    // Initialize Player Ship
+    playerShip.current = new Ship(scene, true, finalShipConfig);
+
+    // Track Setup
+    const trackCurve = createTrackCurve(currentTrack.points);
     const trackLength = trackCurve.getLength();
+    const trackMesh = createTrackMesh(trackCurve);
+    scene.add(trackMesh);
 
-    // Create track mesh (U-shaped half pipe)
-    const track = createTrackMesh(trackCurve);
-    scene.add(track);
+    // Environment Setup (Must be after trackCurve creation to place glowglobes)
+    const envManager = new EnvironmentManager(scene);
+    environmentManagerRef.current = envManager;
+    const envConfig = forcedEnvironment || EnvironmentManager.generateRandomConfig();
+    envManager.setup(envConfig, trackCurve);
+    setEnvironment(envConfig);
 
     // Create Boost Pads
     const boostPads = createBoostPadMeshes(trackCurve, currentTrack.pads);
@@ -526,8 +559,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         verticalPosition: Math.round(currentState.verticalPosition * 10) / 10
       });
 
-      directionalLight.position.copy(playerShip.current.mesh.position).add(new THREE.Vector3(10, 20, 10));
-      directionalLight.target = playerShip.current.mesh;
+      envManager.update(dt, playerShip.current.mesh.position);
 
       updateMinimapShip();
       renderer.render(scene, camera);
@@ -601,6 +633,11 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     <div className="w-full h-screen bg-black relative overflow-hidden">
       <div ref={mountRef} className="w-full h-full" />
 
+      {/* LIGHTING DEBUG OVERLAY */}
+      {debugLighting && (
+        <DebugLightingPanel envManagerRef={environmentManagerRef} />
+      )}
+
       {/* UI Overlay Container for Screenshots */}
       <div className="absolute inset-0 pointer-events-none">
 
@@ -625,6 +662,12 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
             <div className="mt-4 text-gray-400 text-xs">
               TRACK: {currentTrack.name}
             </div>
+            {environment && (
+              <div className="mt-2 text-cyan-200 text-xs border-t border-gray-600 pt-2">
+                <div>TIME: {environment.timeOfDay.toUpperCase()}</div>
+                <div>WEATHER: {environment.weather.toUpperCase()}</div>
+              </div>
+            )}
           </div>
         )}
 
