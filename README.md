@@ -1,12 +1,6 @@
 # Nebula Rush (Sci-Fi Racing Game)
 
-<div align="center">
-
-![Nebula Rush]()
-
 *High-speed anti-gravity racing inspired by F-Zero and Wipeout.*
-
-</div>
 
 ## Overview
 
