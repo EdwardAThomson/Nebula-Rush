@@ -190,7 +190,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       if (pilot.stats.velocity !== 0) {
         // Friction is 0-1, closer to 1 is less drag.
         // We add/subtract a tiny amount.
-        finalShipConfig.friction += (pilot.stats.velocity * 0.001);
+        finalShipConfig.friction += (pilot.stats.velocity * 0.0002);
       }
     }
 
