@@ -147,12 +147,14 @@ function App() {
             >
               SELECT TRACK
             </button>
+            {/*
             <button
               onClick={() => setScreen('ship_demo')}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
             >
               SHIP DEMO
             </button>
+            */}
             {/* 
             <button
               onClick={handleNightTest}

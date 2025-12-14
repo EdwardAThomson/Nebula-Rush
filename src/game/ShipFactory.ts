@@ -95,7 +95,41 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         return shape;
     };
 
+    // --- SHARED VISUALS (Moved to top for usage during ship construction) ---
+    // Afterburner Spray
+    const sprayGeometry = getGeometry('spray', () => {
+        const geo = new THREE.ConeGeometry(0.35, 2.0, 20, 1, true);
+        geo.translate(0, 1.0, 0);
+        return geo;
+    });
+
+    const sprayMaterial = getMaterial('spray', {
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0.4,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    }, THREE.MeshBasicMaterial);
+
+    const glowGeometry = getGeometry('glow_sphere', () => new THREE.SphereGeometry(0.3, 8, 8));
+
+    const addGlow = (pos: THREE.Vector3, parent: THREE.Object3D = ship) => {
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        glow.position.copy(pos);
+        parent.add(glow);
+
+        const spray = new THREE.Mesh(sprayGeometry, sprayMaterial);
+        spray.rotation.x = Math.PI / 2;
+        spray.scale.set(exhaustScale, 1, exhaustScale);
+        glow.add(spray);
+
+        glows.push(glow);
+        return glow;
+    };
+
     let enginePositions: THREE.Vector3[] = [];
+    let exhaustScale = 1.0;
 
     if (type === 'speedster') {
         // --- BEVELED SPEEDSTER (Original Design + Smooth Edges) ---
@@ -317,18 +351,38 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         });
 
     } else if (type === 'interceptor') {
+        exhaustScale = 0.7;
         // --- INTERCEPTOR (Bi-Plane) ---
-        // Compact body, double wings
+        // Compact body, double wings, Rounded Edges
 
-        const bodyGeo = getGeometry('interceptor_body', () => new THREE.BoxGeometry(1.0, 1.2, 4.0));
+        const bodyW = 1.0;
+        const bodyH = 1.2;
+        const bodyL = 4.0;
+        const bevel = 0.1;
+
+        const bodyShape = createRoundedRect(bodyW - bevel, bodyH - bevel, bevel);
+        const bodySettings = {
+            steps: 2,
+            depth: bodyL,
+            bevelEnabled: true,
+            bevelThickness: bevel,
+            bevelSize: bevel,
+            bevelSegments: 3
+        };
+
+        const bodyGeo = getGeometry('interceptor_body_rounded', () => new THREE.ExtrudeGeometry(bodyShape, bodySettings));
         const body = new THREE.Mesh(bodyGeo, bodyMaterial);
-        body.position.set(0, 0.6, 0);
+        // Original Pos: 0, 0.6, 0. Center Z=0.
+        // Extrunde 0 to 4.0.
+        // Start at -2.0.
+        body.position.set(0, 0.6, -2.0);
         ship.add(body);
 
-        const noseGeo = getGeometry('interceptor_nose', () => new THREE.ConeGeometry(0.5, 2.0, 4));
+        // Smooth Nose
+        const noseGeo = getGeometry('interceptor_nose_smooth', () => new THREE.ConeGeometry(0.5, 2.0, 32));
         const nose = new THREE.Mesh(noseGeo, bodyMaterial);
         nose.rotation.x = -Math.PI / 2;
-        nose.rotation.y = Math.PI / 4;
+        // nose.rotation.y = Math.PI / 4; // Check if 4-sided rotation is still needed? No, it's round now.
         nose.position.set(0, 0.6, -3.0);
         ship.add(nose);
 
@@ -399,75 +453,123 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         cabin.position.set(0, 1.3, -0.5);
         ship.add(cabin);
 
+
+
     } else if (type === 'corsair') {
+        exhaustScale = 1.6;
         // --- CORSAIR (Anhedral Wings - Bad Guy Look) ---
+        // Rounded Edges Update
 
-        //Sharp, angular body
-        const bodyGeo = getGeometry('corsair_body', () => new THREE.ConeGeometry(0.6, 6.0, 3)); // Triangular body
-        const body = new THREE.Mesh(bodyGeo, bodyMaterial);
-        body.rotation.x = -Math.PI / 2; // Point forward
-        body.rotation.z = Math.PI; // Flat side down? 3 sides -> flat top usually. Let's rotate to have flat bottom.
-        // Cone orientation: Y is up. Rotated X-90 -> Z is forward (tip). 
-        // 3 segments: 0deg is usually +X. 
-        // Let's just use a custom simple shape or manipulated boxes if Cone is tricky.
-        // Actually, a cylinder with 3 segments is a prism.
-        // Let's stick to Box + Scaling for control.
+        // Hull
+        const hullW = 1.2;
+        const hullH = 0.9;
+        const hullL = 5.0;
+        const bevel = 0.1;
 
-        const mainHullGeo = getGeometry('corsair_hull', () => new THREE.BoxGeometry(0.8, 0.6, 5.0));
+        const hullShape = createRoundedRect(hullW - bevel, hullH - bevel, bevel);
+        const hullSettings = {
+            steps: 2,
+            depth: hullL,
+            bevelEnabled: true,
+            bevelThickness: bevel,
+            bevelSize: bevel,
+            bevelSegments: 3
+        };
+        const mainHullGeo = getGeometry('corsair_hull_rounded', () => new THREE.ExtrudeGeometry(hullShape, hullSettings));
         const hull = new THREE.Mesh(mainHullGeo, bodyMaterial);
-        hull.position.set(0, 0.5, 0);
+        // Original Box center 0.5. Box range -2.5 + 0.5 (-2.0) to 2.5 + 0.5 (3.0)? 
+        // No, BoxGeometry(0.8, 0.6, 5.0). Center is 0,0,0. Pos is 0, 0.5, 0.
+        // Range Z: -2.5 to 2.5.
+        // Extrude (0 to 5.0).
+        // Start at -2.5.
+        hull.position.set(0, 0.5, -2.5);
         ship.add(hull);
 
-        // Nose Cone
-        const noseGeo = getGeometry('corsair_nose', () => new THREE.ConeGeometry(0.5, 3.0, 4));
+        // Nose Cone (Smooth)
+        const noseGeo = getGeometry('corsair_nose_smooth', () => new THREE.ConeGeometry(0.52, 3.0, 32));
         const nose = new THREE.Mesh(noseGeo, bodyMaterial);
         nose.rotation.x = -Math.PI / 2;
-        nose.rotation.y = Math.PI / 4;
+        // nose.rotation.y = Math.PI / 4; // Not needed for smooth
         nose.position.set(0, 0.5, -4.0); // hull front (-2.5) - half len (1.5)
         ship.add(nose);
 
-        // Anhedral Wings (Angled Down) - Fixed Connection
-        const wingGeo = getGeometry('corsair_wing', () => new THREE.BoxGeometry(2.5, 0.1, 1.5));
+        // Anhedral Wings (Angled Down) - Rounded
+        const wingW = 2.5;
+        const wingH = 0.1;
+        const wingL = 1.5; // Depth
+        const wingBevel = 0.02;
+
+        const wingShape = createRoundedRect(wingW - wingBevel, wingH - wingBevel, wingBevel);
+        const wingSettings = {
+            steps: 1,
+            depth: wingL,
+            bevelEnabled: true,
+            bevelThickness: 0.05,
+            bevelSize: 0.05,
+            bevelSegments: 3
+        };
+        const wingGeo = getGeometry('corsair_wing_rounded', () => new THREE.ExtrudeGeometry(wingShape, wingSettings));
 
         // Left Wing
-        // We want Anhedral: Root High (near body), Tip Low (outer).
-        // Left Wing: Inner side is +X local. We want +X to be High? 
-        // No, left wing is at -X. Inner side is Right side (+X local).
-        // To make Inner High, we rotate +Z (Up-Right).
         const leftWing = new THREE.Mesh(wingGeo, wingMaterial);
-        // Pivot math: We want Inner Tip roughly at (-0.4, 0.7).
-        // Wing half-width ~ 1.25.
-        // Rot +30 deg.
-        // Center offset from Inner: dx = -1.25*cos(30) = -1.08. dy = -1.25*sin(30) = -0.625.
-        // Center = (-0.4 - 1.08, 0.7 - 0.625) = (-1.48, 0.075).
-        leftWing.position.set(-1.5, 0.1, 0.5);
+        // Original Pos: -1.5, 0.1, 0.5.
+        // Rot Z: PI/6.
+        // Extrude is Z (0 to 1.5). Center at 0.75.
+        // Box Range: -0.75 to 0.75 relative to center.
+        // We want Center at 0.5 world Z.
+        // Start at 0.5 - 0.75 = -0.25.
+        leftWing.position.set(-1.5, 0.1, -0.25);
         leftWing.rotation.z = Math.PI / 6; // +30 degrees
         ship.add(leftWing);
 
         // Right Wing
         const rightWing = new THREE.Mesh(wingGeo, wingMaterial);
-        // Symmetry: X = 1.5, Y = 0.1.
-        // Rotation: -30 degrees (Down-Right). Inner (Left side, -X) is High.
-        rightWing.position.set(1.5, 0.1, 0.5);
+        rightWing.position.set(1.5, 0.1, -0.25);
         rightWing.rotation.z = -Math.PI / 6;
         ship.add(rightWing);
 
-        // Connecting Wings/Struts (The "missing" wings)
-        // Add robust connector blocks nicely blending body to wing root
-        const connectorGeo = getGeometry('corsair_connector', () => new THREE.BoxGeometry(1.0, 0.2, 1.0));
+        // Connecting Wings/Struts (Rounded)
+        const connW = 1.0;
+        const connH = 0.2;
+        const connL = 1.0;
+        const connShape = createRoundedRect(connW - 0.05, connH - 0.05, 0.05);
+        const connSettings = {
+            steps: 1,
+            depth: connL,
+            bevelEnabled: true,
+            bevelThickness: 0.05,
+            bevelSize: 0.05,
+            bevelSegments: 2
+        };
+        const connectorGeo = getGeometry('corsair_connector_rounded', () => new THREE.ExtrudeGeometry(connShape, connSettings));
 
         const leftConn = new THREE.Mesh(connectorGeo, engineMaterial);
-        leftConn.position.set(-0.6, 0.6, 0.5);
+        // Original Pos: -0.6, 0.6, 0.5.
+        // Box Depth 1.0. Extrude 1.0.
+        // Start Z = 0.5 - 0.5 = 0.0.
+        leftConn.position.set(-0.6, 0.6, 0.0);
         leftConn.rotation.z = Math.PI / 8; // Slight angle
         ship.add(leftConn);
 
         const rightConn = new THREE.Mesh(connectorGeo, engineMaterial);
-        rightConn.position.set(0.6, 0.6, 0.5);
+        rightConn.position.set(0.6, 0.6, 0.0);
         rightConn.rotation.z = -Math.PI / 8;
         ship.add(rightConn);
 
-        // Twin Boom Engines (Connected to Wings)
-        const engineGeo = getGeometry('corsair_engine', () => new THREE.BoxGeometry(0.6, 0.6, 2.5));
+        // Twin Boom Engines (Connected to Wings) - Rounded
+        const engW = 0.8;
+        const engH = 0.8;
+        const engL = 2.5;
+        const engShape = createRoundedRect(engW - 0.1, engH - 0.1, 0.1);
+        const engSettings = {
+            steps: 2,
+            depth: engL,
+            bevelEnabled: true,
+            bevelThickness: 0.1,
+            bevelSize: 0.1,
+            bevelSegments: 3
+        };
+        const engineGeo = getGeometry('corsair_engine_rounded', () => new THREE.ExtrudeGeometry(engShape, engSettings));
 
         // Attach engines to the TIPS or MID? 
         // Let's attach them mid-wing for stability look.
@@ -478,19 +580,19 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         leftEng.position.set(-1.8, 0.0, 1.5); // Slightly outer and lower
         leftEng.rotation.z = Math.PI / 6; // Match wing angle
         ship.add(leftEng);
+        // Attach glow directly to engine (local position at back of engine)
+        addGlow(new THREE.Vector3(0, 0, engL), leftEng);
 
         const rightEng = new THREE.Mesh(engineGeo, engineMaterial);
         rightEng.position.set(1.8, 0.0, 1.5);
         rightEng.rotation.z = -Math.PI / 6;
         ship.add(rightEng);
-
-        enginePositions.push(new THREE.Vector3(-1.8, 0.0, 2.8));
-        enginePositions.push(new THREE.Vector3(1.8, 0.0, 2.8));
+        addGlow(new THREE.Vector3(0, 0, engL), rightEng);
 
         // Cockpit - Aggressive slit
         const cabinGeo = getGeometry('corsair_cabin', () => new THREE.BoxGeometry(0.5, 0.3, 1.5));
         const cabin = new THREE.Mesh(cabinGeo, cockpitMaterial);
-        cabin.position.set(0, 0.85, -0.5);
+        cabin.position.set(0, 1.0, -0.5);
         ship.add(cabin);
 
     } else {
@@ -668,54 +770,7 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
     }
 
     // --- SHARED VISUALS (Headlights, Glows) ---
-    ship.position.y = 1;
-
-    // Spotlight
-    const spotLight = new THREE.SpotLight(0xffffff, 10);
-    spotLight.angle = Math.PI / 6;
-    spotLight.penumbra = 0.2;
-    spotLight.decay = 2;
-    spotLight.distance = 200;
-    ship.add(spotLight);
-    spotLight.position.set(0, 5, 0);
-
-    const spotLightTarget = new THREE.Object3D();
-    ship.add(spotLightTarget);
-    spotLightTarget.position.set(0, 0, -50);
-    spotLight.target = spotLightTarget;
-
-    // Afterburner Spray
-    const sprayGeometry = getGeometry('spray', () => {
-        const geo = new THREE.ConeGeometry(0.3, 2.0, 16, 1, true);
-        geo.translate(0, 1.0, 0);
-        return geo;
-    });
-
-    const sprayMaterial = getMaterial('spray', {
-        color: 0x00ffff,
-        transparent: true,
-        opacity: 0.4,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending
-    }, THREE.MeshBasicMaterial);
-
-    const glowGeometry = getGeometry('glow_sphere', () => new THREE.SphereGeometry(0.3, 8, 8));
-
-    const addGlow = (pos: THREE.Vector3) => {
-        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-        glow.position.copy(pos);
-        ship.add(glow);
-
-        const spray = new THREE.Mesh(sprayGeometry, sprayMaterial);
-        spray.rotation.x = Math.PI / 2;
-        glow.add(spray);
-
-        glows.push(glow);
-        return glow;
-    };
-
-    // Create glows for ALL engine positions
+    // Create glows for deferred engine positions (Standard Ships)
     enginePositions.forEach(pos => {
         addGlow(pos);
     });
