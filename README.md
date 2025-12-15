@@ -4,7 +4,7 @@
 
 ## Overview
 
-**Nebula Rush** is a high-speed 3D racing game built directly in the browser using modern web technologies. Pilot an anti-gravity ship through a procedural infinite track, manage your boost resources, and compete against 19 AI opponents to top the leaderboard.
+**Nebula Rush** is a high-speed 3D racing game built directly in the browser using modern web technologies. You pilot an anti-gravity ship through a series of tracks and compete against 19 AI opponents to top the leaderboard.
 
 This project demonstrates a custom physics engine, procedural mesh generation, and performant 3D rendering with Three.js.
 
