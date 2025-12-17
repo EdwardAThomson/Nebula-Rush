@@ -33,18 +33,16 @@ function App() {
   });
 
   // Helper to show loading screen before heavy computations
-  const navigateTo = (newScreen: typeof screen, callback?: () => void) => {
+  const navigateTo = (newScreen: typeof screen, callback?: () => void, manualDismiss = false) => {
     setIsLoading(true);
     // Allow UI to render the loading screen
     setTimeout(() => {
       if (callback) callback();
       setScreen(newScreen);
-      // We keep isLoading true until the component mounts? 
-      // No, if we set it false here, it might toggle off before the heavy useEffect runs.
-      // However, React batching might mean the heavy component renders immediately.
-      // Let's try setting it false after a tiny delay or expecting the component to be fast enough to render its initial state.
-      // Actually, for better UX, let's keep it true for a short duration to ensure "Loading" is seen.
-      setTimeout(() => setIsLoading(false), 100);
+
+      if (!manualDismiss) {
+        setTimeout(() => setIsLoading(false), 100);
+      }
     }, 50);
   };
 
@@ -86,7 +84,7 @@ function App() {
 
   const handleShipSelect = (config: ShipConfig) => {
     setSelectedShipConfig(config);
-    navigateTo('game');
+    navigateTo('game', undefined, true);
   };
 
   const handleTrackSelect = (index: number) => {
@@ -204,6 +202,7 @@ function App() {
           opponentCount={0}
           onExit={handleGameExit}
           debugLighting={true}
+          onReady={() => setIsLoading(false)}
         />
       )}
 
@@ -409,6 +408,7 @@ function App() {
             forcedEnvironment={selectedEnvConfig || undefined}
             pilot={selectedPilot}
             onExit={handleGameExit}
+            onReady={() => setIsLoading(false)}
           />
         )
       }

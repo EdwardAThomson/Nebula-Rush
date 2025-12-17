@@ -20,13 +20,14 @@ interface GameProps {
 
   onExit?: () => void;
   debugLighting?: boolean;
+  onReady?: () => void;
 }
 
 const POINTS_TABLE = [100, 93, 87, 82, 78, 75, 72, 69, 66, 63, 60, 58, 56, 54, 52, 50, 48, 46, 44, 42];
 
 type RaceState = 'intro' | 'racing' | 'finished' | 'results';
 
-export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = true, forcedEnvironment, pilot, opponentCount = 19, onExit, debugLighting = false }: GameProps) {
+export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = true, forcedEnvironment, pilot, opponentCount = 19, onExit, debugLighting = false, onReady }: GameProps) {
   const mountRef = useRef<HTMLDivElement>(null);
 
   const [currentTrackIndex, setCurrentTrackIndex] = useState(initialTrackIndex);
@@ -228,7 +229,10 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     scene.add(trafficLight);
 
     // Initial State Timing
-    countdownStartTime.current = Date.now();
+    // START DELAY: Add 1.5s buffer before countdown starts to allow loading screen to fade
+    const START_DELAY = 1500;
+    countdownStartTime.current = Date.now() + START_DELAY;
+
     raceStartedRef.current = false;
     countdownRef.current = 5;
     setCountdown(5);
@@ -613,6 +617,14 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       }
     };
   }, [currentTrackIndex]);
+
+  // Notify parent that we are ready to be shown
+  useEffect(() => {
+    if (onReady) {
+      // Small timeout to ensure first frame might have rendered or at least logic is set
+      setTimeout(() => onReady(), 100);
+    }
+  }, [onReady, currentTrackIndex]);
 
   const handleNextRace = () => {
     if (currentTrackIndex < TRACKS.length - 1) {
