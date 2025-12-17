@@ -667,8 +667,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
             <div className="text-xl mt-2" style={{ color: '#c084fc' }}>RANK: {rank} / {opponentManager.current ? opponentManager.current.opponents.length + 1 : 20}</div>
             <div className="text-sm mt-4 border-t border-gray-600 pt-2">
               <div>↑/W: Accelerate</div>
-              <div>←/→ or Q/E: Steer</div>
-              <div>A/D: Side Thrusters</div>
+              <div>Q/E: Steer</div>
+              <div>←/→ or A/D: Side Thrusters</div>
               <div>SPACE/↓/S: Jump</div>
               <div className="mt-2 cursor-pointer hover:text-white" style={{ color: '#22d3ee' }} onClick={() => handleScreenshot()}>[P] Screenshot</div>
             </div>
