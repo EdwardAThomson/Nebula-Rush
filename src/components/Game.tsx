@@ -39,14 +39,24 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const [roster] = useState<OpponentConfig[]>(() => OpponentManager.generateRoster(opponentCount));
   const [campaignScores, setCampaignScores] = useState<Record<string, number>>({});
 
-  const [speed, setSpeed] = useState(0);
+  // Speed handled via ref
+  // const [speed, setSpeed] = useState(0); 
+  // Actually, let's keep 'lap' as state since it's low freq (once per minute maybe).
   const [lap, setLap] = useState(0); // Lap 0 = Before Start Line
-  const [rank, setRank] = useState(1);
+  const [finalRank, setFinalRank] = useState<number | null>(null);
+
+  // High-Freq HUD Refs
+  const speedRef = useRef<HTMLDivElement>(null);
+  const timeRef = useRef<HTMLDivElement>(null);
+  const rankRef = useRef<HTMLDivElement>(null);
+  const debugTrackProgressRef = useRef<HTMLDivElement>(null);
+  const debugPositionRef = useRef<HTMLDivElement>(null);
+
   const [hudVisible, setHudVisible] = useState(true);
 
   const [raceState, setRaceState] = useState<RaceState>('intro');
   const [countdown, setCountdown] = useState(5);
-  const [debugInfo, setDebugInfo] = useState({ trackProgress: 0, lateralPosition: 0, verticalPosition: 0 });
+  // Removed debugInfo state
   const [environment, setEnvironment] = useState<EnvironmentConfig | null>(null);
 
   // Results State
@@ -63,7 +73,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const trafficLightRef = useRef<THREE.Group | null>(null);
 
   // Lap Timer State
-  const [currentLapTime, setCurrentLapTime] = useState(0);
+  // Lap Timer State
+  // const [currentLapTime, setCurrentLapTime] = useState(0); -> Moved to Ref
   const [lastLapTime, setLastLapTime] = useState(0); // Player's last lap
   const lapStartTime = useRef(Date.now());
   const raceStartTime = useRef(0);
@@ -446,8 +457,11 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
       }, raceStartedRef.current);
 
-      if (!raceFinishedRef.current) {
-        setCurrentLapTime(currentNow - lapStartTime.current);
+      if (!raceFinishedRef.current && raceStartedRef.current) {
+        const currentTime = currentNow - lapStartTime.current;
+        if (timeRef.current) {
+          timeRef.current.textContent = `TIME: ${formatTime(currentTime)}`;
+        }
       }
 
       // --- OPPONENT UPDATE ---
@@ -477,7 +491,14 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
         // Update Rank Display
         const playerRank = allShips.findIndex(s => s === playerShip.current) + 1;
-        setRank(playerRank);
+        if (rankRef.current) {
+          rankRef.current.textContent = `RANK: ${playerRank} / ${opponentManager.current.opponents.length + 1}`;
+        }
+
+        if (playerShip.current.finished && finalRank === null) {
+          setFinalRank(playerRank);
+        }
+        // setRank(playerRank);
 
         // Check if EVERYONE is finished
         // Optimization: allShips[totalShips-1].finished is enough check if sorted correctly?
@@ -559,12 +580,21 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         camera.position.copy(trackPos.clone().add(normal.multiplyScalar(5)));
       }
 
-      setSpeed(Math.round(currentState.velocity.y * 10));
-      setDebugInfo({
-        trackProgress: Math.round(currentState.trackProgress * 1000) / 10,
-        lateralPosition: Math.round(currentState.lateralPosition * 10) / 10,
-        verticalPosition: Math.round(currentState.verticalPosition * 10) / 10
-      });
+      // setSpeed(Math.round(currentState.velocity.y * 10));
+      if (speedRef.current) {
+        speedRef.current.textContent = `${Math.round(currentState.velocity.y * 10)} km/h`;
+      }
+
+      if (debugTrackProgressRef.current) {
+        const progress = (lap === 0 && currentState.trackProgress > 50)
+          ? (currentState.trackProgress - 100)
+          : currentState.trackProgress;
+        debugTrackProgressRef.current.textContent = `Track Progress: ${progress.toFixed(1)}%`;
+      }
+
+      if (debugPositionRef.current) {
+        debugPositionRef.current.textContent = `Position: (${currentState.lateralPosition.toFixed(1)}, ${currentState.verticalPosition.toFixed(1)})`;
+      }
 
       envManager.update(dt, playerShip.current.mesh.position);
 
@@ -629,9 +659,11 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const handleNextRace = () => {
     if (currentTrackIndex < TRACKS.length - 1) {
       // Reset State
-      setSpeed(0);
+      if (speedRef.current) speedRef.current.textContent = "0 km/h";
       setLap(0);
-      setRank(1);
+      setFinalRank(null);
+      if (rankRef.current) rankRef.current.textContent = "RANK: 1 / 20";
+      // setRank(1);
       setHudVisible(true);
       setRaceState('intro');
       setCountdown(5);
@@ -660,11 +692,11 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         {raceState !== 'results' && hudVisible && (
           // Use style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} instead of bg-black bg-opacity-50 (which might use oklch in TW4)
           <div className="absolute top-4 left-4 font-mono z-10 p-4 rounded pointer-events-auto" style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: '#ffffff' }}>
-            <div className="text-4xl font-bold mb-2" style={{ color: '#22d3ee' }}>{speed} km/h</div>
+            <div ref={speedRef} className="text-4xl font-bold mb-2" style={{ color: '#22d3ee' }}>0 km/h</div>
             <div className="text-xl">LAP: {Math.min(lap, 5)} / 5</div>
-            <div className="text-xl" style={{ color: '#facc15' }}>TIME: {formatTime(currentLapTime)}</div>
+            <div ref={timeRef} className="text-xl" style={{ color: '#facc15' }}>TIME: 00:00.00</div>
             {lastLapTime > 0 && <div className="text-lg" style={{ color: '#4ade80' }}>LAST: {formatTime(lastLapTime)}</div>}
-            <div className="text-xl mt-2" style={{ color: '#c084fc' }}>RANK: {rank} / {opponentManager.current ? opponentManager.current.opponents.length + 1 : 20}</div>
+            <div ref={rankRef} className="text-xl mt-2" style={{ color: '#c084fc' }}>RANK: 1 / {opponentManager.current ? opponentManager.current.opponents.length + 1 : 20}</div>
             <div className="text-sm mt-4 border-t border-gray-600 pt-2">
               <div>↑/W: Accelerate</div>
               <div>Q/E: Steer</div>
@@ -692,7 +724,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
             <div className="text-white px-8 py-4 rounded-lg border animate-pulse" style={{ backgroundColor: 'rgba(0,0,0,0.8)', borderColor: '#eab308' }}>
               <div className="text-3xl font-bold text-center" style={{ color: '#eab308' }}>FINISHED!</div>
               <div className="text-xl text-center mt-2">Waiting for opponents...</div>
-              <div className="text-4xl font-bold text-center mt-2" style={{ color: '#22d3ee' }}>Rank: {rank}</div>
+              <div className="text-4xl font-bold text-center mt-2" style={{ color: '#22d3ee' }}>Rank: {finalRank}</div>
             </div>
           </div>
         )}
@@ -734,12 +766,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         {raceState !== 'results' && (
           <>
             <div className="absolute top-4 right-4 text-white font-mono text-xs p-2 rounded z-10" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-              <div>Track Progress: {
-                (lap === 0 && debugInfo.trackProgress > 50)
-                  ? (debugInfo.trackProgress - 100).toFixed(1)
-                  : debugInfo.trackProgress.toFixed(1)
-              }%</div>
-              <div>Position: ({debugInfo.lateralPosition.toFixed(1)}, {debugInfo.verticalPosition.toFixed(1)})</div>
+              <div ref={debugTrackProgressRef}>Track Progress: 0.0%</div>
+              <div ref={debugPositionRef}>Position: (0.0, 0.0)</div>
             </div>
             <div className="absolute bottom-4 right-4 p-2 rounded z-10" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
               <div className="text-white text-xs mb-1">MINIMAP</div>
