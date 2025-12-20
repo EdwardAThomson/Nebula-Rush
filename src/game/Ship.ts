@@ -67,7 +67,8 @@ export class Ship {
         trackLength: number,
         pads: BoostPad[],
         onLapComplete?: (msg: any) => void,
-        raceStarted: boolean = true // NEW
+        raceStarted: boolean = true,
+        gameTime: number = 0  // Game time in ms (pauses when tab inactive)
     ) {
         // Update Physics
         // For AI, we would pass a Mock InputManager or different logic
@@ -86,7 +87,7 @@ export class Ship {
                 this.lap++;
                 if (this.lap > 5) {
                     this.finished = true;
-                    this.finishTime = Date.now(); // Will be overridden by Game controller with precise race time
+                    this.finishTime = gameTime; // Use game time, not wall-clock
                 }
             }
 

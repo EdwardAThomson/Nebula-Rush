@@ -27,7 +27,7 @@ export const PILOTS: Pilot[] = [
         bio: 'A stoic veteran with a scarred past. He races not for glory, but for survival.',
         imagePath: '/assets/pilots/pilot_kaelen_vance_1765624265117.png',
         gender: 'male',
-        stats: { velocity: 0, acceleration: -1, handling: 2 }
+        stats: { velocity: 1, acceleration: -1, handling: 2 }
     },
     {
         id: 'orion_pax',
@@ -43,7 +43,7 @@ export const PILOTS: Pilot[] = [
         bio: 'A shadowy figure from the outer rim. His aggressive driving style strikes fear into his opponents.',
         imagePath: '/assets/pilots/pilot_darius_wraith_1765624298325.png',
         gender: 'male',
-        stats: { velocity: 1, acceleration: 2, handling: -2 }
+        stats: { velocity: 1, acceleration: 2, handling: -1 }
     },
 
     // FEMALE PILOTS

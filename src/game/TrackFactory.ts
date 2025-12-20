@@ -13,22 +13,25 @@ export const getTrackFrame = (trackCurve: THREE.Curve<THREE.Vector3>, t: number)
     const tangent = trackCurve.getTangent(t).normalize();
 
     // Smooth curvature calculation
-    // Sample multiple points to average out jitter
-    const sampleOffset = 0.02; // Increased sampling window
-    const tPrev = (t - sampleOffset + 1) % 1;
-    const tNext = (t + sampleOffset) % 1;
-    const tPrev2 = (t - sampleOffset * 2 + 1) % 1;
-    const tNext2 = (t + sampleOffset * 2) % 1;
+    // Sample multiple points over a wider window to average out jitter at track joints
+    const sampleOffset = 0.04; // Wider sampling window (was 0.02)
+    
+    // Sample 7 points for smoother averaging
+    const samples: THREE.Vector3[] = [];
+    for (let i = -3; i <= 3; i++) {
+        const sampleT = (t + i * sampleOffset + 1) % 1;
+        const nextT = (sampleT + sampleOffset + 1) % 1;
+        const tangentA = trackCurve.getTangent(sampleT).normalize();
+        const tangentB = trackCurve.getTangent(nextT).normalize();
+        samples.push(new THREE.Vector3().crossVectors(tangentA, tangentB));
+    }
 
-    // Average 5 points (roughly)
-    const curve0 = new THREE.Vector3().crossVectors(trackCurve.getTangent(t).normalize(), trackCurve.getTangent(tNext).normalize());
-    const curve1 = new THREE.Vector3().crossVectors(trackCurve.getTangent(tPrev).normalize(), trackCurve.getTangent(t).normalize());
-    const curve2 = new THREE.Vector3().crossVectors(trackCurve.getTangent(tPrev2).normalize(), trackCurve.getTangent(tPrev).normalize());
-    const curve3 = new THREE.Vector3().crossVectors(trackCurve.getTangent(tNext).normalize(), trackCurve.getTangent(tNext2).normalize());
-
-    const curvatureVector = new THREE.Vector3()
-        .add(curve0).add(curve1).add(curve2).add(curve3)
-        .multiplyScalar(0.25);
+    // Weighted average - center samples have more influence
+    const weights = [0.05, 0.1, 0.2, 0.3, 0.2, 0.1, 0.05]; // Gaussian-like
+    const curvatureVector = new THREE.Vector3();
+    samples.forEach((sample, i) => {
+        curvatureVector.add(sample.multiplyScalar(weights[i]));
+    });
 
     // Banking factor
     const bankingFactor = 4.0;
@@ -36,9 +39,17 @@ export const getTrackFrame = (trackCurve: THREE.Curve<THREE.Vector3>, t: number)
     // 1. Invert sign: Right Turn (Neg CurvY) -> Left Side Up (Pos Bank)
     let bankAngle = -curvatureVector.y * bankingFactor;
 
-    // 2. Deadzone: Keep straights flat
-    if (Math.abs(bankAngle) < 0.1) {
-        bankAngle = 0;
+    // 2. Smooth deadzone: Use smoothstep to gradually reduce banking near zero
+    // This prevents the hard jump that caused jitter
+    const deadzone = 0.1;
+    const smoothRange = 0.15; // Transition zone beyond deadzone
+    const absBankAngle = Math.abs(bankAngle);
+    
+    if (absBankAngle < deadzone + smoothRange) {
+        // Smoothstep function: 3x^2 - 2x^3 for smooth interpolation
+        const t = Math.max(0, (absBankAngle - deadzone) / smoothRange);
+        const smoothT = t * t * (3 - 2 * t); // Hermite smoothstep
+        bankAngle = Math.sign(bankAngle) * absBankAngle * smoothT;
     }
 
     // 3. Smooth Step / Clamp

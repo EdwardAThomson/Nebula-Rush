@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Game from './components/Game';
 import type { ShipConfig } from './game/Ship';
-import { SHIP_STATS } from './game/ShipFactory';
+import { SHIP_STATS, type ShipType } from './game/ShipFactory';
 import ShipPreview from './components/ShipPreview';
 import TrackPreview from './components/TrackPreview';
 import TrackAnalysis from './components/TrackAnalysis';
@@ -13,6 +13,40 @@ import ShipDemo from './components/ShipDemo';
 import type { Pilot } from './game/PilotDefinitions';
 import type { EnvironmentConfig } from './game/EnvironmentManager';
 import { TRACKS } from './game/TrackDefinitions';
+
+// Calculate display stats (0-100) dynamically from SHIP_STATS
+const getDisplayStats = (type: ShipType) => {
+  const stats = SHIP_STATS[type];
+  
+  // Calculate top speed from friction: topSpeed = accelFactor / (1 - friction)
+  const topSpeed = stats.accelFactor / (1 - stats.friction);
+  
+  // Get min/max across all ships for normalization
+  const allStats = Object.values(SHIP_STATS);
+  const allTopSpeeds = allStats.map(s => s.accelFactor / (1 - s.friction));
+  const allAccels = allStats.map(s => s.accelFactor);
+  const allHandling = allStats.map(s => s.turnSpeed + (1 - s.slideFactor) * 0.5); // Combined turn + grip
+  
+  const minSpeed = Math.min(...allTopSpeeds);
+  const maxSpeed = Math.max(...allTopSpeeds);
+  const minAccel = Math.min(...allAccels);
+  const maxAccel = Math.max(...allAccels);
+  const handling = stats.turnSpeed + (1 - stats.slideFactor) * 0.5;
+  const minHandling = Math.min(...allHandling);
+  const maxHandling = Math.max(...allHandling);
+  
+  // Normalize to 50-100 range (so even the worst stat looks decent)
+  const normalize = (val: number, min: number, max: number) => 
+    Math.round(50 + ((val - min) / (max - min)) * 50);
+  
+  return {
+    speed: normalize(topSpeed, minSpeed, maxSpeed),
+    accel: normalize(stats.accelFactor, minAccel, maxAccel),
+    handling: normalize(handling, minHandling, maxHandling),
+    // For corsair, show drift instead of handling
+    drift: Math.round(50 + (stats.slideFactor - 0.85) / (0.995 - 0.85) * 50)
+  };
+};
 
 function App() {
   const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo'>('start');
@@ -174,6 +208,12 @@ function App() {
             </button>
             */}
             <button
+              onClick={() => setScreen('analysis')}
+              className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
+            >
+              TRACK ANALYSIS
+            </button>
+            <button
               onClick={() => setShowHelp(true)}
               className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold rounded shadow-lg transform hover:scale-105 transition-all"
             >
@@ -235,9 +275,9 @@ function App() {
                 <p className="text-gray-400 text-sm mb-4">High top speed, but slower acceleration. Built for long straights.</p>
 
                 <div className="space-y-2">
-                  <StatBar label="Speed" value={95} color="bg-cyan-500" />
-                  <StatBar label="Accel" value={60} color="bg-yellow-500" />
-                  <StatBar label="Handling" value={70} color="bg-green-500" />
+                  <StatBar label="Speed" value={getDisplayStats('speedster').speed} color="bg-cyan-500" />
+                  <StatBar label="Accel" value={getDisplayStats('speedster').accel} color="bg-yellow-500" />
+                  <StatBar label="Handling" value={getDisplayStats('speedster').handling} color="bg-green-500" />
                 </div>
               </div>
 
@@ -253,9 +293,9 @@ function App() {
                 <p className="text-gray-400 text-sm mb-4">Perfectly balanced stats. Good for beginners and pros alike.</p>
 
                 <div className="space-y-2">
-                  <StatBar label="Speed" value={80} color="bg-cyan-500" />
-                  <StatBar label="Accel" value={80} color="bg-yellow-500" />
-                  <StatBar label="Handling" value={80} color="bg-green-500" />
+                  <StatBar label="Speed" value={getDisplayStats('fighter').speed} color="bg-cyan-500" />
+                  <StatBar label="Accel" value={getDisplayStats('fighter').accel} color="bg-yellow-500" />
+                  <StatBar label="Handling" value={getDisplayStats('fighter').handling} color="bg-green-500" />
                 </div>
               </div>
 
@@ -271,9 +311,9 @@ function App() {
                 <p className="text-gray-400 text-sm mb-4">Incredible acceleration and grip, but lower top speed.</p>
 
                 <div className="space-y-2">
-                  <StatBar label="Speed" value={60} color="bg-cyan-500" />
-                  <StatBar label="Accel" value={95} color="bg-yellow-500" />
-                  <StatBar label="Handling" value={90} color="bg-green-500" />
+                  <StatBar label="Speed" value={getDisplayStats('tank').speed} color="bg-cyan-500" />
+                  <StatBar label="Accel" value={getDisplayStats('tank').accel} color="bg-yellow-500" />
+                  <StatBar label="Handling" value={getDisplayStats('tank').handling} color="bg-green-500" />
                 </div>
               </div>
 
@@ -289,9 +329,9 @@ function App() {
                 <p className="text-gray-400 text-sm mb-4">Bi-plane design. Best-in-class acceleration and turning.</p>
 
                 <div className="space-y-2">
-                  <StatBar label="Speed" value={70} color="bg-cyan-500" />
-                  <StatBar label="Accel" value={98} color="bg-yellow-500" />
-                  <StatBar label="Handling" value={95} color="bg-green-500" />
+                  <StatBar label="Speed" value={getDisplayStats('interceptor').speed} color="bg-cyan-500" />
+                  <StatBar label="Accel" value={getDisplayStats('interceptor').accel} color="bg-yellow-500" />
+                  <StatBar label="Handling" value={getDisplayStats('interceptor').handling} color="bg-green-500" />
                 </div>
               </div>
 
@@ -307,9 +347,9 @@ function App() {
                 <p className="text-gray-400 text-sm mb-4">Aggressive styling. High speed and extreme drift capabilities.</p>
 
                 <div className="space-y-2">
-                  <StatBar label="Speed" value={90} color="bg-cyan-500" />
-                  <StatBar label="Accel" value={75} color="bg-yellow-500" />
-                  <StatBar label="Drift" value={95} color="bg-pink-500" />
+                  <StatBar label="Speed" value={getDisplayStats('corsair').speed} color="bg-cyan-500" />
+                  <StatBar label="Accel" value={getDisplayStats('corsair').accel} color="bg-yellow-500" />
+                  <StatBar label="Drift" value={getDisplayStats('corsair').drift} color="bg-pink-500" />
                 </div>
               </div>
             </div>

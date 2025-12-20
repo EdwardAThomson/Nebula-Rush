@@ -108,8 +108,8 @@ export class OpponentManager {
         const roster: OpponentConfig[] = [];
 
         for (let i = 0; i < count; i++) {
-            // Select Random Ship Type
-            const shipTypes: ShipType[] = ['fighter', 'speedster', 'tank'];
+            // Select Random Ship Type (all 5 types now included)
+            const shipTypes: ShipType[] = ['fighter', 'speedster', 'tank', 'interceptor', 'corsair'];
             const type = shipTypes[Math.floor(Math.random() * shipTypes.length)];
 
             // Create Ship with Config
@@ -120,10 +120,10 @@ export class OpponentManager {
                 type: type
             };
 
-            // Apply Random Variance (+/- 5-10%)
-            basetoConfig.accelFactor *= 1.0 + (Math.random() * 0.1 - 0.05);
-            basetoConfig.friction += (Math.random() * 0.002 - 0.001);
-            basetoConfig.turnSpeed *= 1.0 + (Math.random() * 0.2 - 0.1);
+            // Apply Random Variance (reduced to keep ships clustered)
+            basetoConfig.accelFactor *= 1.0 + (Math.random() * 0.1 - 0.05);  // ±5%
+            basetoConfig.friction += (Math.random() * 0.0006 - 0.0003);       // ±0.0003 (was ±0.001)
+            basetoConfig.turnSpeed *= 1.0 + (Math.random() * 0.2 - 0.1);     // ±10%
             basetoConfig.color = colors[i % colors.length];
 
             roster.push({
@@ -135,7 +135,7 @@ export class OpponentManager {
         return roster;
     }
 
-    public update(dt: number, trackLength: number, pads: BoostPad[], raceStarted: boolean) {
+    public update(dt: number, trackLength: number, pads: BoostPad[], raceStarted: boolean, gameTime: number = 0) {
         for (let i = 0; i < this.opponents.length; i++) {
             const opponent = this.opponents[i];
             const controller = this.controllers[i];
@@ -147,7 +147,7 @@ export class OpponentManager {
             opponent.update(dt, controller, trackLength, pads, (_msg) => {
                 // Handle lap complete if needed (e.g. AI lap counter)
                 // For now, ignore
-            }, raceStarted);
+            }, raceStarted, gameTime);
 
             // 3. Update Mesh
             opponent.updateMesh(this.trackCurve);

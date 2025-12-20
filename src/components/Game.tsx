@@ -73,11 +73,10 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const trafficLightRef = useRef<THREE.Group | null>(null);
 
   // Lap Timer State
-  // Lap Timer State
   // const [currentLapTime, setCurrentLapTime] = useState(0); -> Moved to Ref
   const [lastLapTime, setLastLapTime] = useState(0); // Player's last lap
-  const lapStartTime = useRef(Date.now());
-  const raceStartTime = useRef(0);
+  const lapStartGameTime = useRef(0);  // Game time when lap started (ms)
+  const gameTimeRef = useRef(0);       // Accumulated game time (ms) - pauses when tab inactive
 
   // Format time helper (MM:SS.ms)
   const formatTime = (ms: number) => {
@@ -113,7 +112,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         if (playerShip.current) {
           playerShip.current.lap = 6;
           playerShip.current.finished = true;
-          playerShip.current.finishTime = Date.now();
+          playerShip.current.finishTime = gameTimeRef.current;
         }
       }
       // CHEAT: Force Finish All Opponents
@@ -122,7 +121,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           opponentManager.current.opponents.forEach(o => {
             o.lap = 6;
             o.finished = true;
-            o.finishTime = Date.now() + Math.random() * 10000;
+            o.finishTime = gameTimeRef.current + Math.random() * 10000;
           });
         }
       }
@@ -139,7 +138,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     if (!mountRef.current) return;
 
     // Reset timer on mount
-    lapStartTime.current = Date.now();
+    gameTimeRef.current = 0;
+    lapStartGameTime.current = 0;
 
     // Scene setup
     if (mountRef.current) {
@@ -354,7 +354,11 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       const dt = Math.min(deltaMs / 16.67, 1.0); // Cap at 1.0 to prevent speed-up on high refresh rates
 
       const currentState = playerShip.current.state;
-      const currentNow = Date.now();
+
+      // Accumulate game time (only when race is running)
+      if (raceStartedRef.current) {
+        gameTimeRef.current += deltaMs;
+      }
 
       // --- RACE START LOGIC ---
       if (!raceStartedRef.current) {
@@ -413,8 +417,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         if (timeRemaining <= 0) {
           raceStartedRef.current = true;
           setRaceState('racing');
-          lapStartTime.current = Date.now();
-          raceStartTime.current = Date.now();
+          gameTimeRef.current = 0;  // Reset game time when race starts
+          lapStartGameTime.current = 0;
 
           // Fly Away Animation
           const light = trafficLightRef.current;
@@ -442,8 +446,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           setLap(l => l + 1);
           // Record Lap Time
           if (raceStartedRef.current && !raceFinishedRef.current) {
-            setLastLapTime(currentNow - lapStartTime.current);
-            lapStartTime.current = currentNow;
+            setLastLapTime(gameTimeRef.current - lapStartGameTime.current);
+            lapStartGameTime.current = gameTimeRef.current;
           }
         } else if (typeof msg === 'number') {
           setLap(msg);
@@ -455,19 +459,19 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           setRaceState('finished');
         }
 
-      }, raceStartedRef.current);
+      }, raceStartedRef.current, gameTimeRef.current);
 
       if (!raceFinishedRef.current && raceStartedRef.current) {
-        const currentTime = currentNow - lapStartTime.current;
+        const currentLapTime = gameTimeRef.current - lapStartGameTime.current;
         if (timeRef.current) {
-          timeRef.current.textContent = `TIME: ${formatTime(currentTime)}`;
+          timeRef.current.textContent = `TIME: ${formatTime(currentLapTime)}`;
         }
       }
 
       // --- OPPONENT UPDATE ---
       if (opponentManager.current) {
         if (raceStartedRef.current) {
-          opponentManager.current.update(dt, trackLength, currentTrack.pads, raceStartedRef.current);
+          opponentManager.current.update(dt, trackLength, currentTrack.pads, raceStartedRef.current, gameTimeRef.current);
         }
       }
 
@@ -515,8 +519,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
             const points = POINTS_TABLE[rank - 1] || 0;
 
             // Calculate Time from RaceStart
-            // finishTime is timestamp.
-            const totalTime = ship.finishTime - raceStartTime.current;
+            // finishTime is now game time in ms (not wall-clock timestamp)
+            const totalTime = ship.finishTime;
 
             // Current Campaign Total (before this race)
             const currentTotal = campaignScores[ship.id] || 0;

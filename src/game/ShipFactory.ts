@@ -11,35 +11,35 @@ export const SHIP_STATS: Record<ShipType, { accelFactor: number, turnSpeed: numb
     fighter: {
         accelFactor: 0.55,
         turnSpeed: 0.001,
-        friction: 0.9911,
+        friction: 0.9912,       // Top speed ~62.5
         strafeSpeed: 0.011,
         slideFactor: 0.95 // Balanced
     },
     speedster: {
         accelFactor: 0.45,
         turnSpeed: 0.0009,
-        friction: 0.993, // Fast Top Speed
+        friction: 0.9932,       // Top speed ~66.2 (fastest)
         strafeSpeed: 0.009,
         slideFactor: 0.98 // Slippery
     },
     tank: {
-        accelFactor: 0.65,
+        accelFactor: 0.75,      // Faster accel (was 0.65)
         turnSpeed: 0.0011,
-        friction: 0.988,
-        strafeSpeed: 0.015,
+        friction: 0.9883,       // Top speed ~60.9 (slowest, but close to pack)
+        strafeSpeed: 0.018,     // Strong strafe (was 0.015)
         slideFactor: 0.92 // Grippy/Snappy
     },
     interceptor: {
-        accelFactor: 0.75, // Zoom!
+        accelFactor: 0.72,
         turnSpeed: 0.0015, // Snap turn
-        friction: 0.990,
+        friction: 0.9889,       // Top speed ~63.6
         strafeSpeed: 0.013,
-        slideFactor: 0.85 // Super Snappy
+        slideFactor: 0.92 // Snappy but can hold a line (was 0.85)
     },
     corsair: {
-        accelFactor: 0.50,
+        accelFactor: 0.53,
         turnSpeed: 0.0012,
-        friction: 0.992,
+        friction: 0.9919,       // Top speed ~61.0
         strafeSpeed: 0.010,
         slideFactor: 0.995 // Ice Skater (Extreme Drift)
     }
