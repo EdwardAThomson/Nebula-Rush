@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Game from './components/Game';
 import type { ShipConfig } from './game/Ship';
 import { SHIP_STATS, type ShipType } from './game/ShipFactory';
+import { audioManager } from './game/AudioManager';
 import ShipPreview from './components/ShipPreview';
 import TrackPreview from './components/TrackPreview';
 import TrackAnalysis from './components/TrackAnalysis';
@@ -10,6 +11,7 @@ import EnvironmentSelection from './components/EnvironmentSelection';
 import LightingPlayground from './components/LightingPlayground';
 import PilotSelection from './components/PilotSelection';
 import ShipDemo from './components/ShipDemo';
+import SettingsMenu from './components/SettingsMenu';
 import type { Pilot } from './game/PilotDefinitions';
 import type { EnvironmentConfig } from './game/EnvironmentManager';
 import { TRACKS } from './game/TrackDefinitions';
@@ -48,11 +50,34 @@ const getDisplayStats = (type: ShipType) => {
   };
 };
 
+// Reusable button with audio feedback
+const AudioButton = ({ 
+  onClick, 
+  className, 
+  children 
+}: { 
+  onClick: () => void; 
+  className: string; 
+  children: React.ReactNode;
+}) => (
+  <button
+    onClick={() => {
+      audioManager.playClick();
+      onClick();
+    }}
+    onMouseEnter={() => audioManager.playHover()}
+    className={className}
+  >
+    {children}
+  </button>
+);
+
 function App() {
   const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo'>('start');
   const [gameMode, setGameMode] = useState<'campaign' | 'single_race'>('campaign');
   const [isLoading, setIsLoading] = useState(false); // NEW: Loading state
   const [showHelp, setShowHelp] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
   const [selectedEnvConfig, setSelectedEnvConfig] = useState<EnvironmentConfig | null>(null);
   const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
@@ -65,6 +90,12 @@ function App() {
     slideFactor: 0.95,
     type: 'fighter'
   });
+
+  // Preload audio assets in background on app start
+  useEffect(() => {
+    audioManager.preloadAll();
+    audioManager.preloadMusic();
+  }, []);
 
   // Helper to show loading screen before heavy computations
   const navigateTo = (newScreen: typeof screen, callback?: () => void, manualDismiss = false) => {
@@ -140,6 +171,7 @@ function App() {
   };
 
   const handleGameExit = () => {
+    audioManager.stopMusic();
     setScreen('start');
   };
 
@@ -167,18 +199,18 @@ function App() {
           </h1>
 
           <div className="flex flex-col space-y-4 w-64">
-            <button
+            <AudioButton
               onClick={handleNewGame}
               className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
             >
               NEW GAME
-            </button>
-            <button
+            </AudioButton>
+            <AudioButton
               onClick={handleTrackSelectMode}
               className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
             >
               SELECT TRACK
-            </button>
+            </AudioButton>
             {/*
             <button
               onClick={() => setScreen('ship_demo')}
@@ -207,19 +239,26 @@ function App() {
               LIGHTING DEBUG
             </button>
             */}
-            <button
+{/* Track Analysis button hidden - uncomment for debugging
+            <AudioButton
               onClick={() => setScreen('analysis')}
               className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
             >
               TRACK ANALYSIS
-            </button>
-            <button
+            </AudioButton>
+*/}
+            <AudioButton
               onClick={() => setShowHelp(true)}
               className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold rounded shadow-lg transform hover:scale-105 transition-all"
             >
               HELP
-
-            </button>
+            </AudioButton>
+            <AudioButton
+              onClick={() => setShowSettings(true)}
+              className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg transform hover:scale-105 transition-all border border-gray-600"
+            >
+              ⚙ SETTINGS
+            </AudioButton>
           </div>
 
           <div className="absolute bottom-8 text-gray-500 text-sm">
@@ -265,7 +304,8 @@ function App() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto max-h-[70vh] p-4 scrollbar-hide">
               {/* SHIP 1: SPEEDSTER */}
               <div
-                onClick={() => handleShipSelect({ color: 0x00ccff, ...SHIP_STATS.speedster, type: 'speedster' })}
+                onClick={() => { audioManager.playClick(); handleShipSelect({ color: 0x00ccff, ...SHIP_STATS.speedster, type: 'speedster' }); }}
+                onMouseEnter={() => audioManager.playHover()}
                 className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-cyan-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
               >
                 <div className="h-48 bg-cyan-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
@@ -283,7 +323,8 @@ function App() {
 
               {/* SHIP 2: FIGHTER (Balanced) */}
               <div
-                onClick={() => handleShipSelect({ color: 0xcc0000, ...SHIP_STATS.fighter, type: 'fighter' })}
+                onClick={() => { audioManager.playClick(); handleShipSelect({ color: 0xcc0000, ...SHIP_STATS.fighter, type: 'fighter' }); }}
+                onMouseEnter={() => audioManager.playHover()}
                 className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-red-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
               >
                 <div className="h-48 bg-red-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
@@ -301,7 +342,8 @@ function App() {
 
               {/* SHIP 3: TANK (Heavy) */}
               <div
-                onClick={() => handleShipSelect({ color: 0xcccc00, ...SHIP_STATS.tank, type: 'tank' })}
+                onClick={() => { audioManager.playClick(); handleShipSelect({ color: 0xcccc00, ...SHIP_STATS.tank, type: 'tank' }); }}
+                onMouseEnter={() => audioManager.playHover()}
                 className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-yellow-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
               >
                 <div className="h-48 bg-yellow-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
@@ -319,7 +361,8 @@ function App() {
 
               {/* SHIP 4: INTERCEPTOR (Bi-Plane) */}
               <div
-                onClick={() => handleShipSelect({ color: 0x00ff00, ...SHIP_STATS.interceptor, type: 'interceptor' })}
+                onClick={() => { audioManager.playClick(); handleShipSelect({ color: 0x00ff00, ...SHIP_STATS.interceptor, type: 'interceptor' }); }}
+                onMouseEnter={() => audioManager.playHover()}
                 className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-green-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
               >
                 <div className="h-48 bg-green-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
@@ -337,7 +380,8 @@ function App() {
 
               {/* SHIP 5: CORSAIR (Drifter) */}
               <div
-                onClick={() => handleShipSelect({ color: 0x5500aa, ...SHIP_STATS.corsair, type: 'corsair' })}
+                onClick={() => { audioManager.playClick(); handleShipSelect({ color: 0x5500aa, ...SHIP_STATS.corsair, type: 'corsair' }); }}
+                onMouseEnter={() => audioManager.playHover()}
                 className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-purple-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
               >
                 <div className="h-48 bg-purple-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
@@ -374,7 +418,8 @@ function App() {
               {TRACKS.map((track, index) => (
                 <div
                   key={track.id}
-                  onClick={() => handleTrackSelect(index)}
+                  onClick={() => { audioManager.playClick(); handleTrackSelect(index); }}
+                  onMouseEnter={() => audioManager.playHover()}
                   className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-purple-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
                 >
                   <div className="h-48 bg-black bg-opacity-50 rounded mb-4 flex items-center justify-center overflow-hidden border border-gray-700">
@@ -395,7 +440,8 @@ function App() {
             </div>
 
             <button
-              onClick={() => setScreen('start')}
+              onClick={() => { audioManager.playClick(); setScreen('start'); }}
+              onMouseEnter={() => audioManager.playHover()}
               className="mt-8 text-gray-500 hover:text-white underline"
             >
               Back to Menu
@@ -505,6 +551,11 @@ function App() {
           </div>
         )
       }
+
+      {/* SETTINGS MENU */}
+      {showSettings && (
+        <SettingsMenu onClose={() => setShowSettings(false)} />
+      )}
 
     </div>
   )

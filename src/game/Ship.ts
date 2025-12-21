@@ -4,6 +4,7 @@ import { updatePhysics, INITIAL_GAME_STATE, type GameState } from './PhysicsEngi
 import { type InputSource } from './InputManager';
 import { getTrackFrame } from './TrackFactory';
 import type { BoostPad } from './TrackDefinitions';
+import { audioManager } from './AudioManager';
 
 export interface ShipConfig {
     color: number;
@@ -81,6 +82,14 @@ export class Ship {
         updatePhysics(this.state, inputManager, trackLength, pads, dt, (msg) => {
             if (this.finished) return; // Don't process lap events if finished
 
+            if (msg === "BOOST") {
+                // Play boost sound (only for player ship to avoid spam)
+                if (this.isPlayer) {
+                    audioManager.playBoost();
+                }
+                return; // Don't pass boost signal to lap handler
+            }
+
             if (msg === 1) {
                 this.lap = 1;
             } else if (msg === "INCREMENT") {
@@ -88,6 +97,10 @@ export class Ship {
                 if (this.lap > 5) {
                     this.finished = true;
                     this.finishTime = gameTime; // Use game time, not wall-clock
+                }
+                // Play lap complete sound
+                if (this.isPlayer) {
+                    audioManager.playLapComplete();
                 }
             }
 

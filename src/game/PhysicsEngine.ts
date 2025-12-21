@@ -24,6 +24,7 @@ export interface GameState {
     strafeSpeed: number; // New: Side thruster power
     cameraLateral: number; // Visual-only laggy camera position
     boostTimer: number; // Time remaining for speed boost
+    lastBoostPadIndex: number; // Track which pad was last hit (for sound effects)
     hasCrossedStartLine: boolean; // True once the player crosses the line for the first time
 }
 
@@ -52,6 +53,7 @@ export const INITIAL_GAME_STATE: GameState = {
     strafeSpeed: 0.01, // 0.01 best
     cameraLateral: 0, // Visual-only laggy camera position
     boostTimer: 0,
+    lastBoostPadIndex: -1,
     hasCrossedStartLine: false
 };
 
@@ -142,16 +144,30 @@ export const updatePhysics = (
 
     // Check Boost Pad Collisions (Simple AABB-like check on 1D track + 1D lateral)
     // We check if we are currently INSIDE a pad region
-    pads.forEach(pad => {
+    let hitBoostPad = false;
+    pads.forEach((pad, index) => {
         const progressDiff = Math.abs(state.trackProgress - pad.trackProgress);
         // Handle wrap-around for pads near 0/1 if needed (simplified here)
 
         if (progressDiff < pad.length / 2) {
             if (Math.abs(state.lateralPosition - pad.lateralPosition) < pad.width / 2) {
+                // Only trigger sound if we weren't already on this pad
+                if (state.lastBoostPadIndex !== index) {
+                    hitBoostPad = true;
+                    state.lastBoostPadIndex = index;
+                }
                 state.boostTimer = 5.0; // 5 Seconds boost
             }
         }
     });
+    // Clear last pad index when not on any pad (allows re-triggering same pad)
+    if (!hitBoostPad && state.boostTimer <= 4.9) {
+        state.lastBoostPadIndex = -1;
+    }
+    // Signal boost activation (for sound effects)
+    if (hitBoostPad) {
+        if (onLapComplete) onLapComplete("BOOST");
+    }
     // --- Lap Counting & Position Update ---
 
     state.trackProgress += progressChange;

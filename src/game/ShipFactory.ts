@@ -9,9 +9,9 @@ export type ShipType = 'fighter' | 'speedster' | 'tank' | 'interceptor' | 'corsa
 
 export const SHIP_STATS: Record<ShipType, { accelFactor: number, turnSpeed: number, friction: number, strafeSpeed: number, slideFactor: number }> = {
     fighter: {
-        accelFactor: 0.55,
+        accelFactor: 0.56,
         turnSpeed: 0.001,
-        friction: 0.9912,       // Top speed ~62.5
+        friction: 0.9914,       // Top speed ~62.5
         strafeSpeed: 0.011,
         slideFactor: 0.95 // Balanced
     },

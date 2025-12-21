@@ -9,6 +9,7 @@ import { Leaderboard, type RaceResult } from './Leaderboard';
 import { TRACKS } from '../game/TrackDefinitions';
 import type { Pilot } from '../game/PilotDefinitions';
 import { DebugLightingPanel } from './DebugLightingPanel';
+import { audioManager } from '../game/AudioManager';
 
 interface GameProps {
   shipConfig: ShipConfig;
@@ -373,6 +374,13 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           countdownRef.current = seconds;
           setCountdown(seconds);
 
+          // Play countdown sound for each second (5, 4, 3, 2, 1)
+          if (seconds > 0 && seconds <= 5) {
+            audioManager.playCountdown();
+          } else if (seconds === 0) {
+            audioManager.playRaceStart();
+          }
+
           // Traffic Light Visuals
           if (trafficLightRef.current) {
             // Reset all to grey
@@ -419,6 +427,9 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           setRaceState('racing');
           gameTimeRef.current = 0;  // Reset game time when race starts
           lapStartGameTime.current = 0;
+          
+          // Start random race music
+          audioManager.playRandomRaceMusic();
 
           // Fly Away Animation
           const light = trafficLightRef.current;
@@ -457,6 +468,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         if (!raceFinishedRef.current && playerShip.current?.finished) {
           raceFinishedRef.current = true;
           setRaceState('finished');
+          audioManager.playRaceFinish();
         }
 
       }, raceStartedRef.current, gameTimeRef.current);

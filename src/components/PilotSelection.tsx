@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PILOTS, type Pilot } from '../game/PilotDefinitions';
+import { audioManager } from '../game/AudioManager';
 
 interface PilotSelectionProps {
     onSelect: (pilot: Pilot) => void;
@@ -17,7 +18,8 @@ export default function PilotSelection({ onSelect, onBack }: PilotSelectionProps
                 {PILOTS.map((pilot) => (
                     <div
                         key={pilot.id}
-                        onClick={() => setSelectedPilot(pilot)}
+                        onClick={() => { audioManager.playClick(); setSelectedPilot(pilot); }}
+                        onMouseEnter={() => audioManager.playHover()}
                         className={`
                             relative bg-gray-900 bg-opacity-80 rounded-xl overflow-hidden cursor-pointer transition-all transform hover:scale-105
                             w-64 border-2 flex flex-col
@@ -60,13 +62,15 @@ export default function PilotSelection({ onSelect, onBack }: PilotSelectionProps
 
             <div className="flex space-x-6 mt-8">
                 <button
-                    onClick={onBack}
+                    onClick={() => { audioManager.playClick(); onBack(); }}
+                    onMouseEnter={() => audioManager.playHover()}
                     className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
                 >
                     BACK
                 </button>
                 <button
-                    onClick={() => selectedPilot && onSelect(selectedPilot)}
+                    onClick={() => { if (selectedPilot) { audioManager.playClick(); onSelect(selectedPilot); } }}
+                    onMouseEnter={() => audioManager.playHover()}
                     disabled={!selectedPilot}
                     className={`
                         px-8 py-3 font-bold rounded shadow-lg transition-all

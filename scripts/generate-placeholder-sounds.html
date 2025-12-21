@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nebula Rush - Sound Effect Generator</title>
+    <style>
+        body { font-family: monospace; background: #1a1a2e; color: #eee; padding: 20px; }
+        button { margin: 5px; padding: 10px 20px; cursor: pointer; background: #4a4a6a; color: white; border: none; border-radius: 4px; }
+        button:hover { background: #6a6a8a; }
+        .section { margin: 20px 0; padding: 15px; background: #2a2a4e; border-radius: 8px; }
+        h2 { color: #00ccff; }
+        a { color: #00ccff; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Nebula Rush Sound Effect Generator</h1>
+    
+    <div class="section">
+        <h2>Preview Sounds</h2>
+        <p>Click to preview each sound effect:</p>
+        <button onclick="playHover()">Hover (UI beep)</button>
+        <button onclick="playClick()">Click (UI confirm)</button>
+        <button onclick="playCountdown()">Countdown (beep)</button>
+        <button onclick="playRaceStart()">Race Start (whoosh)</button>
+        <button onclick="playBoost()">Boost (power surge)</button>
+        <button onclick="playLapComplete()">Lap Complete (chime)</button>
+        <button onclick="playRaceFinish()">Race Finish (fanfare)</button>
+    </div>
+
+    <div class="section">
+        <h2>Download Sounds</h2>
+        <p>Click to generate and download each sound as WAV (convert to MP3 with any converter):</p>
+        <button onclick="downloadSound('hover', generateHover)">Download hover.wav</button>
+        <button onclick="downloadSound('click', generateClick)">Download click.wav</button>
+        <button onclick="downloadSound('countdown', generateCountdown)">Download countdown.wav</button>
+        <button onclick="downloadSound('race_start', generateRaceStart)">Download race_start.wav</button>
+        <button onclick="downloadSound('boost', generateBoost)">Download boost.wav</button>
+        <button onclick="downloadSound('lap_complete', generateLapComplete)">Download lap_complete.wav</button>
+        <button onclick="downloadSound('race_finish', generateRaceFinish)">Download race_finish.wav</button>
+    </div>
+
+    <div class="section">
+        <h2>Free Sound Resources</h2>
+        <p>For higher quality sounds, check these free resources:</p>
+        <ul>
+            <li><a href="https://freesound.org/search/?q=sci-fi+ui" target="_blank">Freesound.org</a> - Search "sci-fi ui", "futuristic beep", "space whoosh"</li>
+            <li><a href="https://mixkit.co/free-sound-effects/sci-fi/" target="_blank">Mixkit</a> - Free sci-fi sound effects</li>
+            <li><a href="https://www.zapsplat.com/sound-effect-category/science-fiction/" target="_blank">ZapSplat</a> - Sci-fi category (free with attribution)</li>
+        </ul>
+    </div>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Hover - short high-pitched blip
+        function generateHover(ctx, duration = 0.08) {
+            const sampleRate = ctx.sampleRate;
+            const length = sampleRate * duration;
+            const buffer = ctx.createBuffer(1, length, sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < length; i++) {
+                const t = i / sampleRate;
+                const freq = 1200 + Math.sin(t * 50) * 200;
+                const envelope = Math.exp(-t * 30);
+                data[i] = Math.sin(2 * Math.PI * freq * t) * envelope * 0.3;
+            }
+            return buffer;
+        }
+
+        // Click - punchy confirmation sound
+        function generateClick(ctx, duration = 0.12) {
+            const sampleRate = ctx.sampleRate;
+            const length = sampleRate * duration;
+            const buffer = ctx.createBuffer(1, length, sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < length; i++) {
+                const t = i / sampleRate;
+                const freq = 800 - t * 2000;
+                const envelope = Math.exp(-t * 25);
+                data[i] = (Math.sin(2 * Math.PI * freq * t) + Math.sin(2 * Math.PI * freq * 1.5 * t) * 0.5) * envelope * 0.4;
+            }
+            return buffer;
+        }
+
+        // Countdown - single beep
+        function generateCountdown(ctx, duration = 0.2) {
+            const sampleRate = ctx.sampleRate;
+            const length = sampleRate * duration;
+            const buffer = ctx.createBuffer(1, length, sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < length; i++) {
+                const t = i / sampleRate;
+                const envelope = Math.sin(Math.PI * t / duration);
+                data[i] = Math.sin(2 * Math.PI * 880 * t) * envelope * 0.4;
+            }
+            return buffer;
+        }
+
+        // Race Start - ascending whoosh
+        function generateRaceStart(ctx, duration = 0.5) {
+            const sampleRate = ctx.sampleRate;
+            const length = sampleRate * duration;
+            const buffer = ctx.createBuffer(1, length, sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < length; i++) {
+                const t = i / sampleRate;
+                const freq = 200 + t * 1500;
+                const envelope = Math.sin(Math.PI * t / duration);
+                const noise = (Math.random() - 0.5) * 0.1;
+                data[i] = (Math.sin(2 * Math.PI * freq * t) * 0.5 + noise) * envelope * 0.5;
+            }
+            return buffer;
+        }
+
+        // Boost - sci-fi forcefield morph (bright, fast movement)
+        function generateBoost(ctx, duration = 0.4) {
+            const sampleRate = ctx.sampleRate;
+            const length = sampleRate * duration;
+            const buffer = ctx.createBuffer(1, length, sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < length; i++) {
+                const t = i / sampleRate;
+                // Fast frequency sweep (morph effect)
+                const sweepFreq = 200 + t * 2000; // Sweep from 200Hz to 2200Hz
+                // Add shimmer with high frequency modulation
+                const shimmer = Math.sin(2 * Math.PI * 8000 * t) * 0.15;
+                // Main tone with harmonics
+                const main = Math.sin(2 * Math.PI * sweepFreq * t);
+                const harmonic = Math.sin(2 * Math.PI * sweepFreq * 1.5 * t) * 0.5;
+                const subHarmonic = Math.sin(2 * Math.PI * sweepFreq * 0.5 * t) * 0.3;
+                // Bright noise burst
+                const noise = (Math.random() - 0.5) * 0.2 * Math.exp(-t * 15);
+                // Envelope: quick attack, sustain, fade
+                const envelope = Math.min(1, t / 0.02) * Math.exp(-t * 4);
+                data[i] = (main + harmonic + subHarmonic + shimmer + noise) * envelope * 0.4;
+            }
+            return buffer;
+        }
+
+        // Lap Complete - ascending chime
+        function generateLapComplete(ctx, duration = 0.4) {
+            const sampleRate = ctx.sampleRate;
+            const length = sampleRate * duration;
+            const buffer = ctx.createBuffer(1, length, sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            const notes = [523, 659, 784]; // C5, E5, G5
+            for (let i = 0; i < length; i++) {
+                const t = i / sampleRate;
+                let sample = 0;
+                notes.forEach((freq, idx) => {
+                    const noteStart = idx * 0.1;
+                    if (t >= noteStart) {
+                        const noteT = t - noteStart;
+                        const envelope = Math.exp(-noteT * 5);
+                        sample += Math.sin(2 * Math.PI * freq * noteT) * envelope * 0.3;
+                    }
+                });
+                data[i] = sample;
+            }
+            return buffer;
+        }
+
+        // Race Finish - triumphant fanfare
+        function generateRaceFinish(ctx, duration = 0.8) {
+            const sampleRate = ctx.sampleRate;
+            const length = sampleRate * duration;
+            const buffer = ctx.createBuffer(1, length, sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            const notes = [392, 523, 659, 784, 1047]; // G4, C5, E5, G5, C6
+            for (let i = 0; i < length; i++) {
+                const t = i / sampleRate;
+                let sample = 0;
+                notes.forEach((freq, idx) => {
+                    const noteStart = idx * 0.12;
+                    if (t >= noteStart) {
+                        const noteT = t - noteStart;
+                        const envelope = Math.exp(-noteT * 3);
+                        sample += Math.sin(2 * Math.PI * freq * noteT) * envelope * 0.2;
+                    }
+                });
+                data[i] = sample;
+            }
+            return buffer;
+        }
+
+        // Play functions
+        function playBuffer(buffer) {
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(audioCtx.destination);
+            source.start();
+        }
+
+        function playHover() { playBuffer(generateHover(audioCtx)); }
+        function playClick() { playBuffer(generateClick(audioCtx)); }
+        function playCountdown() { playBuffer(generateCountdown(audioCtx)); }
+        function playRaceStart() { playBuffer(generateRaceStart(audioCtx)); }
+        function playBoost() { playBuffer(generateBoost(audioCtx)); }
+        function playLapComplete() { playBuffer(generateLapComplete(audioCtx)); }
+        function playRaceFinish() { playBuffer(generateRaceFinish(audioCtx)); }
+
+        // Download as WAV
+        function downloadSound(name, generator) {
+            const offlineCtx = new OfflineAudioContext(1, 44100 * 1, 44100);
+            const buffer = generator(offlineCtx);
+            
+            // Convert to WAV
+            const wav = bufferToWav(buffer);
+            const blob = new Blob([wav], { type: 'audio/wav' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name + '.wav';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function bufferToWav(buffer) {
+            const numChannels = buffer.numberOfChannels;
+            const sampleRate = buffer.sampleRate;
+            const format = 1; // PCM
+            const bitDepth = 16;
+            
+            const bytesPerSample = bitDepth / 8;
+            const blockAlign = numChannels * bytesPerSample;
+            
+            const data = buffer.getChannelData(0);
+            const samples = data.length;
+            const dataSize = samples * blockAlign;
+            const bufferSize = 44 + dataSize;
+            
+            const arrayBuffer = new ArrayBuffer(bufferSize);
+            const view = new DataView(arrayBuffer);
+            
+            // WAV header
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + dataSize, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, format, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * blockAlign, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bitDepth, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, dataSize, true);
+            
+            // Write samples
+            let offset = 44;
+            for (let i = 0; i < samples; i++) {
+                const sample = Math.max(-1, Math.min(1, data[i]));
+                view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+                offset += 2;
+            }
+            
+            return arrayBuffer;
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+    </script>
+</body>
+</html>
