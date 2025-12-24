@@ -45,6 +45,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   // Actually, let's keep 'lap' as state since it's low freq (once per minute maybe).
   const [lap, setLap] = useState(0); // Lap 0 = Before Start Line
   const [finalRank, setFinalRank] = useState<number | null>(null);
+  const [currentMusicTrackName, setCurrentMusicTrackName] = useState<string | null>(null);
 
   // High-Freq HUD Refs
   const speedRef = useRef<HTMLDivElement>(null);
@@ -56,7 +57,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const [hudVisible, setHudVisible] = useState(true);
 
   const [raceState, setRaceState] = useState<RaceState>('intro');
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState(7);
   // Removed debugInfo state
   const [environment, setEnvironment] = useState<EnvironmentConfig | null>(null);
 
@@ -69,7 +70,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const raceFinishedRef = useRef(false); // Player finished
   const allFinishedRef = useRef(false); // All ships finished
 
-  const countdownRef = useRef(5);
+  const countdownRef = useRef(7);
   const countdownStartTime = useRef(0); // Will be set on mount
   const trafficLightRef = useRef<THREE.Group | null>(null);
 
@@ -132,7 +133,18 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
+
+    // Subscribe to Music Changes
+    setCurrentMusicTrackName(audioManager.getCurrentTrackName()); // Set initial
+    audioManager.setTrackChangeListener((name) => {
+      setCurrentMusicTrackName(name);
+    });
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      audioManager.setTrackChangeListener(() => { }); // Clear listener
+    };
   }, []);
 
   useEffect(() => {
@@ -246,8 +258,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     countdownStartTime.current = Date.now() + START_DELAY;
 
     raceStartedRef.current = false;
-    countdownRef.current = 5;
-    setCountdown(5);
+    countdownRef.current = 7;
+    setCountdown(7);
 
     // Create Start Line
     const startLine = createStartLineMesh(trackCurve);
@@ -367,7 +379,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         playerShip.current.state.throttle = 0;
 
         // Update Countdown Timer
-        const timeRemaining = Math.max(0, 5000 - (Date.now() - countdownStartTime.current));
+        const timeRemaining = Math.max(0, 7000 - (Date.now() - countdownStartTime.current));
         const seconds = Math.ceil(timeRemaining / 1000);
 
         if (seconds !== countdownRef.current) {
@@ -428,8 +440,10 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           gameTimeRef.current = 0;  // Reset game time when race starts
           lapStartGameTime.current = 0;
 
-          // Start random race music
-          audioManager.playRandomRaceMusic();
+          // Start random race music ONLY if not already playing
+          if (!audioManager.isPlaying()) {
+            audioManager.playRandomRaceMusic();
+          }
           audioManager.playEngineRumble();
 
           // Fly Away Animation
@@ -687,12 +701,13 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       // setRank(1);
       setHudVisible(true);
       setRaceState('intro');
-      setCountdown(5);
+      setCountdown(7);
       setRaceResults([]);
       raceStartedRef.current = false;
       raceFinishedRef.current = false;
       allFinishedRef.current = false;
 
+      setLastLapTime(0); // Reset Last Lap Display
       setCurrentTrackIndex(prev => prev + 1);
     }
   };
@@ -710,34 +725,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       <div className="absolute inset-0 pointer-events-none">
 
         {/* HUD - Hide on Results or Toggle */}
-        {raceState !== 'results' && hudVisible && (
-          // Use style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} instead of bg-black bg-opacity-50 (which might use oklch in TW4)
-          <div className="absolute top-4 left-4 font-mono z-10 p-4 rounded pointer-events-auto" style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: '#ffffff' }}>
-            <div ref={speedRef} className="text-4xl font-bold mb-2" style={{ color: '#22d3ee' }}>0 km/h</div>
-            <div className="text-xl">LAP: {Math.min(lap, 5)} / 5</div>
-            <div ref={timeRef} className="text-xl" style={{ color: '#facc15' }}>TIME: 00:00.00</div>
-            {lastLapTime > 0 && <div className="text-lg" style={{ color: '#4ade80' }}>LAST: {formatTime(lastLapTime)}</div>}
-            <div ref={rankRef} className="text-xl mt-2" style={{ color: '#c084fc' }}>RANK: 1 / {opponentManager.current ? opponentManager.current.opponents.length + 1 : 20}</div>
-            <div className="text-sm mt-4 border-t border-gray-600 pt-2">
-              <div>↑/W: Accelerate</div>
-              <div>Q/E: Steer</div>
-              <div>←/→ or A/D: Side Thrusters</div>
-              <div>SPACE/↓/S: Jump</div>
-              <div className="mt-2 cursor-pointer hover:text-white" style={{ color: '#22d3ee' }} onClick={() => handleScreenshot()}>[P] Screenshot</div>
-            </div>
-
-            {/* DEBUG: Track Info */}
-            <div className="mt-4 text-gray-400 text-xs">
-              TRACK: {currentTrack.name}
-            </div>
-            {environment && (
-              <div className="mt-2 text-cyan-200 text-xs border-t border-gray-600 pt-2">
-                <div>TIME: {environment.timeOfDay.toUpperCase()}</div>
-                <div>WEATHER: {environment.weather.toUpperCase()}</div>
-              </div>
-            )}
-          </div>
-        )}
+        {/* HUD Removed (Consolidated) */}
 
         {/* Waiting Overlay */}
         {raceState === 'finished' && (
@@ -768,7 +756,70 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         )}
 
         {/* Countdown Overlay (Only shows if > 0 and not started) */}
-        {!raceStartedRef.current && countdown > 0 && (
+        {!raceFinishedRef.current && hudVisible && (
+          <div className="absolute inset-0 pointer-events-none">
+            {/* Top Left: Speed, Lap, Time */}
+            <div className="absolute top-8 left-8 space-y-2 p-4 rounded-lg" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+              <div ref={speedRef} className="text-4xl font-bold italic text-cyan-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                SPEED: 0 km/h
+              </div>
+              <div className="text-2xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                LAP: {Math.max(1, Math.min(lap, 5))} / 5
+              </div>
+              <div ref={timeRef} className="text-2xl font-bold text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                TIME: 00:00.00
+              </div>
+              {lastLapTime > 0 && (
+                <div className="text-lg font-bold text-green-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                  LAST: {formatTime(lastLapTime)}
+                </div>
+              )}
+            </div>
+
+            {/* Top Right: Music Track */}
+            {currentMusicTrackName && (
+              <div className="absolute top-8 right-8 text-right animate-pulse p-3 rounded-lg" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                <div className="text-lg font-bold text-purple-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                  🎵 {currentMusicTrackName}
+                </div>
+              </div>
+            )}
+
+            {/* Bottom Left: Rank */}
+            <div ref={rankRef} className="absolute bottom-8 left-8 text-6xl font-black italic text-white drop-shadow-[0_4px_8px_rgba(0,0,0,1)]">
+              RANK: 1 / {opponentCount + 1}
+            </div>
+            {/* Bottom Right: Minimap */}
+            <div className="absolute bottom-8 right-8 p-2 rounded z-10" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
+              <div className="text-white text-xs mb-1">MINIMAP</div>
+              <div ref={minimapRef} className="border-2" style={{ borderColor: '#22d3ee' }}></div>
+            </div>
+
+            {/* Debug Info (Top Right) - HIDDEN */}
+            {/* <div className="absolute top-8 right-8 text-white font-mono text-xs p-2 rounded z-10" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+              <div ref={debugTrackProgressRef}>Track Progress: 0.0%</div>
+              <div ref={debugPositionRef}>Position: (0.0, 0.0)</div>
+            </div> */}
+
+            {/* Controls Hint (Bottom Center) */}
+            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-white text-sm font-mono p-2 rounded z-10" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+              <div>↑/W: Accelerate | Q/E: Steer | ←/→ or A/D: Side Thrusters | SPACE/↓/S: Jump</div>
+              <div className="mt-2 cursor-pointer hover:text-cyan-400 text-cyan-200" onClick={() => handleScreenshot()}>[P] Screenshot</div>
+            </div>
+
+            {/* Track Info (Top Center) */}
+            <div className="absolute top-8 left-1/2 transform -translate-x-1/2 text-white text-lg font-bold italic drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] p-3 rounded-lg text-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+              TRACK: {currentTrack.name}
+              {environment && (
+                <div className="text-xs text-cyan-200 mt-1 font-normal opacity-80">
+                  {environment.timeOfDay.toUpperCase()} | {environment.weather.toUpperCase()}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!raceStartedRef.current && countdown > 0 && countdown <= 5 && (
           <div className="absolute inset-0 flex items-center justify-center z-40">
             <div className="text-9xl font-bold animate-pulse drop-shadow-lg" style={{ color: '#ef4444' }}>
               {countdown}
@@ -783,19 +834,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           </div>
         )}
 
-        {/* Debug Info & Minimap - Hide on results */}
-        {raceState !== 'results' && (
-          <>
-            <div className="absolute top-4 right-4 text-white font-mono text-xs p-2 rounded z-10" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-              <div ref={debugTrackProgressRef}>Track Progress: 0.0%</div>
-              <div ref={debugPositionRef}>Position: (0.0, 0.0)</div>
-            </div>
-            <div className="absolute bottom-4 right-4 p-2 rounded z-10" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
-              <div className="text-white text-xs mb-1">MINIMAP</div>
-              <div ref={minimapRef} className="border-2" style={{ borderColor: '#22d3ee' }}></div>
-            </div>
-          </>
-        )}
+        {/* Debug Info & Minimap - Consolidated into Main HUD */}
       </div>
     </div>
   );

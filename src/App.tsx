@@ -19,16 +19,16 @@ import { TRACKS } from './game/TrackDefinitions';
 // Calculate display stats (0-100) dynamically from SHIP_STATS
 const getDisplayStats = (type: ShipType) => {
   const stats = SHIP_STATS[type];
-  
+
   // Calculate top speed from friction: topSpeed = accelFactor / (1 - friction)
   const topSpeed = stats.accelFactor / (1 - stats.friction);
-  
+
   // Get min/max across all ships for normalization
   const allStats = Object.values(SHIP_STATS);
   const allTopSpeeds = allStats.map(s => s.accelFactor / (1 - s.friction));
   const allAccels = allStats.map(s => s.accelFactor);
   const allHandling = allStats.map(s => s.turnSpeed + (1 - s.slideFactor) * 0.5); // Combined turn + grip
-  
+
   const minSpeed = Math.min(...allTopSpeeds);
   const maxSpeed = Math.max(...allTopSpeeds);
   const minAccel = Math.min(...allAccels);
@@ -36,11 +36,11 @@ const getDisplayStats = (type: ShipType) => {
   const handling = stats.turnSpeed + (1 - stats.slideFactor) * 0.5;
   const minHandling = Math.min(...allHandling);
   const maxHandling = Math.max(...allHandling);
-  
+
   // Normalize to 50-100 range (so even the worst stat looks decent)
-  const normalize = (val: number, min: number, max: number) => 
+  const normalize = (val: number, min: number, max: number) =>
     Math.round(50 + ((val - min) / (max - min)) * 50);
-  
+
   return {
     speed: normalize(topSpeed, minSpeed, maxSpeed),
     accel: normalize(stats.accelFactor, minAccel, maxAccel),
@@ -51,13 +51,13 @@ const getDisplayStats = (type: ShipType) => {
 };
 
 // Reusable button with audio feedback
-const AudioButton = ({ 
-  onClick, 
-  className, 
-  children 
-}: { 
-  onClick: () => void; 
-  className: string; 
+const AudioButton = ({
+  onClick,
+  className,
+  children
+}: {
+  onClick: () => void;
+  className: string;
   children: React.ReactNode;
 }) => (
   <button
@@ -171,7 +171,6 @@ function App() {
   };
 
   const handleGameExit = () => {
-    audioManager.stopMusic();
     setScreen('start');
   };
 
@@ -239,7 +238,7 @@ function App() {
               LIGHTING DEBUG
             </button>
             */}
-{/* Track Analysis button hidden - uncomment for debugging
+            {/* Track Analysis button hidden - uncomment for debugging
             <AudioButton
               onClick={() => setScreen('analysis')}
               className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
@@ -301,7 +300,7 @@ function App() {
           <div className="relative z-10 flex flex-col items-center justify-center h-full p-8">
             <h2 className="text-4xl font-bold text-white mb-8">SELECT YOUR SHIP</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto max-h-[70vh] p-4 scrollbar-hide">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto max-h-[85vh] p-4 scrollbar-hide">
               {/* SHIP 1: SPEEDSTER */}
               <div
                 onClick={() => { audioManager.playClick(); handleShipSelect({ color: 0x00ccff, ...SHIP_STATS.speedster, type: 'speedster' }); }}
@@ -414,7 +413,7 @@ function App() {
           <div className="relative z-10 flex flex-col items-center justify-center h-full p-8">
             <h2 className="text-4xl font-bold text-white mb-8">SELECT TRACK</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto max-h-[70vh] p-4 scrollbar-hide">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto max-h-[85vh] p-4 scrollbar-hide">
               {TRACKS.map((track, index) => (
                 <div
                   key={track.id}

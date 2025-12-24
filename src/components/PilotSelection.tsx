@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { PILOTS, type Pilot } from '../game/PilotDefinitions';
 import { audioManager } from '../game/AudioManager';
 
@@ -8,22 +7,21 @@ interface PilotSelectionProps {
 }
 
 export default function PilotSelection({ onSelect, onBack }: PilotSelectionProps) {
-    const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
+
 
     return (
         <div className="relative z-10 flex flex-col items-center justify-center h-full p-8">
             <h2 className="text-4xl font-bold text-white mb-8 animate-pulse text-center">CHOOSE YOUR PILOT</h2>
 
-            <div className="flex flex-wrap justify-center gap-6 w-full max-w-7xl overflow-y-auto max-h-[70vh] p-4 scrollbar-hide">
+            <div className="flex flex-wrap justify-center gap-6 w-full max-w-7xl overflow-y-auto max-h-[85vh] p-4 scrollbar-hide">
                 {PILOTS.map((pilot) => (
                     <div
                         key={pilot.id}
-                        onClick={() => { audioManager.playClick(); setSelectedPilot(pilot); }}
+                        onClick={() => { audioManager.playClick(); onSelect(pilot); }}
                         onMouseEnter={() => audioManager.playHover()}
                         className={`
                             relative bg-gray-900 bg-opacity-80 rounded-xl overflow-hidden cursor-pointer transition-all transform hover:scale-105
-                            w-64 border-2 flex flex-col
-                            ${selectedPilot?.id === pilot.id ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.5)] scale-105' : 'border-gray-700 hover:border-gray-500'}
+                            w-64 border-2 flex flex-col border-gray-700 hover:border-gray-500 hover:shadow-[0_0_20px_rgba(34,211,238,0.3)]
                         `}
                     >
                         {/* Image */}
@@ -37,7 +35,7 @@ export default function PilotSelection({ onSelect, onBack }: PilotSelectionProps
 
                         {/* Info */}
                         <div className="p-4 flex-1 flex flex-col">
-                            <h3 className={`text-xl font-bold mb-2 ${selectedPilot?.id === pilot.id ? 'text-cyan-400' : 'text-white'}`}>
+                            <h3 className="text-xl font-bold mb-2 text-white group-hover:text-cyan-400">
                                 {pilot.name}
                             </h3>
                             <p className="text-gray-400 text-sm italic mb-4">{pilot.bio}</p>
@@ -50,15 +48,12 @@ export default function PilotSelection({ onSelect, onBack }: PilotSelectionProps
                             </div>
                         </div>
 
-                        {/* Selected Indicator */}
-                        {selectedPilot?.id === pilot.id && (
-                            <div className="absolute top-2 right-2 bg-cyan-500 text-black font-bold px-2 py-1 rounded text-xs">
-                                SELECTED
-                            </div>
-                        )}
+
                     </div>
                 ))}
             </div>
+
+
 
             <div className="flex space-x-6 mt-8">
                 <button
@@ -68,23 +63,11 @@ export default function PilotSelection({ onSelect, onBack }: PilotSelectionProps
                 >
                     BACK
                 </button>
-                <button
-                    onClick={() => { if (selectedPilot) { audioManager.playClick(); onSelect(selectedPilot); } }}
-                    onMouseEnter={() => audioManager.playHover()}
-                    disabled={!selectedPilot}
-                    className={`
-                        px-8 py-3 font-bold rounded shadow-lg transition-all
-                        ${selectedPilot
-                            ? 'bg-cyan-600 hover:bg-cyan-500 text-white transform hover:scale-105'
-                            : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}
-                    `}
-                >
-                    CONFIRM PILOT
-                </button>
             </div>
-        </div>
+        </div >
     );
 }
+
 
 function StatRow({ label, value, color }: { label: string, value: number, color: string }) {
     // Map -2..+2 to 1..5 for visual width (20% to 100%)

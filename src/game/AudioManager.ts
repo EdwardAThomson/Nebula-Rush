@@ -21,6 +21,7 @@ class AudioManager {
     private currentMusic: HTMLAudioElement | null = null;
     private currentMusicTrack: MusicTrack | null = null;
     private engineRumbleAudio: HTMLAudioElement | null = null;
+    private onTrackChange: ((name: string) => void) | null = null;
 
     // Cooldown tracking for hover sounds
     private lastHoverTime: number = 0;
@@ -180,6 +181,8 @@ class AudioManager {
 
         // Don't restart if already playing this track
         if (this.currentMusicTrack === track && this.currentMusic && !this.currentMusic.paused) {
+            console.log(`[AudioManager] Already playing ${track}. Updating loop to ${loop}.`);
+            this.currentMusic.loop = loop;
             return;
         }
 
@@ -202,6 +205,12 @@ class AudioManager {
         this.currentMusic = audio;
         this.currentMusicTrack = track;
 
+        // Notify listener
+        if (this.onTrackChange) {
+            const name = this.getCurrentTrackName();
+            if (name) this.onTrackChange(name);
+        }
+
         audio.play().catch(() => {
             // Ignore autoplay errors
         });
@@ -209,6 +218,7 @@ class AudioManager {
 
     public stopMusic() {
         if (this.currentMusic) {
+            this.currentMusic.onended = null; // Clear auto-next listener
             this.currentMusic.pause();
             this.currentMusic.currentTime = 0;
         }
@@ -287,10 +297,33 @@ class AudioManager {
     }
 
     // Play a random track from the jukebox (for race start)
+    // Play a random track from the jukebox (for race start)
     public playRandomRaceMusic() {
-        const randomIndex = Math.floor(Math.random() * this.raceTracks.length);
-        const track = this.raceTracks[randomIndex];
-        this.playMusic(track, true);
+        // Pick a random track that is DIFFERENT from the current one (if possible)
+        let availableTracks = this.raceTracks;
+        if (this.currentMusicTrack && this.raceTracks.length > 1) {
+            availableTracks = this.raceTracks.filter(t => t !== this.currentMusicTrack);
+        }
+
+        console.log(`[AudioManager] Random Race Music. Current: ${this.currentMusicTrack}. Available: ${JSON.stringify(availableTracks)}`);
+
+        const randomIndex = Math.floor(Math.random() * availableTracks.length);
+        const track = availableTracks[randomIndex];
+        console.log(`[AudioManager] Selected track index ${randomIndex}: ${track}`);
+
+        // Play without looping, so we can trigger the next track when done
+        this.playMusic(track, false);
+
+        // When this track ends, play another random one
+        if (this.currentMusic) {
+            this.currentMusic.onended = () => {
+                this.playRandomRaceMusic();
+            };
+        }
+    }
+
+    public setTrackChangeListener(callback: (name: string) => void) {
+        this.onTrackChange = callback;
     }
 
     // Get current track name for display
@@ -302,6 +335,18 @@ class AudioManager {
             orbitalVelocity: 'Orbital Velocity'
         };
         return names[this.currentMusicTrack];
+    }
+
+    public getCurrentTime(): number {
+        return this.currentMusic ? this.currentMusic.currentTime : 0;
+    }
+
+    public getDuration(): number {
+        return this.currentMusic ? this.currentMusic.duration : 0;
+    }
+
+    public isPlaying(): boolean {
+        return this.currentMusic ? !this.currentMusic.paused : false;
     }
 
     // Preload all sounds (call on app init)
