@@ -5,8 +5,8 @@
 //   audioManager.playClick();
 //   audioManager.playMusic('menu');
 
-type SoundEffect = 'hover' | 'click' | 'countdown' | 'raceStart' | 'lapComplete' | 'raceFinish' | 'boost';
-type MusicTrack = 'neonVelocity' | 'zeroHorizon';
+type SoundEffect = 'hover' | 'click' | 'countdown' | 'raceStart' | 'lapComplete' | 'raceFinish' | 'boost' | 'engineRumble';
+type MusicTrack = 'neonVelocity' | 'zeroHorizon' | 'orbitalVelocity';
 
 interface AudioConfig {
     sfxVolume: number;      // 0-1
@@ -20,11 +20,12 @@ class AudioManager {
     private musicTracks: Map<MusicTrack, HTMLAudioElement> = new Map();
     private currentMusic: HTMLAudioElement | null = null;
     private currentMusicTrack: MusicTrack | null = null;
-    
+    private engineRumbleAudio: HTMLAudioElement | null = null;
+
     // Cooldown tracking for hover sounds
     private lastHoverTime: number = 0;
-    private hoverCooldown: number = 100; // ms between hover sounds
-    
+    private hoverCooldown: number = 500; // ms between hover sounds
+
     private config: AudioConfig = {
         sfxVolume: 0.5,
         musicVolume: 0.3,
@@ -40,17 +41,19 @@ class AudioManager {
         raceStart: '/assets/audio/sfx/race_start.mp3',
         lapComplete: '/assets/audio/sfx/lap_complete.mp3',
         raceFinish: '/assets/audio/sfx/race_finish.mp3',
-        boost: '/assets/audio/sfx/boost.mp3'
+        boost: '/assets/audio/sfx/boost.mp3',
+        engineRumble: '/assets/audio/sfx/engine_rumble.mp3'
     };
 
     // Music track definitions (jukebox)
     private musicPaths: Record<MusicTrack, string> = {
         neonVelocity: '/assets/audio/music/Neon_Velocity.mp3',
-        zeroHorizon: '/assets/audio/music/Zero_Horizon.mp3'
+        zeroHorizon: '/assets/audio/music/Zero_Horizon.mp3',
+        orbitalVelocity: '/assets/audio/music/Orbital_Velocity.mp3'
     };
 
     // List of race music tracks for random selection
-    private raceTracks: MusicTrack[] = ['neonVelocity', 'zeroHorizon'];
+    private raceTracks: MusicTrack[] = ['neonVelocity', 'zeroHorizon', 'orbitalVelocity'];
 
     constructor() {
         // Load config from localStorage if available
@@ -101,10 +104,10 @@ class AudioManager {
         if (!this.config.sfxEnabled) return;
 
         const pool = this.preloadSfx(effect);
-        
+
         // Find an audio element that's not currently playing
         const available = pool.find(audio => audio.paused || audio.ended);
-        
+
         if (available) {
             available.currentTime = 0;
             available.volume = this.config.sfxVolume;
@@ -114,7 +117,7 @@ class AudioManager {
         } else {
             // All instances busy, reuse the first one
             pool[0].currentTime = 0;
-            pool[0].play().catch(() => {});
+            pool[0].play().catch(() => { });
         }
     }
 
@@ -150,6 +153,27 @@ class AudioManager {
         this.playSfx('boost');
     }
 
+    public playEngineRumble() {
+        if (!this.config.sfxEnabled) return;
+
+        if (!this.engineRumbleAudio) {
+            this.engineRumbleAudio = new Audio(this.sfxPaths.engineRumble);
+            this.engineRumbleAudio.loop = true;
+            this.engineRumbleAudio.volume = this.config.sfxVolume * 0.6; // Slightly quieter base volume
+        }
+
+        if (this.engineRumbleAudio.paused) {
+            this.engineRumbleAudio.play().catch(() => { });
+        }
+    }
+
+    public stopEngineRumble() {
+        if (this.engineRumbleAudio) {
+            this.engineRumbleAudio.pause();
+            this.engineRumbleAudio.currentTime = 0;
+        }
+    }
+
     // Music controls
     public playMusic(track: MusicTrack, loop: boolean = true) {
         if (!this.config.musicEnabled) return;
@@ -174,7 +198,7 @@ class AudioManager {
         audio.volume = this.config.musicVolume;
         audio.loop = loop;
         audio.currentTime = 0;
-        
+
         this.currentMusic = audio;
         this.currentMusicTrack = track;
 
@@ -200,7 +224,7 @@ class AudioManager {
 
     public resumeMusic() {
         if (this.currentMusic && this.config.musicEnabled) {
-            this.currentMusic.play().catch(() => {});
+            this.currentMusic.play().catch(() => { });
         }
     }
 
@@ -208,7 +232,7 @@ class AudioManager {
     public setSfxVolume(volume: number) {
         this.config.sfxVolume = Math.max(0, Math.min(1, volume));
         this.saveConfig();
-        
+
         // Update all cached sounds
         this.sfxCache.forEach(pool => {
             pool.forEach(audio => {
@@ -220,7 +244,7 @@ class AudioManager {
     public setMusicVolume(volume: number) {
         this.config.musicVolume = Math.max(0, Math.min(1, volume));
         this.saveConfig();
-        
+
         if (this.currentMusic) {
             this.currentMusic.volume = this.config.musicVolume;
         }
@@ -235,13 +259,13 @@ class AudioManager {
     public toggleMusic(): boolean {
         this.config.musicEnabled = !this.config.musicEnabled;
         this.saveConfig();
-        
+
         if (!this.config.musicEnabled) {
             this.pauseMusic();
         } else if (this.currentMusic) {
             this.resumeMusic();
         }
-        
+
         return this.config.musicEnabled;
     }
 
@@ -274,7 +298,8 @@ class AudioManager {
         if (!this.currentMusicTrack) return null;
         const names: Record<MusicTrack, string> = {
             neonVelocity: 'Neon Velocity',
-            zeroHorizon: 'Zero Horizon'
+            zeroHorizon: 'Zero Horizon',
+            orbitalVelocity: 'Orbital Velocity'
         };
         return names[this.currentMusicTrack];
     }

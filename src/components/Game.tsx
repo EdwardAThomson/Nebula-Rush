@@ -427,9 +427,10 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           setRaceState('racing');
           gameTimeRef.current = 0;  // Reset game time when race starts
           lapStartGameTime.current = 0;
-          
+
           // Start random race music
           audioManager.playRandomRaceMusic();
+          audioManager.playEngineRumble();
 
           // Fly Away Animation
           const light = trafficLightRef.current;
@@ -469,6 +470,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           raceFinishedRef.current = true;
           setRaceState('finished');
           audioManager.playRaceFinish();
+          audioManager.stopEngineRumble();
         }
 
       }, raceStartedRef.current, gameTimeRef.current);
@@ -661,6 +663,9 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       if (mountRef.current && mountRef.current.contains(renderer.domElement)) {
         mountRef.current.removeChild(renderer.domElement);
       }
+
+      // Stop engine sound on unmount
+      audioManager.stopEngineRumble();
     };
   }, [currentTrackIndex]);
 

@@ -1,19 +1,50 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Nebula Rush - Sound Effect Generator</title>
     <style>
-        body { font-family: monospace; background: #1a1a2e; color: #eee; padding: 20px; }
-        button { margin: 5px; padding: 10px 20px; cursor: pointer; background: #4a4a6a; color: white; border: none; border-radius: 4px; }
-        button:hover { background: #6a6a8a; }
-        .section { margin: 20px 0; padding: 15px; background: #2a2a4e; border-radius: 8px; }
-        h2 { color: #00ccff; }
-        a { color: #00ccff; }
+        body {
+            font-family: monospace;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+        }
+
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            cursor: pointer;
+            background: #4a4a6a;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background: #6a6a8a;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2a2a4e;
+            border-radius: 8px;
+        }
+
+        h2 {
+            color: #00ccff;
+        }
+
+        a {
+            color: #00ccff;
+        }
     </style>
 </head>
+
 <body>
     <h1>🚀 Nebula Rush Sound Effect Generator</h1>
-    
+
     <div class="section">
         <h2>Preview Sounds</h2>
         <p>Click to preview each sound effect:</p>
@@ -24,6 +55,7 @@
         <button onclick="playBoost()">Boost (power surge)</button>
         <button onclick="playLapComplete()">Lap Complete (chime)</button>
         <button onclick="playRaceFinish()">Race Finish (fanfare)</button>
+        <button onclick="playEngineRumble()">Engine Rumble (loop)</button>
     </div>
 
     <div class="section">
@@ -36,15 +68,26 @@
         <button onclick="downloadSound('boost', generateBoost)">Download boost.wav</button>
         <button onclick="downloadSound('lap_complete', generateLapComplete)">Download lap_complete.wav</button>
         <button onclick="downloadSound('race_finish', generateRaceFinish)">Download race_finish.wav</button>
+        <button onclick="downloadSound('engine_rumble', generateEngineRumble)">Download engine_rumble.wav</button>
+
+        <p style="margin-top: 20px; font-size: 0.9em; color: #aaa;">
+            <strong>How to convert to MP3:</strong><br>
+            Use simple command line:
+            <br>
+            <code>ffmpeg -i input.wav output.mp3</code>
+        </p>
     </div>
 
     <div class="section">
         <h2>Free Sound Resources</h2>
         <p>For higher quality sounds, check these free resources:</p>
         <ul>
-            <li><a href="https://freesound.org/search/?q=sci-fi+ui" target="_blank">Freesound.org</a> - Search "sci-fi ui", "futuristic beep", "space whoosh"</li>
-            <li><a href="https://mixkit.co/free-sound-effects/sci-fi/" target="_blank">Mixkit</a> - Free sci-fi sound effects</li>
-            <li><a href="https://www.zapsplat.com/sound-effect-category/science-fiction/" target="_blank">ZapSplat</a> - Sci-fi category (free with attribution)</li>
+            <li><a href="https://freesound.org/search/?q=sci-fi+ui" target="_blank">Freesound.org</a> - Search "sci-fi
+                ui", "futuristic beep", "space whoosh"</li>
+            <li><a href="https://mixkit.co/free-sound-effects/sci-fi/" target="_blank">Mixkit</a> - Free sci-fi sound
+                effects</li>
+            <li><a href="https://www.zapsplat.com/sound-effect-category/science-fiction/" target="_blank">ZapSplat</a> -
+                Sci-fi category (free with attribution)</li>
         </ul>
     </div>
 
@@ -52,15 +95,16 @@
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
         // Hover - short high-pitched blip
-        function generateHover(ctx, duration = 0.08) {
+        function generateHover(ctx, duration = 0.1) {
             const sampleRate = ctx.sampleRate;
             const length = sampleRate * duration;
             const buffer = ctx.createBuffer(1, length, sampleRate);
             const data = buffer.getChannelData(0);
-            
+
             for (let i = 0; i < length; i++) {
                 const t = i / sampleRate;
-                const freq = 1200 + Math.sin(t * 50) * 200;
+                // Lower frequency: 400Hz base (was 1200Hz)
+                const freq = 400 + Math.sin(t * 50) * 10;
                 const envelope = Math.exp(-t * 30);
                 data[i] = Math.sin(2 * Math.PI * freq * t) * envelope * 0.3;
             }
@@ -73,12 +117,13 @@
             const length = sampleRate * duration;
             const buffer = ctx.createBuffer(1, length, sampleRate);
             const data = buffer.getChannelData(0);
-            
+
             for (let i = 0; i < length; i++) {
                 const t = i / sampleRate;
-                const freq = 800 - t * 2000;
+                // Deeper mechanical click: starts at 400Hz (was 800Hz  and 2000)
+                const freq = 250 - t * 500;
                 const envelope = Math.exp(-t * 25);
-                data[i] = (Math.sin(2 * Math.PI * freq * t) + Math.sin(2 * Math.PI * freq * 1.5 * t) * 0.5) * envelope * 0.4;
+                data[i] = (Math.sin(2 * Math.PI * freq * t) + Math.sin(2 * Math.PI * freq * 1.5 * t) * 0.5) * envelope * 0.6; // Increased gain slightly for visibility
             }
             return buffer;
         }
@@ -89,7 +134,7 @@
             const length = sampleRate * duration;
             const buffer = ctx.createBuffer(1, length, sampleRate);
             const data = buffer.getChannelData(0);
-            
+
             for (let i = 0; i < length; i++) {
                 const t = i / sampleRate;
                 const envelope = Math.sin(Math.PI * t / duration);
@@ -99,15 +144,15 @@
         }
 
         // Race Start - ascending whoosh
-        function generateRaceStart(ctx, duration = 0.5) {
+        function generateRaceStart(ctx, duration = 1.2) {
             const sampleRate = ctx.sampleRate;
             const length = sampleRate * duration;
             const buffer = ctx.createBuffer(1, length, sampleRate);
             const data = buffer.getChannelData(0);
-            
+
             for (let i = 0; i < length; i++) {
                 const t = i / sampleRate;
-                const freq = 200 + t * 1500;
+                const freq = 100 + t * 400;
                 const envelope = Math.sin(Math.PI * t / duration);
                 const noise = (Math.random() - 0.5) * 0.1;
                 data[i] = (Math.sin(2 * Math.PI * freq * t) * 0.5 + noise) * envelope * 0.5;
@@ -115,28 +160,36 @@
             return buffer;
         }
 
-        // Boost - sci-fi forcefield morph (bright, fast movement)
-        function generateBoost(ctx, duration = 0.4) {
+        // Boost - sci-fi forcefield morph (deeper, longer power surge)
+        function generateBoost(ctx, duration = 1.2) {
             const sampleRate = ctx.sampleRate;
             const length = sampleRate * duration;
             const buffer = ctx.createBuffer(1, length, sampleRate);
             const data = buffer.getChannelData(0);
-            
+
             for (let i = 0; i < length; i++) {
                 const t = i / sampleRate;
-                // Fast frequency sweep (morph effect)
-                const sweepFreq = 200 + t * 2000; // Sweep from 200Hz to 2200Hz
-                // Add shimmer with high frequency modulation
-                const shimmer = Math.sin(2 * Math.PI * 8000 * t) * 0.15;
+                // Slower, deeper frequency sweep (morph effect)
+                const sweepFreq = 20 + t * 100; // Sweep from 50Hz to ~200Hz
+                // Add shimmer with lower frequency modulation
+                const shimmer = Math.sin(2 * Math.PI * 3000 * t) * 0.15;
                 // Main tone with harmonics
                 const main = Math.sin(2 * Math.PI * sweepFreq * t);
                 const harmonic = Math.sin(2 * Math.PI * sweepFreq * 1.5 * t) * 0.5;
                 const subHarmonic = Math.sin(2 * Math.PI * sweepFreq * 0.5 * t) * 0.3;
                 // Bright noise burst
-                const noise = (Math.random() - 0.5) * 0.2 * Math.exp(-t * 15);
-                // Envelope: quick attack, sustain, fade
-                const envelope = Math.min(1, t / 0.02) * Math.exp(-t * 4);
-                data[i] = (main + harmonic + subHarmonic + shimmer + noise) * envelope * 0.4;
+                // const noise = (Math.random() - 0.5) * 0.2 * Math.exp(-t * 10);
+                // Envelope: quick attack, sustain, slower fade for longer duration
+                const envelope = Math.min(1, t / 0.05) * Math.exp(-t * 2.5);
+                // data[i] = (main + harmonic + subHarmonic + shimmer + noise) * envelope * 0.4;
+
+                // data[i] = (main + harmonic + subHarmonic) * envelope * 1.4;
+                data[i] = (main + subHarmonic) * envelope * 0.9;
+
+
+
+
+
             }
             return buffer;
         }
@@ -147,7 +200,7 @@
             const length = sampleRate * duration;
             const buffer = ctx.createBuffer(1, length, sampleRate);
             const data = buffer.getChannelData(0);
-            
+
             const notes = [523, 659, 784]; // C5, E5, G5
             for (let i = 0; i < length; i++) {
                 const t = i / sampleRate;
@@ -171,7 +224,7 @@
             const length = sampleRate * duration;
             const buffer = ctx.createBuffer(1, length, sampleRate);
             const data = buffer.getChannelData(0);
-            
+
             const notes = [392, 523, 659, 784, 1047]; // G4, C5, E5, G5, C6
             for (let i = 0; i < length; i++) {
                 const t = i / sampleRate;
@@ -186,6 +239,88 @@
                 });
                 data[i] = sample;
             }
+            return buffer;
+        }
+
+        // Engine Rumble - continuous low-end loop
+        function generateEngineRumble(ctx, duration = 20.0) {
+            const sampleRate = ctx.sampleRate;
+            const length = sampleRate * duration;
+            const buffer = ctx.createBuffer(1, length, sampleRate);
+            const data = buffer.getChannelData(0);
+
+            // Generate Brownian Noise (integrated white noise) for deep rumble
+            let lastOut = 0;
+            for (let i = 0; i < length; i++) {
+                const t = i / sampleRate;
+
+                // Brownian noise generation
+                const white = Math.random() * 2 - 1;
+                let brown = (lastOut + (0.02 * white)) / 1.02;
+                lastOut = brown;
+                brown *= 3.5; // Gain compensation
+
+                // Sub-bass sine wave for physical weight (50Hz)
+                const subBass = Math.sin(2 * Math.PI * 50 * t) * 0.3;
+
+                // Secondary low drone (approx 110Hz detuned)
+                const drone = Math.sin(2 * Math.PI * 110 * t) * 0.15;
+
+                // Combine
+                let mix = brown + subBass + drone;
+
+                // Throb/Rumble Effect: Amplitude Modulation (LFO)
+                // 15Hz sine wave to create mechanical vibration/roughness
+                const lfo = 1.0 + (Math.sin(2 * Math.PI * 10 * t) * 0.25);
+                mix *= lfo;
+
+                data[i] = mix;
+            }
+
+            // Seamless Loop Processing: Crossfade Start and End
+            // Instead of fading to silence, we mix the end of the buffer into the start
+            // to ensure continuous sound without volume dips.
+            const fadeSize = Math.floor(0.1 * sampleRate); // 100ms crossfade
+
+            for (let i = 0; i < fadeSize; i++) {
+                // Fade out factor for end, Fade in factor for start
+                const gainStart = i / fadeSize;
+                const gainEnd = 1.0 - gainStart;
+
+                // Mix the end sample into the start sample
+                // We actually want to replace the start with (Start * gainStart) + (End * gainEnd)
+                // And we strictly cut off the end part that was mixed in.
+
+                // However, since we are generating effectively random noise, 
+                // we can just linear interpolate the transition at the boundaries.
+
+                // Easier approach for noise: 
+                // Copy the start to a temp buffer, mix end into start, etc.
+                // But simpler: just force the start and end to match by fading.
+                // Re-implementing correctly:
+
+                const sampleStart = data[i];
+                const sampleEnd = data[length - fadeSize + i];
+
+                // Crossfade: Start fades IN, End fades OUT.
+                // We overwrite the START of the buffer with the mix.
+                // data[i] = (sampleStart * gainStart) + (sampleEnd * gainEnd);
+
+                // Actually, for a perfect loop, we want the END to flow into the START.
+                // So the file should end with sampleEnd, and start with sampleStart.
+                // If sampleEnd ~= sampleStart, it's seamless.
+
+                // Let's do a circular crossfade on the generated data.
+                // We'll perform the mix on the first 'fadeSize' samples, 
+                // using the LAST 'fadeSize' samples.
+                data[i] = (sampleStart * gainStart) + (sampleEnd * gainEnd);
+            }
+
+            // Apply Master Gain
+            for (let i = 0; i < length; i++) {
+                data[i] *= 0.5;
+            }
+
             return buffer;
         }
 
@@ -204,17 +339,18 @@
         function playBoost() { playBuffer(generateBoost(audioCtx)); }
         function playLapComplete() { playBuffer(generateLapComplete(audioCtx)); }
         function playRaceFinish() { playBuffer(generateRaceFinish(audioCtx)); }
+        function playEngineRumble() { playBuffer(generateEngineRumble(audioCtx)); }
 
         // Download as WAV
         function downloadSound(name, generator) {
             const offlineCtx = new OfflineAudioContext(1, 44100 * 1, 44100);
             const buffer = generator(offlineCtx);
-            
+
             // Convert to WAV
             const wav = bufferToWav(buffer);
             const blob = new Blob([wav], { type: 'audio/wav' });
             const url = URL.createObjectURL(blob);
-            
+
             const a = document.createElement('a');
             a.href = url;
             a.download = name + '.wav';
@@ -227,18 +363,18 @@
             const sampleRate = buffer.sampleRate;
             const format = 1; // PCM
             const bitDepth = 16;
-            
+
             const bytesPerSample = bitDepth / 8;
             const blockAlign = numChannels * bytesPerSample;
-            
+
             const data = buffer.getChannelData(0);
             const samples = data.length;
             const dataSize = samples * blockAlign;
             const bufferSize = 44 + dataSize;
-            
+
             const arrayBuffer = new ArrayBuffer(bufferSize);
             const view = new DataView(arrayBuffer);
-            
+
             // WAV header
             writeString(view, 0, 'RIFF');
             view.setUint32(4, 36 + dataSize, true);
@@ -253,7 +389,7 @@
             view.setUint16(34, bitDepth, true);
             writeString(view, 36, 'data');
             view.setUint32(40, dataSize, true);
-            
+
             // Write samples
             let offset = 44;
             for (let i = 0; i < samples; i++) {
@@ -261,7 +397,7 @@
                 view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
                 offset += 2;
             }
-            
+
             return arrayBuffer;
         }
 
@@ -272,4 +408,5 @@
         }
     </script>
 </body>
+
 </html>
