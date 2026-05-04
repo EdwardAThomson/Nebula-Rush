@@ -261,7 +261,7 @@ function App() {
           </div>
 
           <div className="absolute bottom-8 text-gray-500 text-sm">
-            Created by Edward Thomson
+            © 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)
           </div>
 
         </div>
@@ -403,6 +403,10 @@ function App() {
             >
               {gameMode === 'single_race' ? 'Back to Track Selection' : 'Back to Pilot Selection'}
             </button>
+
+            <div className="absolute bottom-8 text-gray-500 text-sm">
+              © 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)
+            </div>
           </div>
         )
       }
@@ -445,6 +449,10 @@ function App() {
             >
               Back to Menu
             </button>
+
+            <div className="absolute bottom-8 text-gray-500 text-sm">
+              © 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)
+            </div>
           </div>
         )
       }
