@@ -54,19 +54,34 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
     const glows: THREE.Mesh[] = [];
 
     // Helper: Get or Create Material
-    const getMaterial = (name: string, params: THREE.MeshPhongMaterialParameters | THREE.MeshBasicMaterialParameters, Type: typeof THREE.MeshPhongMaterial | typeof THREE.MeshBasicMaterial = THREE.MeshPhongMaterial) => {
+    const getMaterial = (
+        name: string,
+        params: THREE.MeshPhongMaterialParameters | THREE.MeshBasicMaterialParameters | THREE.MeshStandardMaterialParameters,
+        Type: typeof THREE.MeshPhongMaterial | typeof THREE.MeshBasicMaterial | typeof THREE.MeshStandardMaterial = THREE.MeshPhongMaterial
+    ) => {
         const key = `${name}_${JSON.stringify(params)}`;
         if (!materialCache[key]) {
-            materialCache[key] = new Type(params);
+            materialCache[key] = new Type(params as any);
         }
         return materialCache[key];
     };
 
-    // Shared Materials
-    const bodyMaterial = getMaterial('body', { color: color, shininess: 80 }) as THREE.MeshPhongMaterial;
-    const wingMaterial = getMaterial('wing', { color: 0xeeeeee, shininess: 80 }) as THREE.MeshPhongMaterial;
-    const engineMaterial = getMaterial('engine', { color: 0x444444 }) as THREE.MeshPhongMaterial;
-    const cockpitMaterial = getMaterial('cockpit', { color: 0xffee00, transparent: true, opacity: 0.8, emissive: 0xaa8800 }) as THREE.MeshPhongMaterial;
+    // PBR materials are wired up for the fighter as a visual prototype.
+    // Other ships keep Phong so we can A/B the difference in-game.
+    const usePBR = type === 'fighter';
+
+    const bodyMaterial = usePBR
+        ? getMaterial('body_pbr', { color, metalness: 0.85, roughness: 0.35 }, THREE.MeshStandardMaterial) as THREE.MeshStandardMaterial
+        : getMaterial('body', { color, shininess: 80 }) as THREE.MeshPhongMaterial;
+    const wingMaterial = usePBR
+        ? getMaterial('wing_pbr', { color: 0xeeeeee, metalness: 0.6, roughness: 0.5 }, THREE.MeshStandardMaterial) as THREE.MeshStandardMaterial
+        : getMaterial('wing', { color: 0xeeeeee, shininess: 80 }) as THREE.MeshPhongMaterial;
+    const engineMaterial = usePBR
+        ? getMaterial('engine_pbr', { color: 0x444444, metalness: 0.95, roughness: 0.25 }, THREE.MeshStandardMaterial) as THREE.MeshStandardMaterial
+        : getMaterial('engine', { color: 0x444444 }) as THREE.MeshPhongMaterial;
+    const cockpitMaterial = usePBR
+        ? getMaterial('cockpit_pbr', { color: 0xffee00, metalness: 0.1, roughness: 0.05, transparent: true, opacity: 0.8, emissive: 0xaa8800 }, THREE.MeshStandardMaterial) as THREE.MeshStandardMaterial
+        : getMaterial('cockpit', { color: 0xffee00, transparent: true, opacity: 0.8, emissive: 0xaa8800 }) as THREE.MeshPhongMaterial;
     const glowMaterial = getMaterial('glow', { color: 0x00ffff, transparent: true, opacity: 0.9 }, THREE.MeshBasicMaterial) as THREE.MeshBasicMaterial;
 
     // Helper: Get or Create Geometry

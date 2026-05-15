@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { createTrackCurve, createTrackMesh, getTrackFrame, createBoostPadMeshes, createStartLineMesh, createTrafficLightMesh } from '../game/TrackFactory';
 import { InputManager } from '../game/InputManager';
 import { Ship, type ShipConfig } from '../game/Ship';
@@ -182,7 +183,15 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       preserveDrawingBuffer: true // Required for screenshots
     });
     renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
     mountRef.current.appendChild(renderer.domElement);
+
+    // PBR image-based lighting. RoomEnvironment is a procedural studio scene;
+    // PMREM filters it into a mipmapped cubemap usable by MeshStandardMaterial.
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmremGenerator.dispose();
 
     // Creates Player Ship with Pilot Modifiers
     let finalShipConfig = { ...shipConfig };
@@ -672,6 +681,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           }
         }
       });
+      scene.environment?.dispose();
       renderer.dispose();
 
       if (mountRef.current && mountRef.current.contains(renderer.domElement)) {
