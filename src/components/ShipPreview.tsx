@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { createShip, type ShipType } from '../game/ShipFactory';
 
 interface ShipPreviewProps {
@@ -35,8 +36,17 @@ export default function ShipPreview({ color, type, interactive = false }: ShipPr
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
         container.appendChild(renderer.domElement);
         rendererRef.current = renderer;
+
+        // IBL for PBR materials. Without this, MeshStandardMaterial has nothing
+        // to reflect, so metals render dark and low-roughness glass loses its
+        // glassy look.
+        const pmremGenerator = new THREE.PMREMGenerator(renderer);
+        scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+        pmremGenerator.dispose();
 
         // Lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -140,6 +150,7 @@ export default function ShipPreview({ color, type, interactive = false }: ShipPr
             if (renderer.domElement) {
                 container.removeChild(renderer.domElement);
             }
+            scene.environment?.dispose();
             renderer.dispose();
         };
     }, [color, interactive, type]); // Added interactive and type dependencies
