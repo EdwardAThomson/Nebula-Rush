@@ -787,6 +787,75 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         cockpit.scale.z = 1.6;
         cockpit.position.set(0, 0.6, -0.5);
         ship.add(cockpit);
+
+        // --- GREEBLES ---
+        // Body bounds: X ±0.7, Y -0.1 to 0.9, Z -2.0 to 3.0.
+        // Engines at (±0.9, 0.4, 3.5), length 1.5 → Z 2.75 to 4.25.
+
+        // 1. Top spine - structural reinforcement plate
+        const spineGeo = getGeometry('fighter_spine', () => new THREE.BoxGeometry(0.18, 0.1, 3.2));
+        const spine = new THREE.Mesh(spineGeo, engineMaterial);
+        spine.position.set(0, 0.92, 1.0);
+        ship.add(spine);
+
+        // 2. Side air intakes - angled boxes suggesting engine intakes
+        const intakeGeo = getGeometry('fighter_intake', () => new THREE.BoxGeometry(0.22, 0.32, 0.55));
+        const leftIntake = new THREE.Mesh(intakeGeo, engineMaterial);
+        leftIntake.position.set(-0.76, 0.45, -1.0);
+        leftIntake.rotation.y = -0.12;
+        ship.add(leftIntake);
+
+        const rightIntake = new THREE.Mesh(intakeGeo, engineMaterial);
+        rightIntake.position.set(0.76, 0.45, -1.0);
+        rightIntake.rotation.y = 0.12;
+        ship.add(rightIntake);
+
+        // 3. Engine cooling rings - three thin torus rings around each engine
+        const ringGeo = getGeometry('fighter_engine_ring', () => new THREE.TorusGeometry(0.43, 0.05, 8, 24));
+        const ringZ = [2.9, 3.5, 4.1];
+        [-0.9, 0.9].forEach(ex => {
+            ringZ.forEach(rz => {
+                const ring = new THREE.Mesh(ringGeo, engineMaterial);
+                ring.position.set(ex, 0.4, rz);
+                ring.rotation.y = Math.PI / 2;
+                ship.add(ring);
+            });
+        });
+
+        // 4. Sensor mast + dome behind the cockpit
+        const mastGeo = getGeometry('fighter_mast', () => new THREE.CylinderGeometry(0.04, 0.05, 0.45, 8));
+        const mast = new THREE.Mesh(mastGeo, engineMaterial);
+        mast.position.set(0, 1.15, 0.5);
+        ship.add(mast);
+
+        const sensorGeo = getGeometry('fighter_sensor', () => new THREE.SphereGeometry(0.09, 12, 8));
+        const sensor = new THREE.Mesh(sensorGeo, engineMaterial);
+        sensor.position.set(0, 1.4, 0.5);
+        ship.add(sensor);
+
+        // 5. Wing-tip pylons - small mechanical bumps under the wings
+        const pylonGeo = getGeometry('fighter_pylon', () => new THREE.BoxGeometry(0.18, 0.18, 0.6));
+        const leftPylon = new THREE.Mesh(pylonGeo, engineMaterial);
+        leftPylon.position.set(-1.9, 0.18, 0.5);
+        ship.add(leftPylon);
+
+        const rightPylon = new THREE.Mesh(pylonGeo, engineMaterial);
+        rightPylon.position.set(1.9, 0.18, 0.5);
+        ship.add(rightPylon);
+
+        // 6. Underbelly stabilizer fin (small ventral fin)
+        const bellyGeo = getGeometry('fighter_belly_fin', () => {
+            const s = new THREE.Shape();
+            s.moveTo(0, 0);
+            s.lineTo(0.9, 0);
+            s.lineTo(0.4, -0.45);
+            s.lineTo(0, 0);
+            return new THREE.ExtrudeGeometry(s, { depth: 0.08, bevelEnabled: false });
+        });
+        const belly = new THREE.Mesh(bellyGeo, engineMaterial);
+        belly.rotation.y = -Math.PI / 2;
+        belly.position.set(0.04, -0.1, 1.8);
+        ship.add(belly);
     }
 
     // --- SHARED VISUALS (Headlights, Glows) ---
