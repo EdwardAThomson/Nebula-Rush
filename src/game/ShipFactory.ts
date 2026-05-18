@@ -810,14 +810,15 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         rightIntake.rotation.y = 0.12;
         ship.add(rightIntake);
 
-        // 3. Engine cooling rings - three thin torus rings around each engine
-        const ringGeo = getGeometry('fighter_engine_ring', () => new THREE.TorusGeometry(0.43, 0.05, 8, 24));
+        // 3. Engine cooling rings - three thin torus rings around each engine.
+        // Torus default lies in XY plane (hole-axis on Z), which already
+        // matches the engine cylinder's Z-aligned long axis, so no rotation.
+        const ringGeo = getGeometry('fighter_engine_ring', () => new THREE.TorusGeometry(0.46, 0.05, 8, 24));
         const ringZ = [2.9, 3.5, 4.1];
         [-0.9, 0.9].forEach(ex => {
             ringZ.forEach(rz => {
                 const ring = new THREE.Mesh(ringGeo, engineMaterial);
                 ring.position.set(ex, 0.4, rz);
-                ring.rotation.y = Math.PI / 2;
                 ship.add(ring);
             });
         });
