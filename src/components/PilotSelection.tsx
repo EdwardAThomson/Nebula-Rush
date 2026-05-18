@@ -13,7 +13,7 @@ export default function PilotSelection({ onSelect, onBack }: PilotSelectionProps
         <div className="relative z-10 flex flex-col items-center justify-center h-full p-8">
             <h2 className="text-4xl font-bold text-white mb-8 animate-pulse text-center">CHOOSE YOUR PILOT</h2>
 
-            <div className="flex flex-wrap justify-center gap-6 w-full max-w-7xl overflow-y-auto max-h-[85vh] p-4 scrollbar-hide">
+            <div className="flex flex-wrap justify-center gap-6 w-full max-w-7xl overflow-y-auto max-h-[65vh] p-4 scrollbar-hide">
                 {PILOTS.map((pilot) => (
                     <div
                         key={pilot.id}
@@ -55,7 +55,7 @@ export default function PilotSelection({ onSelect, onBack }: PilotSelectionProps
 
 
 
-            <div className="flex space-x-6 mt-8">
+            <div className="flex space-x-6 mt-8 mb-16">
                 <button
                     onClick={() => { audioManager.playClick(); onBack(); }}
                     onMouseEnter={() => audioManager.playHover()}
