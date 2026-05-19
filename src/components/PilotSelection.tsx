@@ -4,9 +4,10 @@ import { audioManager } from '../game/AudioManager';
 interface PilotSelectionProps {
     onSelect: (pilot: Pilot) => void;
     onBack: () => void;
+    backLabel?: string;
 }
 
-export default function PilotSelection({ onSelect, onBack }: PilotSelectionProps) {
+export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK' }: PilotSelectionProps) {
 
 
     return (
@@ -61,7 +62,7 @@ export default function PilotSelection({ onSelect, onBack }: PilotSelectionProps
                     onMouseEnter={() => audioManager.playHover()}
                     className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
                 >
-                    BACK
+                    {backLabel}
                 </button>
             </div>
 

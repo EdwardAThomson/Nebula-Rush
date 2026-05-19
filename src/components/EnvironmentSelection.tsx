@@ -78,7 +78,7 @@ export default function EnvironmentSelection({ onSelect, onBack }: EnvironmentSe
                     onMouseEnter={() => audioManager.playHover()}
                     className="px-8 py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 font-bold rounded shadow-lg transition-all"
                 >
-                    BACK
+                    BACK TO TRACK
                 </button>
                 <button
                     onClick={() => { audioManager.playClick(); handleConfirm(); }}

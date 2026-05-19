@@ -290,6 +290,7 @@ function App() {
           <PilotSelection
             onSelect={handlePilotSelect}
             onBack={handleBackFromPilotSelect}
+            backLabel={gameMode === 'single_race' ? 'BACK TO ENVIRONMENT' : 'BACK TO MENU'}
           />
         )
       }
@@ -397,12 +398,15 @@ function App() {
               </div>
             </div>
 
-            <button
-              onClick={handleBackFromShipSelect}
-              className="mt-8 text-gray-500 hover:text-white underline"
-            >
-              {gameMode === 'single_race' ? 'Back to Track Selection' : 'Back to Pilot Selection'}
-            </button>
+            <div className="flex space-x-6 mt-8">
+              <button
+                onClick={() => { audioManager.playClick(); handleBackFromShipSelect(); }}
+                onMouseEnter={() => audioManager.playHover()}
+                className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
+              >
+                BACK TO PILOT
+              </button>
+            </div>
 
             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 text-gray-500 text-sm whitespace-nowrap">
               © 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)
@@ -442,13 +446,15 @@ function App() {
               ))}
             </div>
 
-            <button
-              onClick={() => { audioManager.playClick(); setScreen('start'); }}
-              onMouseEnter={() => audioManager.playHover()}
-              className="mt-8 text-gray-500 hover:text-white underline"
-            >
-              Back to Menu
-            </button>
+            <div className="flex space-x-6 mt-8">
+              <button
+                onClick={() => { audioManager.playClick(); setScreen('start'); }}
+                onMouseEnter={() => audioManager.playHover()}
+                className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
+              >
+                BACK TO MENU
+              </button>
+            </div>
 
             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 text-gray-500 text-sm whitespace-nowrap">
               © 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)
