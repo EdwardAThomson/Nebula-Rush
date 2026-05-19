@@ -66,9 +66,9 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         return materialCache[key];
     };
 
-    // PBR materials are wired up for the fighter as a visual prototype.
-    // Other ships keep Phong so we can A/B the difference in-game.
-    const usePBR = type === 'fighter';
+    // PBR materials are wired up for the fighter, speedster, and tank as
+    // the visual prototypes roll out. The remaining types keep Phong for now.
+    const usePBR = type === 'fighter' || type === 'speedster' || type === 'tank';
 
     // envMapIntensity boosts how much the IBL contributes vs direct lights.
     // In-game the directional light is intentionally bright (4.0 at day) so
@@ -244,7 +244,58 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         enginePositions.push(new THREE.Vector3(-2.0, 0.3, 3.5));
         enginePositions.push(new THREE.Vector3(2.0, 0.3, 3.5));
 
-        /* 
+        // --- GREEBLES ---
+        // Body: X ±0.4, Y 0 to 0.8, Z -3.5 to 3.5.
+        // Engines at (±2.0, 0.3, 2.0), 0.5 radius, 3.0 length → Z 0.5 to 3.5.
+
+        // 1. Dorsal fin - aerodynamic blade behind the cockpit
+        const dorsalShape = new THREE.Shape();
+        dorsalShape.moveTo(0, 0);
+        dorsalShape.lineTo(1.0, 0);
+        dorsalShape.lineTo(1.0, 0.1);
+        dorsalShape.lineTo(0.2, 0.5);
+        dorsalShape.lineTo(0, 0);
+        const dorsalGeo = getGeometry('speedster_dorsal', () => new THREE.ExtrudeGeometry(dorsalShape, { depth: 0.06, bevelEnabled: false }));
+        const dorsal = new THREE.Mesh(dorsalGeo, engineMaterial);
+        dorsal.rotation.y = -Math.PI / 2;
+        dorsal.position.set(0.03, 0.8, 2.5);
+        ship.add(dorsal);
+
+        // 2. Nose-top air scoop
+        const scoopGeo = getGeometry('speedster_scoop', () => new THREE.BoxGeometry(0.2, 0.08, 0.6));
+        const scoop = new THREE.Mesh(scoopGeo, engineMaterial);
+        scoop.position.set(0, 0.85, -4.2);
+        ship.add(scoop);
+
+        // 3. Engine cooling rings - three concentric rings around each engine
+        const speedsterRingGeo = getGeometry('speedster_ring', () => new THREE.TorusGeometry(0.56, 0.06, 8, 24));
+        const speedsterRingZ = [0.8, 1.7, 2.6];
+        [-2.0, 2.0].forEach(ex => {
+            speedsterRingZ.forEach(rz => {
+                const ring = new THREE.Mesh(speedsterRingGeo, engineMaterial);
+                ring.position.set(ex, 0.3, rz);
+                ship.add(ring);
+            });
+        });
+
+        // 4. Wing-mounted aerial probes
+        const probeGeo = getGeometry('speedster_probe', () => new THREE.CylinderGeometry(0.03, 0.03, 0.7, 8));
+        [-2.0, 2.0].forEach(px => {
+            const probe = new THREE.Mesh(probeGeo, engineMaterial);
+            probe.rotation.x = Math.PI / 2;
+            probe.position.set(px, 0.45, -2.0);
+            ship.add(probe);
+        });
+
+        // 5. Side strakes - small fins along the body sides
+        const strakeGeo = getGeometry('speedster_strake', () => new THREE.BoxGeometry(0.05, 0.18, 0.8));
+        [-0.42, 0.42].forEach(sx => {
+            const strake = new THREE.Mesh(strakeGeo, engineMaterial);
+            strake.position.set(sx, 0.4, 0.0);
+            ship.add(strake);
+        });
+
+        /*
         // --- OLD BLOCKY SPEEDSTER (Deprecating) ---
         const bodyGeo = getGeometry('speedster_body', () => new THREE.BoxGeometry(0.8, 0.8, 7.0));
         const body = new THREE.Mesh(bodyGeo, bodyMaterial);
@@ -369,6 +420,58 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
             ship.add(eng);
             enginePositions.push(new THREE.Vector3(pos.x, pos.y, 3.0));
         });
+
+        // --- GREEBLES ---
+        // Body: X ±1.25, Y 0 to 1.2, Z -1.75 to 2.75.
+        // Armor plate top: Y ~1.285 (1.0 + 0.57/2 + bevel), spans Z -1.5 to 1.5.
+        // Engines at (±1.5, 0.5, 2.5) and (±1.0, 1.0, 2.5), 0.6r × 1.0L → Z 2.0 to 3.0.
+
+        // 1. Armor plate bolts - chunky rivets at the corners and midpoints
+        const boltGeo = getGeometry('tank_bolt', () => new THREE.SphereGeometry(0.09, 10, 8));
+        const boltPositions: [number, number, number][] = [
+            [-1.15, 1.34, -1.3], [1.15, 1.34, -1.3],
+            [-1.15, 1.34, 1.3],  [1.15, 1.34, 1.3],
+            [-1.15, 1.34, 0.0],  [1.15, 1.34, 0.0]
+        ];
+        boltPositions.forEach(([bx, by, bz]) => {
+            const bolt = new THREE.Mesh(boltGeo, engineMaterial);
+            bolt.position.set(bx, by, bz);
+            ship.add(bolt);
+        });
+
+        // 2. Side armor protrusion panels - chunky reinforcements
+        const sideArmorGeo = getGeometry('tank_side_armor', () => new THREE.BoxGeometry(0.18, 0.55, 2.0));
+        [-1.35, 1.35].forEach(sx => {
+            const armor = new THREE.Mesh(sideArmorGeo, engineMaterial);
+            armor.position.set(sx, 0.55, 0.2);
+            ship.add(armor);
+        });
+
+        // 3. Engine cooling rings - two per engine, four engines = eight rings
+        const tankRingGeo = getGeometry('tank_ring', () => new THREE.TorusGeometry(0.66, 0.07, 8, 20));
+        const tankEnginePos = [
+            { x: -1.5, y: 0.5 }, { x: 1.5, y: 0.5 },
+            { x: -1.0, y: 1.0 }, { x: 1.0, y: 1.0 }
+        ];
+        tankEnginePos.forEach(pos => {
+            [2.2, 2.8].forEach(rz => {
+                const ring = new THREE.Mesh(tankRingGeo, engineMaterial);
+                ring.position.set(pos.x, pos.y, rz);
+                ship.add(ring);
+            });
+        });
+
+        // 4. Top sensor dome on the cabin
+        const turretGeo = getGeometry('tank_turret', () => new THREE.SphereGeometry(0.22, 16, 12));
+        const turret = new THREE.Mesh(turretGeo, engineMaterial);
+        turret.position.set(0, 1.5, -0.5);
+        ship.add(turret);
+
+        // 5. Exhaust stack behind the cabin
+        const stackGeo = getGeometry('tank_stack', () => new THREE.CylinderGeometry(0.12, 0.14, 0.6, 12));
+        const stack = new THREE.Mesh(stackGeo, engineMaterial);
+        stack.position.set(0, 1.6, 0.5);
+        ship.add(stack);
 
     } else if (type === 'interceptor') {
         exhaustScale = 0.7;
