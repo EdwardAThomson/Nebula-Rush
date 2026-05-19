@@ -37,7 +37,7 @@ export const TRACK_1: TrackConfig = {
         new THREE.Vector3(-600, 0, 400),  // Wide left turn
         new THREE.Vector3(-400, 0, 200),  // Smoother transition
         new THREE.Vector3(0, 0, 200)      // Straight approach to start line (0,0,0) -> (0,0,-400)
-    ].map(p => p.multiplyScalar(SCALE)),
+    ].map(p => p.multiplyScalar(SCALE * 1.5)),
     pads: [
         { trackProgress: 0.15, lateralPosition: 0, width: 40, length: 0.02 },
         { trackProgress: 0.35, lateralPosition: -30, width: 40, length: 0.02 },
