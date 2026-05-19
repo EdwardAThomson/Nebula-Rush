@@ -6,7 +6,7 @@
 //   audioManager.playMusic('menu');
 
 type SoundEffect = 'hover' | 'click' | 'countdown' | 'raceStart' | 'lapComplete' | 'raceFinish' | 'boost' | 'engineRumble';
-type MusicTrack = 'neonVelocity' | 'zeroHorizon' | 'orbitalVelocity';
+type MusicTrack = 'neonVelocity' | 'zeroHorizon' | 'orbitalVelocity' | 'powerAndSpeed';
 
 interface AudioConfig {
     sfxVolume: number;      // 0-1
@@ -50,11 +50,12 @@ class AudioManager {
     private musicPaths: Record<MusicTrack, string> = {
         neonVelocity: '/assets/audio/music/Neon_Velocity.mp3',
         zeroHorizon: '/assets/audio/music/Zero_Horizon.mp3',
-        orbitalVelocity: '/assets/audio/music/Orbital_Velocity.mp3'
+        orbitalVelocity: '/assets/audio/music/Orbital_Velocity.mp3',
+        powerAndSpeed: '/assets/audio/music/Power_And_Speed.mp3'
     };
 
     // List of race music tracks for random selection
-    private raceTracks: MusicTrack[] = ['neonVelocity', 'zeroHorizon', 'orbitalVelocity'];
+    private raceTracks: MusicTrack[] = ['neonVelocity', 'zeroHorizon', 'orbitalVelocity', 'powerAndSpeed'];
 
     constructor() {
         // Load config from localStorage if available
@@ -332,7 +333,8 @@ class AudioManager {
         const names: Record<MusicTrack, string> = {
             neonVelocity: 'Neon Velocity',
             zeroHorizon: 'Zero Horizon',
-            orbitalVelocity: 'Orbital Velocity'
+            orbitalVelocity: 'Orbital Velocity',
+            powerAndSpeed: 'Power And Speed'
         };
         return names[this.currentMusicTrack];
     }
