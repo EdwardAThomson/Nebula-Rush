@@ -782,8 +782,8 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         const corsairSpikeShape = new THREE.Shape();
         corsairSpikeShape.moveTo(0, 0);          // front-bottom
         corsairSpikeShape.lineTo(1.2, 0);        // bottom-back
-        corsairSpikeShape.lineTo(1.2, 0.7);      // back-top (tall trailing edge)
-        corsairSpikeShape.lineTo(0.9, 0.45);     // forward sweep along the top
+        corsairSpikeShape.lineTo(1.2, 0.35);     // back-top (tall trailing edge)
+        corsairSpikeShape.lineTo(0.9, 0.22);     // forward sweep along the top
         corsairSpikeShape.lineTo(0, 0);          // swept leading edge back to front-bottom
         const corsairSpikeGeo = getGeometry('corsair_spike', () => new THREE.ExtrudeGeometry(corsairSpikeShape, { depth: 0.07, bevelEnabled: false }));
         const corsairSpike = new THREE.Mesh(corsairSpikeGeo, engineMaterial);
