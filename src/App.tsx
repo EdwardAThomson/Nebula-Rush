@@ -301,26 +301,7 @@ function App() {
             <h2 className="text-4xl font-bold text-white mb-8">SELECT YOUR SHIP</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
-              {/* SHIP 1: SPEEDSTER */}
-              <div
-                onClick={() => { audioManager.playClick(); handleShipSelect({ color: 0x00ccff, ...SHIP_STATS.speedster, type: 'speedster' }); }}
-                onMouseEnter={() => audioManager.playHover()}
-                className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-cyan-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
-              >
-                <div className="h-48 bg-cyan-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
-                  <ShipPreview color={0x00ccff} type="speedster" />
-                </div>
-                <h3 className="text-2xl font-bold text-cyan-400 mb-2">SPEEDSTER</h3>
-                <p className="text-gray-400 text-sm mb-4">High top speed, but slower acceleration. Built for long straights.</p>
-
-                <div className="space-y-2">
-                  <StatBar label="Speed" value={getDisplayStats('speedster').speed} color="bg-cyan-500" />
-                  <StatBar label="Accel" value={getDisplayStats('speedster').accel} color="bg-yellow-500" />
-                  <StatBar label="Handling" value={getDisplayStats('speedster').handling} color="bg-green-500" />
-                </div>
-              </div>
-
-              {/* SHIP 2: FIGHTER (Balanced) */}
+              {/* SHIP 1: FIGHTER (Balanced) */}
               <div
                 onClick={() => { audioManager.playClick(); handleShipSelect({ color: 0xcc0000, ...SHIP_STATS.fighter, type: 'fighter' }); }}
                 onMouseEnter={() => audioManager.playHover()}
@@ -336,6 +317,25 @@ function App() {
                   <StatBar label="Speed" value={getDisplayStats('fighter').speed} color="bg-cyan-500" />
                   <StatBar label="Accel" value={getDisplayStats('fighter').accel} color="bg-yellow-500" />
                   <StatBar label="Handling" value={getDisplayStats('fighter').handling} color="bg-green-500" />
+                </div>
+              </div>
+
+              {/* SHIP 2: INTERCEPTOR (Bi-Plane) */}
+              <div
+                onClick={() => { audioManager.playClick(); handleShipSelect({ color: 0x00ff00, ...SHIP_STATS.interceptor, type: 'interceptor' }); }}
+                onMouseEnter={() => audioManager.playHover()}
+                className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-green-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
+              >
+                <div className="h-48 bg-green-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
+                  <ShipPreview color={0x00ff00} type="interceptor" />
+                </div>
+                <h3 className="text-2xl font-bold text-green-500 mb-2">INTERCEPTOR</h3>
+                <p className="text-gray-400 text-sm mb-4">Bi-plane design. Best-in-class acceleration and turning.</p>
+
+                <div className="space-y-2">
+                  <StatBar label="Speed" value={getDisplayStats('interceptor').speed} color="bg-cyan-500" />
+                  <StatBar label="Accel" value={getDisplayStats('interceptor').accel} color="bg-yellow-500" />
+                  <StatBar label="Handling" value={getDisplayStats('interceptor').handling} color="bg-green-500" />
                 </div>
               </div>
 
@@ -358,26 +358,7 @@ function App() {
                 </div>
               </div>
 
-              {/* SHIP 4: INTERCEPTOR (Bi-Plane) */}
-              <div
-                onClick={() => { audioManager.playClick(); handleShipSelect({ color: 0x00ff00, ...SHIP_STATS.interceptor, type: 'interceptor' }); }}
-                onMouseEnter={() => audioManager.playHover()}
-                className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-green-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
-              >
-                <div className="h-48 bg-green-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
-                  <ShipPreview color={0x00ff00} type="interceptor" />
-                </div>
-                <h3 className="text-2xl font-bold text-green-500 mb-2">INTERCEPTOR</h3>
-                <p className="text-gray-400 text-sm mb-4">Bi-plane design. Best-in-class acceleration and turning.</p>
-
-                <div className="space-y-2">
-                  <StatBar label="Speed" value={getDisplayStats('interceptor').speed} color="bg-cyan-500" />
-                  <StatBar label="Accel" value={getDisplayStats('interceptor').accel} color="bg-yellow-500" />
-                  <StatBar label="Handling" value={getDisplayStats('interceptor').handling} color="bg-green-500" />
-                </div>
-              </div>
-
-              {/* SHIP 5: CORSAIR (Drifter) */}
+              {/* SHIP 4: CORSAIR (Drifter) */}
               <div
                 onClick={() => { audioManager.playClick(); handleShipSelect({ color: 0x5500aa, ...SHIP_STATS.corsair, type: 'corsair' }); }}
                 onMouseEnter={() => audioManager.playHover()}
@@ -393,6 +374,25 @@ function App() {
                   <StatBar label="Speed" value={getDisplayStats('corsair').speed} color="bg-cyan-500" />
                   <StatBar label="Accel" value={getDisplayStats('corsair').accel} color="bg-yellow-500" />
                   <StatBar label="Drift" value={getDisplayStats('corsair').drift} color="bg-pink-500" />
+                </div>
+              </div>
+
+              {/* SHIP 5: SPEEDSTER */}
+              <div
+                onClick={() => { audioManager.playClick(); handleShipSelect({ color: 0x00ccff, ...SHIP_STATS.speedster, type: 'speedster' }); }}
+                onMouseEnter={() => audioManager.playHover()}
+                className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-cyan-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
+              >
+                <div className="h-48 bg-cyan-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
+                  <ShipPreview color={0x00ccff} type="speedster" />
+                </div>
+                <h3 className="text-2xl font-bold text-cyan-400 mb-2">SPEEDSTER</h3>
+                <p className="text-gray-400 text-sm mb-4">High top speed, but slower acceleration. Built for long straights.</p>
+
+                <div className="space-y-2">
+                  <StatBar label="Speed" value={getDisplayStats('speedster').speed} color="bg-cyan-500" />
+                  <StatBar label="Accel" value={getDisplayStats('speedster').accel} color="bg-yellow-500" />
+                  <StatBar label="Handling" value={getDisplayStats('speedster').handling} color="bg-green-500" />
                 </div>
               </div>
             </div>
