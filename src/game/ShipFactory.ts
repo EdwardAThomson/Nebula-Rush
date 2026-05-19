@@ -830,15 +830,15 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         const corsairFinShape = new THREE.Shape();
         corsairFinShape.moveTo(0, 0);            // front-bottom
         corsairFinShape.lineTo(0.5, 0);          // bottom-back
-        corsairFinShape.lineTo(0.5, 0.22);       // back-top (tall trailing edge)
+        corsairFinShape.lineTo(0.5, 0.11);       // back-top (tall trailing edge)
         corsairFinShape.lineTo(0, 0);            // swept leading edge
-        const corsairFinGeo = getGeometry('corsair_engine_fin', () => new THREE.ExtrudeGeometry(corsairFinShape, { depth: 0.06, bevelEnabled: false }));
+        const corsairFinGeo = getGeometry('corsair_engine_fin', () => new THREE.ExtrudeGeometry(corsairFinShape, { depth: 0.5, bevelEnabled: false }));
         const corsairFinZ = [0.2, 0.8, 1.4, 2.0];
         [leftEng, rightEng].forEach(eng => {
             corsairFinZ.forEach(fz => {
                 const fin = new THREE.Mesh(corsairFinGeo, engineMaterial);
                 fin.rotation.y = -Math.PI / 2;
-                fin.position.set(0.03, 0.4, fz);
+                fin.position.set(0.25, 0.4, fz);
                 eng.add(fin);
             });
         });
