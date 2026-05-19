@@ -10,10 +10,10 @@ export default function PilotSelection({ onSelect, onBack }: PilotSelectionProps
 
 
     return (
-        <div className="relative z-10 flex flex-col items-center justify-center h-full p-8">
+        <div className="relative z-10 flex flex-col items-center h-full p-8">
             <h2 className="text-4xl font-bold text-white mb-8 animate-pulse text-center">CHOOSE YOUR PILOT</h2>
 
-            <div className="flex flex-wrap justify-center gap-6 w-full max-w-7xl overflow-y-auto max-h-[65vh] p-4 scrollbar-hide">
+            <div className="flex flex-wrap justify-center gap-6 w-full max-w-7xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
                 {PILOTS.map((pilot) => (
                     <div
                         key={pilot.id}
@@ -55,7 +55,7 @@ export default function PilotSelection({ onSelect, onBack }: PilotSelectionProps
 
 
 
-            <div className="flex space-x-6 mt-8 mb-16">
+            <div className="flex space-x-6 mt-8">
                 <button
                     onClick={() => { audioManager.playClick(); onBack(); }}
                     onMouseEnter={() => audioManager.playHover()}
@@ -65,7 +65,7 @@ export default function PilotSelection({ onSelect, onBack }: PilotSelectionProps
                 </button>
             </div>
 
-            <div className="absolute bottom-8 text-gray-500 text-sm">
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 text-gray-500 text-sm whitespace-nowrap">
                 © 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)
             </div>
         </div >
