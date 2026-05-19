@@ -147,6 +147,7 @@ export default function SettingsMenu({ onClose }: SettingsMenuProps) {
                         <AudioTrackButton name="Neon Velocity" track="neonVelocity" active={currentTrack === 'Neon Velocity'} />
                         <AudioTrackButton name="Zero Horizon" track="zeroHorizon" active={currentTrack === 'Zero Horizon'} />
                         <AudioTrackButton name="Orbital Velocity" track="orbitalVelocity" active={currentTrack === 'Orbital Velocity'} />
+                        <AudioTrackButton name="Power And Speed" track="powerAndSpeed" active={currentTrack === 'Power And Speed'} />
                     </div>
                     <div className="flex space-x-2 mt-4 pt-4 border-t border-gray-700">
                         {/* PLAY / RESUME */}
