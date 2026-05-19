@@ -297,10 +297,10 @@ function App() {
       {/* SHIP SELECTION SCREEN */}
       {
         screen === 'selection' && (
-          <div className="relative z-10 flex flex-col items-center justify-center h-full p-8">
+          <div className="relative z-10 flex flex-col items-center h-full p-8">
             <h2 className="text-4xl font-bold text-white mb-8">SELECT YOUR SHIP</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto max-h-[85vh] p-4 scrollbar-hide">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
               {/* SHIP 1: SPEEDSTER */}
               <div
                 onClick={() => { audioManager.playClick(); handleShipSelect({ color: 0x00ccff, ...SHIP_STATS.speedster, type: 'speedster' }); }}
@@ -404,7 +404,7 @@ function App() {
               {gameMode === 'single_race' ? 'Back to Track Selection' : 'Back to Pilot Selection'}
             </button>
 
-            <div className="absolute bottom-8 text-gray-500 text-sm">
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 text-gray-500 text-sm whitespace-nowrap">
               © 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)
             </div>
           </div>
@@ -414,10 +414,10 @@ function App() {
       {/* TRACK SELECTION SCREEN */}
       {
         screen === 'track_selection' && (
-          <div className="relative z-10 flex flex-col items-center justify-center h-full p-8">
+          <div className="relative z-10 flex flex-col items-center h-full p-8">
             <h2 className="text-4xl font-bold text-white mb-8">SELECT TRACK</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto max-h-[85vh] p-4 scrollbar-hide">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
               {TRACKS.map((track, index) => (
                 <div
                   key={track.id}
@@ -450,7 +450,7 @@ function App() {
               Back to Menu
             </button>
 
-            <div className="absolute bottom-8 text-gray-500 text-sm">
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 text-gray-500 text-sm whitespace-nowrap">
               © 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)
             </div>
           </div>
