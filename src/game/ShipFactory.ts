@@ -252,7 +252,7 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         const dorsalShape = new THREE.Shape();
         dorsalShape.moveTo(0, 0);            // front-bottom
         dorsalShape.lineTo(1.0, 0);          // bottom-back
-        dorsalShape.lineTo(1.0, 0.5);        // back-top (tall trailing edge)
+        dorsalShape.lineTo(1.0, 0.25);       // back-top (tall trailing edge)
         dorsalShape.lineTo(0, 0);            // swept leading edge back to front-bottom
         const dorsalGeo = getGeometry('speedster_dorsal', () => new THREE.ExtrudeGeometry(dorsalShape, { depth: 0.06, bevelEnabled: false }));
         const dorsal = new THREE.Mesh(dorsalGeo, engineMaterial);
