@@ -66,9 +66,8 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         return materialCache[key];
     };
 
-    // PBR materials are wired up for the fighter, speedster, and tank as
-    // the visual prototypes roll out. The remaining types keep Phong for now.
-    const usePBR = type === 'fighter' || type === 'speedster' || type === 'tank';
+    // PBR materials apply to all ship types now that the visual pass is complete.
+    const usePBR = true;
 
     // envMapIntensity boosts how much the IBL contributes vs direct lights.
     // In-game the directional light is intentionally bright (4.0 at day) so
@@ -402,9 +401,11 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         plate.position.set(0, 1.0, -1.5);
         ship.add(plate);
 
-        const cabinGeo = getGeometry('tank_cabin', () => new THREE.BoxGeometry(1.0, 0.6, 1.5));
+        // Dome canopy - reads as a cockpit rather than a flat panel
+        const cabinGeo = getGeometry('tank_cabin_dome', () => new THREE.SphereGeometry(0.6, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2));
         const cabin = new THREE.Mesh(cabinGeo, cockpitMaterial);
-        cabin.position.set(0, 1.1, -0.5);
+        cabin.scale.set(1.0, 0.9, 1.35);
+        cabin.position.set(0, 1.29, -0.4);
         ship.add(cabin);
 
         const engineGeo = getGeometry('tank_engine', () => new THREE.CylinderGeometry(0.6, 0.6, 1.0, 8));
@@ -440,10 +441,10 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         });
 
         // 2. Side armor protrusion panels - chunky reinforcements
-        const sideArmorGeo = getGeometry('tank_side_armor', () => new THREE.BoxGeometry(0.18, 0.55, 2.0));
-        [-1.35, 1.35].forEach(sx => {
+        const sideArmorGeo = getGeometry('tank_side_armor', () => new THREE.BoxGeometry(0.22, 0.95, 3.6));
+        [-1.36, 1.36].forEach(sx => {
             const armor = new THREE.Mesh(sideArmorGeo, engineMaterial);
-            armor.position.set(sx, 0.55, 0.2);
+            armor.position.set(sx, 0.55, 0.3);
             ship.add(armor);
         });
 
@@ -461,16 +462,21 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
             });
         });
 
-        // 4. Top sensor dome on the cabin
-        const turretGeo = getGeometry('tank_turret', () => new THREE.SphereGeometry(0.22, 16, 12));
-        const turret = new THREE.Mesh(turretGeo, engineMaterial);
-        turret.position.set(0, 1.5, -0.5);
-        ship.add(turret);
+        // 4. Antenna mast + sensor pod behind the canopy
+        const tankMastGeo = getGeometry('tank_mast', () => new THREE.CylinderGeometry(0.05, 0.06, 0.55, 8));
+        const tankMast = new THREE.Mesh(tankMastGeo, engineMaterial);
+        tankMast.position.set(0, 1.55, 0.65);
+        ship.add(tankMast);
+
+        const tankSensorGeo = getGeometry('tank_sensor_pod', () => new THREE.SphereGeometry(0.12, 12, 8));
+        const tankSensor = new THREE.Mesh(tankSensorGeo, engineMaterial);
+        tankSensor.position.set(0, 1.85, 0.65);
+        ship.add(tankSensor);
 
         // 5. Exhaust stack behind the cabin
-        const stackGeo = getGeometry('tank_stack', () => new THREE.CylinderGeometry(0.12, 0.14, 0.6, 12));
+        const stackGeo = getGeometry('tank_stack', () => new THREE.CylinderGeometry(0.14, 0.16, 0.7, 12));
         const stack = new THREE.Mesh(stackGeo, engineMaterial);
-        stack.position.set(0, 1.6, 0.5);
+        stack.position.set(0, 1.65, 1.2);
         ship.add(stack);
 
     } else if (type === 'interceptor') {
@@ -546,14 +552,17 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         bottomWing.position.set(0, 0.0, 0.0); // Shifted Z position
         ship.add(bottomWing);
 
-        const strutGeo = getGeometry('interceptor_strut', () => new THREE.CylinderGeometry(0.05, 0.05, 1.2));
-        const leftStrut = new THREE.Mesh(strutGeo, engineMaterial);
-        leftStrut.position.set(-1.8, 0.6, 0.5); // Adjusted X position
-        ship.add(leftStrut);
-
-        const rightStrut = new THREE.Mesh(strutGeo, engineMaterial);
-        rightStrut.position.set(1.8, 0.6, 0.5); // Adjusted X position
-        ship.add(rightStrut);
+        // Bi-plane struts connecting the top and bottom wings. The delta wing
+        // at Z=0.5 is only ±1.53 wide, so the previous X=±1.8 placed them
+        // outside the wing entirely. Pull them inboard to where the wings
+        // are widest (centered) and thicken them so they read clearly.
+        const strutGeo = getGeometry('interceptor_strut', () => new THREE.CylinderGeometry(0.08, 0.08, 1.25, 12));
+        const strutOffsets: [number, number][] = [[-1.0, -0.3], [1.0, -0.3], [-1.0, 0.6], [1.0, 0.6]];
+        strutOffsets.forEach(([sx, sz]) => {
+            const strut = new THREE.Mesh(strutGeo, engineMaterial);
+            strut.position.set(sx, 0.6, sz);
+            ship.add(strut);
+        });
 
         // Engines (4 small ones)
         const engineGeo = getGeometry('interceptor_engine', () => new THREE.CylinderGeometry(0.25, 0.25, 1.0, 8));
@@ -576,7 +585,53 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         cabin.position.set(0, 1.3, -0.5);
         ship.add(cabin);
 
+        // --- GREEBLES ---
+        // Body: X ±0.5, Y 0 to 1.2, Z -2.0 to 2.0.
+        // Small engines (0.25r) at (±0.8, 0.2 or 1.0, 2.0).
 
+        // 1. Antenna mast on top of the cabin
+        const intMastGeo = getGeometry('interceptor_mast', () => new THREE.CylinderGeometry(0.03, 0.04, 0.5, 8));
+        const intMast = new THREE.Mesh(intMastGeo, engineMaterial);
+        intMast.position.set(0, 1.9, -0.5);
+        ship.add(intMast);
+
+        const intSensorGeo = getGeometry('interceptor_sensor', () => new THREE.SphereGeometry(0.07, 10, 8));
+        const intSensor = new THREE.Mesh(intSensorGeo, engineMaterial);
+        intSensor.position.set(0, 2.18, -0.5);
+        ship.add(intSensor);
+
+        // 2. Engine cooling rings - one per engine
+        const intRingGeo = getGeometry('interceptor_ring', () => new THREE.TorusGeometry(0.30, 0.04, 8, 20));
+        const intRingOffsets: [number, number][] = [[-0.8, 0.2], [0.8, 0.2], [-0.8, 1.0], [0.8, 1.0]];
+        intRingOffsets.forEach(([rx, ry]) => {
+            const ring = new THREE.Mesh(intRingGeo, engineMaterial);
+            ring.position.set(rx, ry, 2.0);
+            ship.add(ring);
+        });
+
+        // 3. Wing-tip strobes - small light pods at the trailing corners
+        const strobeGeo = getGeometry('interceptor_strobe', () => new THREE.SphereGeometry(0.1, 10, 8));
+        const strobePositions: [number, number, number][] = [
+            [-2.45, 1.2, 2.2], [2.45, 1.2, 2.2],
+            [-2.45, 0.0, 2.2], [2.45, 0.0, 2.2]
+        ];
+        strobePositions.forEach(([px, py, pz]) => {
+            const strobe = new THREE.Mesh(strobeGeo, engineMaterial);
+            strobe.position.set(px, py, pz);
+            ship.add(strobe);
+        });
+
+        // 4. Nose-top air scoop
+        const intScoopGeo = getGeometry('interceptor_scoop', () => new THREE.BoxGeometry(0.2, 0.1, 0.5));
+        const intScoop = new THREE.Mesh(intScoopGeo, engineMaterial);
+        intScoop.position.set(0, 0.95, -2.8);
+        ship.add(intScoop);
+
+        // 5. Belly fairing - small mechanical bump under the body
+        const bellyGeo = getGeometry('interceptor_belly', () => new THREE.BoxGeometry(0.5, 0.15, 1.4));
+        const belly = new THREE.Mesh(bellyGeo, engineMaterial);
+        belly.position.set(0, -0.05, 0.3);
+        ship.add(belly);
 
     } else if (type === 'corsair') {
         exhaustScale = 1.6;
@@ -717,6 +772,56 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         const cabin = new THREE.Mesh(cabinGeo, cockpitMaterial);
         cabin.position.set(0, 1.0, -0.5);
         ship.add(cabin);
+
+        // --- GREEBLES ---
+        // Hull: X ±0.6, Y 0 to 0.9, Z -2.5 to 2.5.
+        // Anhedral wings at (±1.5, 0.1, -0.25), rotated Z by ±π/6.
+
+        // 1. Dorsal spike - aggressive blade behind the cockpit
+        const corsairSpikeShape = new THREE.Shape();
+        corsairSpikeShape.moveTo(0, 0);
+        corsairSpikeShape.lineTo(1.2, 0);
+        corsairSpikeShape.lineTo(1.0, 0.15);
+        corsairSpikeShape.lineTo(0.1, 0.7);
+        corsairSpikeShape.lineTo(0, 0);
+        const corsairSpikeGeo = getGeometry('corsair_spike', () => new THREE.ExtrudeGeometry(corsairSpikeShape, { depth: 0.07, bevelEnabled: false }));
+        const corsairSpike = new THREE.Mesh(corsairSpikeGeo, engineMaterial);
+        corsairSpike.rotation.y = -Math.PI / 2;
+        corsairSpike.position.set(0.035, 0.9, 0.5);
+        ship.add(corsairSpike);
+
+        // 2. Forward-facing weapon barrels on the hull sides
+        const barrelGeo = getGeometry('corsair_barrel', () => new THREE.CylinderGeometry(0.06, 0.08, 1.2, 12));
+        [-0.55, 0.55].forEach(bx => {
+            const barrel = new THREE.Mesh(barrelGeo, engineMaterial);
+            barrel.rotation.x = Math.PI / 2;
+            barrel.position.set(bx, 0.35, -2.4);
+            ship.add(barrel);
+        });
+
+        // 3. Hull side vents - small dark slats between cockpit and engines
+        const ventGeo = getGeometry('corsair_vent', () => new THREE.BoxGeometry(0.07, 0.2, 0.6));
+        [-0.62, 0.62].forEach(vx => {
+            const vent = new THREE.Mesh(ventGeo, engineMaterial);
+            vent.position.set(vx, 0.55, 0.4);
+            ship.add(vent);
+        });
+
+        // 4. Wing-tip pointed darts - sharp spikes anchored at each anhedral wing tip.
+        // Wing local +/-X tip after Z-rotation lands at roughly (±2.58, -0.53, -0.25).
+        const dartGeo = getGeometry('corsair_dart', () => new THREE.ConeGeometry(0.09, 0.6, 12));
+        ([[-2.58, -0.53, -0.4], [2.58, -0.53, -0.4]] as [number, number, number][]).forEach(([dx, dy, dz]) => {
+            const dart = new THREE.Mesh(dartGeo, engineMaterial);
+            dart.rotation.x = -Math.PI / 2;
+            dart.position.set(dx, dy, dz);
+            ship.add(dart);
+        });
+
+        // 5. Rear airbrake fin - small perpendicular spoiler behind the cockpit
+        const airbrakeGeo = getGeometry('corsair_airbrake', () => new THREE.BoxGeometry(1.0, 0.06, 0.3));
+        const airbrake = new THREE.Mesh(airbrakeGeo, engineMaterial);
+        airbrake.position.set(0, 0.95, 1.7);
+        ship.add(airbrake);
 
     } else {
         // FIGHTER
