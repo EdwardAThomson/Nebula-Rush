@@ -824,14 +824,21 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         airbrake.position.set(0, 0.95, 1.7);
         ship.add(airbrake);
 
-        // 6. Engine top fins - small vertical cooling fins running along each twin boom.
+        // 6. Engine top fins - swept-back wedge blades running along each twin boom.
+        // Same aero profile as the dorsal fins: low leading edge, tall trailing edge.
         // Added as children of each engine mesh so they inherit the wing-angle Z rotation.
-        const corsairFinGeo = getGeometry('corsair_engine_fin', () => new THREE.BoxGeometry(0.55, 0.18, 0.1));
-        const corsairFinZ = [0.5, 1.0, 1.5, 2.0];
+        const corsairFinShape = new THREE.Shape();
+        corsairFinShape.moveTo(0, 0);            // front-bottom
+        corsairFinShape.lineTo(0.5, 0);          // bottom-back
+        corsairFinShape.lineTo(0.5, 0.22);       // back-top (tall trailing edge)
+        corsairFinShape.lineTo(0, 0);            // swept leading edge
+        const corsairFinGeo = getGeometry('corsair_engine_fin', () => new THREE.ExtrudeGeometry(corsairFinShape, { depth: 0.06, bevelEnabled: false }));
+        const corsairFinZ = [0.2, 0.8, 1.4, 2.0];
         [leftEng, rightEng].forEach(eng => {
             corsairFinZ.forEach(fz => {
                 const fin = new THREE.Mesh(corsairFinGeo, engineMaterial);
-                fin.position.set(0, 0.48, fz);
+                fin.rotation.y = -Math.PI / 2;
+                fin.position.set(0.03, 0.4, fz);
                 eng.add(fin);
             });
         });
