@@ -247,13 +247,13 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         // Body: X ±0.4, Y 0 to 0.8, Z -3.5 to 3.5.
         // Engines at (±2.0, 0.3, 2.0), 0.5 radius, 3.0 length → Z 0.5 to 3.5.
 
-        // 1. Dorsal fin - aerodynamic blade behind the cockpit
+        // 1. Dorsal fin - aerodynamic blade behind the cockpit.
+        // Leading edge swept back: low at front, tall at trailing edge.
         const dorsalShape = new THREE.Shape();
-        dorsalShape.moveTo(0, 0);
-        dorsalShape.lineTo(1.0, 0);
-        dorsalShape.lineTo(1.0, 0.1);
-        dorsalShape.lineTo(0.2, 0.5);
-        dorsalShape.lineTo(0, 0);
+        dorsalShape.moveTo(0, 0);            // front-bottom
+        dorsalShape.lineTo(1.0, 0);          // bottom-back
+        dorsalShape.lineTo(1.0, 0.5);        // back-top (tall trailing edge)
+        dorsalShape.lineTo(0, 0);            // swept leading edge back to front-bottom
         const dorsalGeo = getGeometry('speedster_dorsal', () => new THREE.ExtrudeGeometry(dorsalShape, { depth: 0.06, bevelEnabled: false }));
         const dorsal = new THREE.Mesh(dorsalGeo, engineMaterial);
         dorsal.rotation.y = -Math.PI / 2;
@@ -777,13 +777,14 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         // Hull: X ±0.6, Y 0 to 0.9, Z -2.5 to 2.5.
         // Anhedral wings at (±1.5, 0.1, -0.25), rotated Z by ±π/6.
 
-        // 1. Dorsal spike - aggressive blade behind the cockpit
+        // 1. Dorsal spike - aggressive blade behind the cockpit.
+        // Leading edge swept back, with a hooked recurve at the back-top tip.
         const corsairSpikeShape = new THREE.Shape();
-        corsairSpikeShape.moveTo(0, 0);
-        corsairSpikeShape.lineTo(1.2, 0);
-        corsairSpikeShape.lineTo(1.0, 0.15);
-        corsairSpikeShape.lineTo(0.1, 0.7);
-        corsairSpikeShape.lineTo(0, 0);
+        corsairSpikeShape.moveTo(0, 0);          // front-bottom
+        corsairSpikeShape.lineTo(1.2, 0);        // bottom-back
+        corsairSpikeShape.lineTo(1.2, 0.7);      // back-top (tall trailing edge)
+        corsairSpikeShape.lineTo(0.9, 0.45);     // forward sweep along the top
+        corsairSpikeShape.lineTo(0, 0);          // swept leading edge back to front-bottom
         const corsairSpikeGeo = getGeometry('corsair_spike', () => new THREE.ExtrudeGeometry(corsairSpikeShape, { depth: 0.07, bevelEnabled: false }));
         const corsairSpike = new THREE.Mesh(corsairSpikeGeo, engineMaterial);
         corsairSpike.rotation.y = -Math.PI / 2;
@@ -822,6 +823,18 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         const airbrake = new THREE.Mesh(airbrakeGeo, engineMaterial);
         airbrake.position.set(0, 0.95, 1.7);
         ship.add(airbrake);
+
+        // 6. Engine top fins - small vertical cooling fins running along each twin boom.
+        // Added as children of each engine mesh so they inherit the wing-angle Z rotation.
+        const corsairFinGeo = getGeometry('corsair_engine_fin', () => new THREE.BoxGeometry(0.55, 0.18, 0.1));
+        const corsairFinZ = [0.5, 1.0, 1.5, 2.0];
+        [leftEng, rightEng].forEach(eng => {
+            corsairFinZ.forEach(fz => {
+                const fin = new THREE.Mesh(corsairFinGeo, engineMaterial);
+                fin.position.set(0, 0.48, fz);
+                eng.add(fin);
+            });
+        });
 
     } else {
         // FIGHTER
