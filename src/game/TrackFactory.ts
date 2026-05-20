@@ -97,7 +97,8 @@ export const createBoostPadMeshes = (trackCurve: THREE.CatmullRomCurve3, pads: B
         const vertices: number[] = [];
 
         // Pad covers [progress - length/2, progress + length/2]
-        const segments = 20; // 20 segments for smoothness roughly
+        // Scale segments with pad length so visual smoothness is preserved on enlarged tracks.
+        const segments = Math.max(20, Math.ceil(pad.length * 2000));
         const startT = pad.trackProgress - pad.length / 2;
         const endT = pad.trackProgress + pad.length / 2;
         const width = pad.width;
