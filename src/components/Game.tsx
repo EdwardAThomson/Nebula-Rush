@@ -11,6 +11,7 @@ import { TRACKS } from '../game/TrackDefinitions';
 import type { Pilot } from '../game/PilotDefinitions';
 import { DebugLightingPanel } from './DebugLightingPanel';
 import { audioManager } from '../game/AudioManager';
+import { PLAYER_START_T } from '../game/PhysicsEngine';
 
 interface GameProps {
   shipConfig: ShipConfig;
@@ -252,11 +253,12 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     const trafficLight = createTrafficLightMesh();
     trafficLightRef.current = trafficLight;
 
-    const startFrame = getTrackFrame(trackCurve, 0.95);
-    // Align to track
+    const startFrame = getTrackFrame(trackCurve, PLAYER_START_T);
+    // Align to track. Use a fixed world-units offset (not a track-progress offset)
+    // so the light sits the same distance ahead of the ship regardless of track scale.
     trafficLight.position.copy(startFrame.position);
-    trafficLight.position.add(startFrame.normal.clone().multiplyScalar(100)); // 100 units up (was 25)
-    trafficLight.position.add(startFrame.tangent.clone().multiplyScalar(40)); // 40 units ahead
+    trafficLight.position.add(startFrame.normal.clone().multiplyScalar(100)); // up
+    trafficLight.position.add(startFrame.tangent.clone().multiplyScalar(400)); // forward
 
     trafficLight.lookAt(startFrame.position.clone().add(startFrame.normal.clone().multiplyScalar(100)));
     scene.add(trafficLight);
