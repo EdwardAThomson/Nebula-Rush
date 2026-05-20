@@ -37,7 +37,7 @@ export const TRACK_1: TrackConfig = {
         new THREE.Vector3(-600, 0, 400),  // Wide left turn
         new THREE.Vector3(-400, 0, 200),  // Smoother transition
         new THREE.Vector3(0, 0, 200)      // Straight approach to start line (0,0,0) -> (0,0,-400)
-    ].map(p => p.multiplyScalar(SCALE * 1.5)),
+    ].map(p => p.multiplyScalar(SCALE * 2)),
     pads: [
         { trackProgress: 0.15, lateralPosition: 0, width: 40, length: 0.02 },
         { trackProgress: 0.35, lateralPosition: -30, width: 40, length: 0.02 },
@@ -76,7 +76,7 @@ export const TRACK_2: TrackConfig = {
         new THREE.Vector3(900, 0, -3000),   // Wide Loop Back (Merged)
         new THREE.Vector3(900, 0, -500),    // Long Return Straight
         new THREE.Vector3(500, 0, 300),     // Final Turn entry (Wider) (Wider)
-    ].map(p => p.multiplyScalar(SCALE)),
+    ].map(p => p.multiplyScalar(SCALE * 1.5)),
     pads: [
         { trackProgress: 0.25, lateralPosition: -20, width: 30, length: 0.02 }, // Slalom Entry
         { trackProgress: 0.45, lateralPosition: 20, width: 30, length: 0.02 },  // Mid Slalom
