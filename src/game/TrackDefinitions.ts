@@ -115,7 +115,7 @@ export const TRACK_3: TrackConfig = {
         new THREE.Vector3(250, 0, 300),      // Big Spoon Curve 1
         new THREE.Vector3(100, 0, 400),      // Big Spoon Curve 2 (Deepest point)
         new THREE.Vector3(0, 0, 300),        // Aligned straight (further back)
-    ].map(p => p.multiplyScalar(SCALE)),
+    ].map(p => p.multiplyScalar(SCALE * 2.5)),
     pads: [
         { trackProgress: 0.1, lateralPosition: 0, width: 30, length: 0.02 },  // Early boost
         { trackProgress: 0.45, lateralPosition: -20, width: 30, length: 0.02 }, // Post-corkscrew
@@ -173,7 +173,7 @@ export const TRACK_4: TrackConfig = {
         new THREE.Vector3(-300, 0, 500),     // Turn In Base
         new THREE.Vector3(0, 0, 600),        // Final Alignment (Back of grid)
         // Next point is Start (0,0,0) -> (0,0,-600), creating a perfect straight line through the finish.
-    ].map(p => p.multiplyScalar(SCALE)),
+    ].map(p => p.multiplyScalar(SCALE * 2)),
     pads: [
         { trackProgress: 0.1, lateralPosition: 0, width: 40, length: 0.03 },    // Start Boost
         { trackProgress: 0.35, lateralPosition: 30, width: 30, length: 0.02 },  // Hook Exit
@@ -218,7 +218,7 @@ export const TRACK_5: TrackConfig = {
         new THREE.Vector3(-400, 0, 700),      // Wide Left Behind (Was -250, 0, 400)
         new THREE.Vector3(0, 0, 800),         // Directly Behind (Straight entry from further back)
         // Next point is Start (0,0,0) with tangent towards -600 (Perfect Straight alignment)
-    ].map(p => p.multiplyScalar(SCALE)),
+    ].map(p => p.multiplyScalar(SCALE * 2)),
     pads: [
         { trackProgress: 0.05, lateralPosition: 0, width: 40, length: 0.03 },
         { trackProgress: 0.25, lateralPosition: -20, width: 30, length: 0.02 },
