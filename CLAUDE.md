@@ -19,7 +19,7 @@ This is a single-page React + Vite app that mounts one Three.js canvas inside a 
 
 ### Top-level flow
 
-`src/main.tsx` → `src/App.tsx` is a screen-state machine (`start` → `pilot_selection` → `track_selection` → `env_selection` → `selection` (ship) → `game`, plus debug screens `analysis`, `env_test`, `lighting_debug`, `ship_demo`). `App.tsx` owns the selected pilot/ship/track/environment and passes them as props into `<Game />`. The `navigateTo` helper inserts a loading overlay around heavy transitions; `Game` calls `onReady()` once its scene is initialized to dismiss it.
+`src/main.tsx` → `src/App.tsx` is a screen-state machine (`start` → `pilot_selection` → `track_selection` → `env_selection` → `selection` (ship) → `game`, plus debug screens `analysis`, `env_test`, `lighting_debug`, `night_test`, `ship_demo`). `App.tsx` owns the selected pilot/ship/track/environment and passes them as props into `<Game />`. The `navigateTo` helper inserts a loading overlay around heavy transitions; `Game` calls `onReady()` once its scene is initialized to dismiss it.
 
 ### Game runtime (`src/components/Game.tsx`)
 
@@ -56,4 +56,4 @@ Audio under `public/assets/audio/{music,sfx}/`, pilot portraits under `public/as
 
 ## Development branch
 
-Per repository policy, develop on `claude/init-project-riszt` and push there. Do not push to other branches without explicit permission.
+Develop on a descriptive feature branch (e.g. `feat/enlarge-track-1`), open a PR, and merge into `master`. Do not commit directly to `master` or push to other branches without explicit permission.
