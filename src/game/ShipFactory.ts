@@ -49,7 +49,7 @@ export const SHIP_STATS: Record<ShipType, { accelFactor: number, turnSpeed: numb
 const geometryCache: Record<string, THREE.BufferGeometry> = {};
 const materialCache: Record<string, THREE.Material> = {};
 
-export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter'): ShipParts => {
+export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter', accentColor: number = 0xeeeeee): ShipParts => {
     const ship = new THREE.Group();
     const glows: THREE.Mesh[] = [];
 
@@ -78,8 +78,8 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter')
         ? getMaterial('body_pbr', { color, metalness: 0.85, roughness: 0.35, envMapIntensity: envBoost }, THREE.MeshStandardMaterial) as THREE.MeshStandardMaterial
         : getMaterial('body', { color, shininess: 80 }) as THREE.MeshPhongMaterial;
     const wingMaterial = usePBR
-        ? getMaterial('wing_pbr', { color: 0xeeeeee, metalness: 0.6, roughness: 0.5, envMapIntensity: envBoost }, THREE.MeshStandardMaterial) as THREE.MeshStandardMaterial
-        : getMaterial('wing', { color: 0xeeeeee, shininess: 80 }) as THREE.MeshPhongMaterial;
+        ? getMaterial('wing_pbr', { color: accentColor, metalness: 0.6, roughness: 0.5, envMapIntensity: envBoost }, THREE.MeshStandardMaterial) as THREE.MeshStandardMaterial
+        : getMaterial('wing', { color: accentColor, shininess: 80 }) as THREE.MeshPhongMaterial;
     const engineMaterial = usePBR
         ? getMaterial('engine_pbr', { color: 0x444444, metalness: 0.95, roughness: 0.25, envMapIntensity: envBoost }, THREE.MeshStandardMaterial) as THREE.MeshStandardMaterial
         : getMaterial('engine', { color: 0x444444 }) as THREE.MeshPhongMaterial;

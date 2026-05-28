@@ -6,10 +6,11 @@ import { createShip, type ShipType } from '../game/ShipFactory';
 interface ShipPreviewProps {
     color: number;
     type: ShipType;
+    accentColor?: number; // Secondary livery color (wings/trim)
     interactive?: boolean; // NEW: Enable manual rotation
 }
 
-export default function ShipPreview({ color, type, interactive = false }: ShipPreviewProps) {
+export default function ShipPreview({ color, type, accentColor, interactive = false }: ShipPreviewProps) {
     const mountRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
     const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -57,7 +58,7 @@ export default function ShipPreview({ color, type, interactive = false }: ShipPr
         scene.add(dirLight);
 
         // Ship Mesh
-        const { mesh } = createShip(color, type);
+        const { mesh } = createShip(color, type, accentColor);
         scene.add(mesh);
 
         // Center the ship visually
@@ -153,7 +154,7 @@ export default function ShipPreview({ color, type, interactive = false }: ShipPr
             scene.environment?.dispose();
             renderer.dispose();
         };
-    }, [color, interactive, type]); // Added interactive and type dependencies
+    }, [color, accentColor, interactive, type]); // Rebuild when colors or type change
 
     return (
         <div ref={mountRef} className="w-full h-full" />
