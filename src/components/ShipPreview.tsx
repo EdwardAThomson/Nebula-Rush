@@ -6,10 +6,11 @@ import { createShip, type ShipType } from '../game/ShipFactory';
 interface ShipPreviewProps {
     color: number;
     type: ShipType;
+    accentColor?: number; // Secondary livery color (wings/trim)
     interactive?: boolean; // NEW: Enable manual rotation
 }
 
-export default function ShipPreview({ color, type, interactive = false }: ShipPreviewProps) {
+export default function ShipPreview({ color, type, accentColor, interactive = false }: ShipPreviewProps) {
     const mountRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
     const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -18,6 +19,10 @@ export default function ShipPreview({ color, type, interactive = false }: ShipPr
     // Interaction Refs
     const isDraggingRef = useRef(false);
     const lastMouseRef = useRef({ x: 0, y: 0 });
+    // Persist rotation across re-mounts (e.g. when the user picks a new paint color
+    // the effect re-runs and rebuilds the scene; without this the ship would snap
+    // back to its starting angle every swatch click).
+    const rotationRef = useRef<{ x: number; y: number } | null>(null);
 
     useEffect(() => {
         const container = mountRef.current;
@@ -57,15 +62,20 @@ export default function ShipPreview({ color, type, interactive = false }: ShipPr
         scene.add(dirLight);
 
         // Ship Mesh
-        const { mesh } = createShip(color, type);
+        const { mesh } = createShip(color, type, accentColor);
         scene.add(mesh);
 
         // Center the ship visually
         mesh.position.set(0, -0.5, 0);
 
-        // Initial Rotation for nice angle
+        // Initial Rotation for nice angle (or restore previous if user has dragged)
         if (interactive) {
-            mesh.rotation.y = -Math.PI / 4;
+            if (rotationRef.current) {
+                mesh.rotation.x = rotationRef.current.x;
+                mesh.rotation.y = rotationRef.current.y;
+            } else {
+                mesh.rotation.y = -Math.PI / 4;
+            }
         }
 
         // --- INTERACTION HANDLERS ---
@@ -90,6 +100,7 @@ export default function ShipPreview({ color, type, interactive = false }: ShipPr
             // Drag Y -> Rotate X axis
             mesh.rotation.y += deltaX * 0.01;
             mesh.rotation.x += deltaY * 0.01;
+            rotationRef.current = { x: mesh.rotation.x, y: mesh.rotation.y };
         };
 
         const handleMouseUp = () => {
@@ -153,7 +164,7 @@ export default function ShipPreview({ color, type, interactive = false }: ShipPr
             scene.environment?.dispose();
             renderer.dispose();
         };
-    }, [color, interactive, type]); // Added interactive and type dependencies
+    }, [color, accentColor, interactive, type]); // Rebuild when colors or type change
 
     return (
         <div ref={mountRef} className="w-full h-full" />

@@ -8,6 +8,7 @@ import { audioManager } from './AudioManager';
 
 export interface ShipConfig {
     color: number;
+    accentColor?: number; // Secondary livery color (wings/trim); defaults to white
     accelFactor: number;
     turnSpeed: number;
     friction: number;
@@ -55,7 +56,7 @@ export class Ship {
         // Initialize Visuals
         const color = config?.color !== undefined ? config.color : 0xcc0000;
         const type = config?.type || 'fighter';
-        const { mesh, glows } = createShip(color, type);
+        const { mesh, glows } = createShip(color, type, config?.accentColor);
         this.mesh = mesh;
         this.glows = glows;
 
