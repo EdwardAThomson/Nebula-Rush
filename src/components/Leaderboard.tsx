@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
 export interface RaceResult {
+    id: string;
     rank: number;
     name: string;
     isPlayer: boolean;
@@ -71,7 +72,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, on
                         const displayRank = viewMode === 'campaign' ? index + 1 : result.rank;
                         return (
                             <div
-                                key={result.name}
+                                key={result.id}
                                 className={`grid grid-cols-12 gap-4 items-center p-3 rounded ${result.isPlayer
                                     ? 'bg-cyan-900 bg-opacity-40 border border-cyan-500/50'
                                     : 'bg-gray-800 bg-opacity-40 hover:bg-gray-700'

@@ -50,9 +50,20 @@ const getDisplayStats = (type: ShipType) => {
   };
 };
 
-// Convert between Three.js numeric colors and <input type="color"> hex strings
-const numToHex = (n: number) => '#' + n.toString(16).padStart(6, '0');
-const hexToNum = (h: string) => parseInt(h.slice(1), 16);
+// Preset paint palette — keeps the customizer snappy vs. the native color picker
+const PAINT_PALETTE: { name: string, value: number }[] = [
+  { name: 'Red',    value: 0xcc0000 },
+  { name: 'Orange', value: 0xff7700 },
+  { name: 'Yellow', value: 0xffcc00 },
+  { name: 'Green',  value: 0x00cc44 },
+  { name: 'Cyan',   value: 0x00ccff },
+  { name: 'Blue',   value: 0x2244cc },
+  { name: 'Purple', value: 0x8822cc },
+  { name: 'Pink',   value: 0xff44aa },
+  { name: 'White',  value: 0xeeeeee },
+  { name: 'Black',  value: 0x222222 },
+];
+const numToCss = (n: number) => '#' + n.toString(16).padStart(6, '0');
 
 // Reusable button with audio feedback
 const AudioButton = ({
@@ -168,6 +179,31 @@ function App() {
     setPrimaryColor(defaultColor);
     setAccentColor(0xeeeeee);
   };
+
+  // Skip the paint modal: pick the ship with its default livery and race.
+  const selectShipAndRace = (type: ShipType, defaultColor: number) => {
+    audioManager.playClick();
+    handleShipSelect({
+      color: defaultColor,
+      accentColor: 0xeeeeee,
+      ...SHIP_STATS[type],
+      type,
+    });
+  };
+
+  // Small "PAINT" chip overlaid on each ship card. Clicking it opens the paint
+  // customizer for that ship instead of racing immediately.
+  const PaintChip = ({ type, defaultColor }: { type: ShipType, defaultColor: number }) => (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); openShipCustomizer(type, defaultColor); }}
+      onMouseEnter={(e) => { e.stopPropagation(); audioManager.playHover(); }}
+      title="Customize paint"
+      className="absolute top-3 right-3 px-3 py-1 bg-gray-900 bg-opacity-80 hover:bg-gray-700 text-xs text-gray-200 font-bold rounded border border-gray-600 transition-colors z-10"
+    >
+      <span aria-hidden="true" className="mr-1">🎨</span>PAINT
+    </button>
+  );
 
   const confirmShipCustomization = () => {
     if (!customizeType) return;
@@ -319,6 +355,7 @@ function App() {
             onSelect={handlePilotSelect}
             onBack={handleBackFromPilotSelect}
             backLabel={gameMode === 'single_race' ? 'BACK TO ENVIRONMENT' : 'BACK TO MENU'}
+            onMainMenu={gameMode === 'single_race' ? () => setScreen('start') : undefined}
           />
         )
       }
@@ -332,10 +369,11 @@ function App() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
               {/* SHIP 1: FIGHTER (Balanced) */}
               <div
-                onClick={() => openShipCustomizer('fighter', 0xcc0000)}
+                onClick={() => selectShipAndRace('fighter', 0xcc0000)}
                 onMouseEnter={() => audioManager.playHover()}
-                className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-red-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
+                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-red-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
               >
+                <PaintChip type="fighter" defaultColor={0xcc0000} />
                 <div className="h-48 bg-red-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
                   <ShipPreview color={0xcc0000} type="fighter" />
                 </div>
@@ -351,10 +389,11 @@ function App() {
 
               {/* SHIP 2: INTERCEPTOR (Bi-Plane) */}
               <div
-                onClick={() => openShipCustomizer('interceptor', 0x00ff00)}
+                onClick={() => selectShipAndRace('interceptor', 0x00ff00)}
                 onMouseEnter={() => audioManager.playHover()}
-                className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-green-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
+                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-green-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
               >
+                <PaintChip type="interceptor" defaultColor={0x00ff00} />
                 <div className="h-48 bg-green-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
                   <ShipPreview color={0x00ff00} type="interceptor" />
                 </div>
@@ -370,10 +409,11 @@ function App() {
 
               {/* SHIP 3: TANK (Heavy) */}
               <div
-                onClick={() => openShipCustomizer('tank', 0xcccc00)}
+                onClick={() => selectShipAndRace('tank', 0xcccc00)}
                 onMouseEnter={() => audioManager.playHover()}
-                className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-yellow-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
+                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-yellow-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
               >
+                <PaintChip type="tank" defaultColor={0xcccc00} />
                 <div className="h-48 bg-yellow-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
                   <ShipPreview color={0xcccc00} type="tank" />
                 </div>
@@ -389,10 +429,11 @@ function App() {
 
               {/* SHIP 4: CORSAIR (Drifter) */}
               <div
-                onClick={() => openShipCustomizer('corsair', 0x5500aa)}
+                onClick={() => selectShipAndRace('corsair', 0x5500aa)}
                 onMouseEnter={() => audioManager.playHover()}
-                className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-purple-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
+                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-purple-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
               >
+                <PaintChip type="corsair" defaultColor={0x5500aa} />
                 <div className="h-48 bg-purple-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
                   <ShipPreview color={0x5500aa} type="corsair" />
                 </div>
@@ -408,10 +449,11 @@ function App() {
 
               {/* SHIP 5: SPEEDSTER */}
               <div
-                onClick={() => openShipCustomizer('speedster', 0x00ccff)}
+                onClick={() => selectShipAndRace('speedster', 0x00ccff)}
                 onMouseEnter={() => audioManager.playHover()}
-                className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-cyan-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
+                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-cyan-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
               >
+                <PaintChip type="speedster" defaultColor={0x00ccff} />
                 <div className="h-48 bg-cyan-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
                   <ShipPreview color={0x00ccff} type="speedster" />
                 </div>
@@ -433,6 +475,13 @@ function App() {
                 className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
               >
                 BACK TO PILOT
+              </button>
+              <button
+                onClick={() => { audioManager.playClick(); setScreen('start'); }}
+                onMouseEnter={() => audioManager.playHover()}
+                className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
+              >
+                MAIN MENU
               </button>
             </div>
 
@@ -506,6 +555,7 @@ function App() {
           <EnvironmentSelection
             onSelect={handleEnvSelect}
             onBack={handleBackFromEnvSelect}
+            onMainMenu={() => setScreen('start')}
           />
         )
       }
@@ -609,25 +659,37 @@ function App() {
               <ShipPreview color={primaryColor} accentColor={accentColor} type={customizeType} interactive />
             </div>
 
-            <div className="space-y-3 mb-6">
-              <label className="flex items-center justify-between">
-                <span className="text-gray-300">Primary (Body)</span>
-                <input
-                  type="color"
-                  value={numToHex(primaryColor)}
-                  onChange={(e) => setPrimaryColor(hexToNum(e.target.value))}
-                  className="w-16 h-10 bg-transparent cursor-pointer rounded"
-                />
-              </label>
-              <label className="flex items-center justify-between">
-                <span className="text-gray-300">Secondary (Wings / Trim)</span>
-                <input
-                  type="color"
-                  value={numToHex(accentColor)}
-                  onChange={(e) => setAccentColor(hexToNum(e.target.value))}
-                  className="w-16 h-10 bg-transparent cursor-pointer rounded"
-                />
-              </label>
+            <div className="space-y-4 mb-6">
+              <div>
+                <div className="text-gray-300 mb-2">Primary (Body)</div>
+                <div className="flex flex-wrap gap-2">
+                  {PAINT_PALETTE.map(({ name, value }) => (
+                    <button
+                      key={`p-${value}`}
+                      type="button"
+                      title={name}
+                      onClick={() => setPrimaryColor(value)}
+                      style={{ backgroundColor: numToCss(value) }}
+                      className={`w-8 h-8 rounded border-2 transition ${primaryColor === value ? 'border-cyan-400 scale-110' : 'border-gray-600 hover:border-gray-400'}`}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="text-gray-300 mb-2">Secondary (Wings / Trim)</div>
+                <div className="flex flex-wrap gap-2">
+                  {PAINT_PALETTE.map(({ name, value }) => (
+                    <button
+                      key={`s-${value}`}
+                      type="button"
+                      title={name}
+                      onClick={() => setAccentColor(value)}
+                      style={{ backgroundColor: numToCss(value) }}
+                      className={`w-8 h-8 rounded border-2 transition ${accentColor === value ? 'border-cyan-400 scale-110' : 'border-gray-600 hover:border-gray-400'}`}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="flex gap-4">

@@ -5,9 +5,10 @@ interface PilotSelectionProps {
     onSelect: (pilot: Pilot) => void;
     onBack: () => void;
     backLabel?: string;
+    onMainMenu?: () => void;
 }
 
-export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK' }: PilotSelectionProps) {
+export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK', onMainMenu }: PilotSelectionProps) {
 
 
     return (
@@ -64,6 +65,15 @@ export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK' }:
                 >
                     {backLabel}
                 </button>
+                {onMainMenu && (
+                    <button
+                        onClick={() => { audioManager.playClick(); onMainMenu(); }}
+                        onMouseEnter={() => audioManager.playHover()}
+                        className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
+                    >
+                        MAIN MENU
+                    </button>
+                )}
             </div>
 
             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 text-gray-500 text-sm whitespace-nowrap">

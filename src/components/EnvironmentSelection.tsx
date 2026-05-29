@@ -5,12 +5,13 @@ import { audioManager } from '../game/AudioManager';
 interface EnvironmentSelectionProps {
     onSelect: (config: EnvironmentConfig) => void;
     onBack: () => void;
+    onMainMenu?: () => void;
 }
 
 const TIMES: TimeOfDay[] = ['morning', 'day', 'evening', 'night'];
 const WEATHERS: Weather[] = ['clear', 'fog', 'rain'];
 
-export default function EnvironmentSelection({ onSelect, onBack }: EnvironmentSelectionProps) {
+export default function EnvironmentSelection({ onSelect, onBack, onMainMenu }: EnvironmentSelectionProps) {
     const [selectedTime, setSelectedTime] = useState<TimeOfDay>('day');
     const [selectedWeather, setSelectedWeather] = useState<Weather>('clear');
 
@@ -80,6 +81,15 @@ export default function EnvironmentSelection({ onSelect, onBack }: EnvironmentSe
                 >
                     BACK TO TRACK
                 </button>
+                {onMainMenu && (
+                    <button
+                        onClick={() => { audioManager.playClick(); onMainMenu(); }}
+                        onMouseEnter={() => audioManager.playHover()}
+                        className="px-8 py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 font-bold rounded shadow-lg transition-all"
+                    >
+                        MAIN MENU
+                    </button>
+                )}
                 <button
                     onClick={() => { audioManager.playClick(); handleConfirm(); }}
                     onMouseEnter={() => audioManager.playHover()}

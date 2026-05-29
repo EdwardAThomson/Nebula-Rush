@@ -106,6 +106,7 @@ export class OpponentManager {
     public static generateRoster(count: number): OpponentConfig[] {
         const colors = [0x00cc00, 0x0000cc, 0xcccc00, 0xcc00cc, 0x00cccc, 0xff8800];
         const roster: OpponentConfig[] = [];
+        const usedNames = new Set<string>();
 
         for (let i = 0; i < count; i++) {
             // Select Random Ship Type (all 5 types now included)
@@ -126,10 +127,16 @@ export class OpponentManager {
             basetoConfig.turnSpeed *= 1.0 + (Math.random() * 0.2 - 0.1);     // ±10%
             basetoConfig.color = colors[i % colors.length];
 
+            let name: string;
+            do {
+                name = `AI-${Math.floor(Math.random() * 900) + 100}`;
+            } while (usedNames.has(name));
+            usedNames.add(name);
+
             roster.push({
                 ...basetoConfig,
                 id: `ai_${i}`,
-                name: `AI-${Math.floor(Math.random() * 900) + 100}`
+                name
             });
         }
         return roster;

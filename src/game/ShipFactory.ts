@@ -260,10 +260,10 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         dorsal.position.set(0.03, 0.8, 2.5);
         ship.add(dorsal);
 
-        // 2. Nose-top air scoop
+        // 2. Body-top air scoop (just aft of the nose joint)
         const scoopGeo = getGeometry('speedster_scoop', () => new THREE.BoxGeometry(0.2, 0.08, 0.6));
         const scoop = new THREE.Mesh(scoopGeo, engineMaterial);
-        scoop.position.set(0, 0.85, -4.2);
+        scoop.position.set(0, 0.84, -3.0);
         ship.add(scoop);
 
         // 3. Engine cooling rings - three concentric rings around each engine
@@ -277,12 +277,12 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
             });
         });
 
-        // 4. Wing-mounted aerial probes
+        // 4. Wing-mounted aerial probes (pitot tubes on the wing leading edge)
         const probeGeo = getGeometry('speedster_probe', () => new THREE.CylinderGeometry(0.03, 0.03, 0.7, 8));
         [-2.0, 2.0].forEach(px => {
             const probe = new THREE.Mesh(probeGeo, engineMaterial);
             probe.rotation.x = Math.PI / 2;
-            probe.position.set(px, 0.45, -2.0);
+            probe.position.set(px, 0.4, -1.1);
             ship.add(probe);
         });
 

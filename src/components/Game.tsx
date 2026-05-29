@@ -566,6 +566,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
             const newTotal = currentTotal + points;
 
             return {
+              id: ship.id,
               rank: rank,
               name: ship.name,
               isPlayer: ship.isPlayer,

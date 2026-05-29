@@ -57,12 +57,15 @@ const TIME_SETTINGS = {
     night: {
         skyColor: 0x000011, // Dark Blue/Black
         lightColor: 0xaaaaff, // Cool Blue
-        ambientColor: 0x010105, // Almost black
+        ambientColor: 0x0a0a18, // Very dark blue-grey
         sunPosition: new THREE.Vector3(50, 100, 50), // Moon
         sunColor: 0xddddff,
-        fogDensity: 0.0004,
-        lightIntensity: 0.0, // Very dark moon logic (was 0.8)
-        ambientIntensity: 0.0 // Very low ambient (was 0.4 global)
+        // Fog is a brighter blue-grey than the sky so it's actually visible against the dark backdrop.
+        fogColor: 0x1a223a,
+        fogDensity: 0.0006,
+        // Soft moonlight baseline so long stretches between globes aren't pitch black.
+        lightIntensity: 0.55,
+        ambientIntensity: 0.28
     }
 };
 
@@ -112,8 +115,10 @@ export class EnvironmentManager {
         const fogDensity = timeSettings.fogDensity * weatherSettings.fogMultiplier;
 
         this.scene.background = new THREE.Color(timeSettings.skyColor);
-        // Use exponential fog for distance fading
-        this.scene.fog = new THREE.FogExp2(timeSettings.skyColor, fogDensity);
+        // Use exponential fog for distance fading. Some times of day (night) override the fog
+        // colour so the fog reads against the sky instead of disappearing into it.
+        const fogColor = ('fogColor' in timeSettings ? timeSettings.fogColor : timeSettings.skyColor) as number;
+        this.scene.fog = new THREE.FogExp2(fogColor, fogDensity);
 
         // 2. LIGHTING
         // Use configured ambient intensity
@@ -123,7 +128,7 @@ export class EnvironmentManager {
         const hemisphereLight = new THREE.HemisphereLight(
             timeSettings.skyColor,
             timeSettings.ambientColor,
-            config.timeOfDay === 'night' ? 0.0 : 0.6 // Reduced from 0.5/1.0
+            config.timeOfDay === 'night' ? 0.4 : 0.6 // Mild sky/ground bounce at night so terrain reads
         );
         this.scene.add(hemisphereLight);
 
