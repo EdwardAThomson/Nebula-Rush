@@ -153,78 +153,85 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
     if (type === 'speedster') {
         // --- BEVELED SPEEDSTER (Original Design + Smooth Edges) ---
 
-        // 1. Body: Long Rounded Box
-        // Original: 0.8 x 0.8 x 7.0
-        const bodyWidth = 0.8;
-        const bodyHeight = 0.8;
+        // 1. Body: capsule (cylinder + hemispherical end caps). Radius 0.45,
+        //    total length 7 so it occupies the same Z range as the previous
+        //    rounded-box body. The bullet nose merges into the front of the
+        //    cylinder section so the two share an identical circular
+        //    cross-section.
+        const bodyRadius = 0.45;
         const bodyLength = 7.0;
-        const bodyBevel = 0.1;
+        const bodyCylinderLength = bodyLength - 2 * bodyRadius;   // straight section between caps
 
-        // Create shape slightly smaller to account for bevel
-        const bodyShape = createRoundedRect(bodyWidth - bodyBevel, bodyHeight - bodyBevel, bodyBevel);
-
-        const bodyExtrudeSettings = {
-            steps: 2,
-            depth: bodyLength,
-            bevelEnabled: true,
-            bevelThickness: bodyBevel,
-            bevelSize: bodyBevel,
-            bevelSegments: 5,
-            bevelOffset: 0
-        };
-
-        const fuselageGeo = getGeometry('speedster_beveled_body', () => new THREE.ExtrudeGeometry(bodyShape, bodyExtrudeSettings));
+        const fuselageGeo = getGeometry('speedster_capsule_body', () => new THREE.CapsuleGeometry(bodyRadius, bodyCylinderLength, 12, 32));
         const body = new THREE.Mesh(fuselageGeo, bodyMaterial);
-
-        // Extrude starts at Z=0 and goes to +Length. Center needs to be adjusted.
-        // We probably want it centered around Z=0 for easy nose/engine attachment.
-        body.position.set(0, 0.4, -bodyLength / 2);
+        body.rotation.x = Math.PI / 2;                            // align capsule axis (local +Y) with world +Z
+        body.position.set(0, 0.4, 0);                             // body spans world Z = -3.5 to +3.5
         ship.add(body);
 
-        // 2. Nose: Smooth Cone (instead of 4-sided)
-        // Original: 0.5 radius, 3.0 length.
-        const noseGeo = getGeometry('speedster_smooth_nose', () => new THREE.ConeGeometry(0.45, 3.0, 32));
+        // 2. Nose: elongated bullet (stretched sphere) projecting forward from
+        //    the cylindrical section. Same circular cross-section as the body
+        //    so the join is invisible; the back half of the ellipsoid sits
+        //    inside the cylinder (and fully encloses the capsule's front
+        //    hemispherical cap, hiding it).
+        const noseGeo = getGeometry('speedster_bullet_nose', () => new THREE.SphereGeometry(1, 32, 24));
         const nose = new THREE.Mesh(noseGeo, bodyMaterial);
-        nose.rotation.x = -Math.PI / 2;
-        // Positioned at the front of the body
-        // Body (centered) ends at -bodyLength/2? No, let's check coordinate.
-        // Body Pos: 0, 0.4, -3.5. Extrude goes 0 to 7. Local Z goes 0 to 7.
-        // Global Z: -3.5 to 3.5.
-        // Front is at Z = -3.5.
-        nose.position.set(0, 0.4, -5.0); // -3.5 (front) - 1.5 (half cone height)
+        nose.scale.set(bodyRadius, bodyRadius, 2.6);              // cross-section radius matches body; tip 2.6 forward of centre
+        nose.position.set(0, 0.4, -(bodyLength / 2 - bodyRadius));// centre at the front of the cylinder section (Z = -3.05)
         ship.add(nose);
 
-        // 3. Wings: Rounded Plates
-        // Original: 2.0 x 0.1 x 4.0
-        const wingShape = createRoundedRect(2.0, 0.1, 0.02);
+        // 3. Wings: planform with curved leading edge and rounded wingtip.
+        // Each wing has its own shape (mirrored across X) so the silhouette
+        // curves outward on both sides without flipping face normals via
+        // negative scaling. Shape coords: X = outward span (root at X=0,
+        // tip at X=±wingSpan), Y = chord (+Y = leading edge). The mesh is
+        // laid flat by rotation.x = -PI/2 so local +Y maps to world -Z
+        // (forward). Sweep is baked into the shape, not applied via
+        // rotation.y, and the root sits flush against the body side.
+        const wingSpan = 1.8;
+        const wingHalfRootChord = 2.0;   // root chord = 4.0 (Y = -2 .. +2)
+        const wingHalfTipChord = 1.25;   // tip chord = 2.5, set back for sweep
+        const bodyHalfWidth = 0.4;       // body is 0.8 wide, root attaches at edge
+
+        const rightWingShape = new THREE.Shape();
+        rightWingShape.moveTo(0, -wingHalfRootChord);                                                                                          // root trailing
+        rightWingShape.lineTo(wingSpan, -wingHalfRootChord);                                                                                   // tip trailing (straight, jet-style)
+        rightWingShape.quadraticCurveTo(wingSpan + 0.4, (wingHalfTipChord - wingHalfRootChord) * 0.5, wingSpan - 0.1, wingHalfTipChord);       // rounded wingtip bulging outward
+        rightWingShape.quadraticCurveTo(wingSpan * 0.5, wingHalfRootChord + 0.5, 0, wingHalfRootChord);                                        // curved leading edge bowing forward
+        rightWingShape.lineTo(0, -wingHalfRootChord);                                                                                          // close along root edge
+
+        const leftWingShape = new THREE.Shape();
+        leftWingShape.moveTo(0, -wingHalfRootChord);                                                                                           // root trailing
+        leftWingShape.lineTo(0, wingHalfRootChord);                                                                                            // root edge up to root leading
+        leftWingShape.quadraticCurveTo(-wingSpan * 0.5, wingHalfRootChord + 0.5, -wingSpan + 0.1, wingHalfTipChord);                           // curved leading edge bowing forward
+        leftWingShape.quadraticCurveTo(-wingSpan - 0.4, (wingHalfTipChord - wingHalfRootChord) * 0.5, -wingSpan, -wingHalfRootChord);          // rounded wingtip bulging outward
+        leftWingShape.lineTo(0, -wingHalfRootChord);                                                                                           // trailing edge back to root
+
         const wingSettings = {
             steps: 1,
-            depth: 4.0,
+            depth: 0.1,
             bevelEnabled: true,
-            bevelThickness: 0.05,
-            bevelSize: 0.05,
+            bevelThickness: 0.04,
+            bevelSize: 0.04,
             bevelSegments: 3
         };
-        const wingGeo = getGeometry('speedster_beveled_wing', () => new THREE.ExtrudeGeometry(wingShape, wingSettings));
+        const rightWingGeo = getGeometry('speedster_curved_wing_right', () => new THREE.ExtrudeGeometry(rightWingShape, wingSettings));
+        const leftWingGeo = getGeometry('speedster_curved_wing_left', () => new THREE.ExtrudeGeometry(leftWingShape, wingSettings));
 
-        const leftWing = new THREE.Mesh(wingGeo, wingMaterial);
-        // Wing is drawn 2.0 wide (X), 0.1 high (Y), extruded 4.0 (Z).
-        // Rotate to match.
-        // Original wings were at +/- 1.2, 0.3, 1.0. and Rotated Y +/- PI/12.
-        leftWing.position.set(-1.2, 0.3, -1.0); // Adjustment for extrude offset
-        leftWing.rotation.y = Math.PI / 12;
-        ship.add(leftWing);
-
-        const rightWing = new THREE.Mesh(wingGeo, wingMaterial);
-        rightWing.position.set(1.2, 0.3, -1.0);
-        rightWing.rotation.y = -Math.PI / 12;
+        const rightWing = new THREE.Mesh(rightWingGeo, wingMaterial);
+        rightWing.rotation.x = -Math.PI / 2;
+        rightWing.position.set(bodyHalfWidth, 0.25, 1.0);
         ship.add(rightWing);
+
+        const leftWing = new THREE.Mesh(leftWingGeo, wingMaterial);
+        leftWing.rotation.x = -Math.PI / 2;
+        leftWing.position.set(-bodyHalfWidth, 0.25, 1.0);
+        ship.add(leftWing);
 
         // 4. Cabin
         const cabinGeo = getGeometry('speedster_cabin_sphere', () => new THREE.SphereGeometry(0.5, 32, 16));
         const cabin = new THREE.Mesh(cabinGeo, cockpitMaterial);
-        cabin.scale.set(0.8, 1.0, 2.0);
-        cabin.position.set(0, 0.8, 1.0);
+        cabin.scale.set(0.7, 0.7, 1.7);
+        cabin.position.set(0, 0.75, 1.0);
         ship.add(cabin);
 
         // 5. Engines
@@ -248,13 +255,15 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         // Engines at (±2.0, 0.3, 2.0), 0.5 radius, 3.0 length → Z 0.5 to 3.5.
 
         // 1. Dorsal fin - aerodynamic blade behind the cockpit.
-        // Leading edge swept back: low at front, tall at trailing edge.
+        // Leading edge swept back and curving, top-back corner rounded into
+        // a shark-fin silhouette instead of a hard right-angle wedge.
         const dorsalShape = new THREE.Shape();
-        dorsalShape.moveTo(0, 0);            // front-bottom
-        dorsalShape.lineTo(1.0, 0);          // bottom-back
-        dorsalShape.lineTo(1.0, 0.25);       // back-top (tall trailing edge)
-        dorsalShape.lineTo(0, 0);            // swept leading edge back to front-bottom
-        const dorsalGeo = getGeometry('speedster_dorsal', () => new THREE.ExtrudeGeometry(dorsalShape, { depth: 0.06, bevelEnabled: false }));
+        dorsalShape.moveTo(0, 0);                                    // front-bottom (attachment apex)
+        dorsalShape.lineTo(1.0, 0);                                  // bottom-back along body
+        dorsalShape.lineTo(1.0, 0.20);                               // straight trailing edge
+        dorsalShape.quadraticCurveTo(1.0, 0.30, 0.85, 0.30);         // rounded top-back corner
+        dorsalShape.quadraticCurveTo(0.45, 0.28, 0, 0);              // curved leading edge swept back down to the apex
+        const dorsalGeo = getGeometry('speedster_dorsal_rounded', () => new THREE.ExtrudeGeometry(dorsalShape, { depth: 0.06, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.015, bevelSegments: 2 }));
         const dorsal = new THREE.Mesh(dorsalGeo, engineMaterial);
         dorsal.rotation.y = -Math.PI / 2;
         dorsal.position.set(0.03, 0.8, 2.5);
@@ -282,7 +291,7 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         [-2.0, 2.0].forEach(px => {
             const probe = new THREE.Mesh(probeGeo, engineMaterial);
             probe.rotation.x = Math.PI / 2;
-            probe.position.set(px, 0.4, -1.1);
+            probe.position.set(px, 0.32, -0.65);
             ship.add(probe);
         });
 
@@ -484,48 +493,41 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         // --- INTERCEPTOR (Bi-Plane) ---
         // Compact body, double wings, Rounded Edges
 
-        const bodyW = 1.0;
-        const bodyH = 1.2;
-        const bodyL = 4.0;
-        const bevel = 0.1;
-
-        const bodyShape = createRoundedRect(bodyW - bevel, bodyH - bevel, bevel);
-        const bodySettings = {
-            steps: 2,
-            depth: bodyL,
-            bevelEnabled: true,
-            bevelThickness: bevel,
-            bevelSize: bevel,
-            bevelSegments: 3
-        };
-
-        const bodyGeo = getGeometry('interceptor_body_rounded', () => new THREE.ExtrudeGeometry(bodyShape, bodySettings));
+        // 1. Body: round capsule (cylinder + hemispherical caps). It touches the
+        //    top wing (y=1.2) and the raised bottom wing (y=-0.2); the radius is
+        //    half that 1.4 gap (0.7), centred at y=0.5. Length 4 → Z -2.0..2.0.
+        const bodyRadius = 0.7;
+        const bodyLength = 4.0;
+        const bodyCenterY = 0.5;
+        const bodyCenterZ = 0.0;
+        const bodyCylinderLength = bodyLength - 2 * bodyRadius;   // straight section between caps
+        const bodyGeo = getGeometry('interceptor_round_body_r07', () => new THREE.CapsuleGeometry(bodyRadius, bodyCylinderLength, 12, 32));
         const body = new THREE.Mesh(bodyGeo, bodyMaterial);
-        // Original Pos: 0, 0.6, 0. Center Z=0.
-        // Extrunde 0 to 4.0.
-        // Start at -2.0.
-        body.position.set(0, 0.6, -2.0);
+        body.rotation.x = Math.PI / 2;                            // align capsule axis (local +Y) with world +Z
+        body.position.set(0, bodyCenterY, bodyCenterZ);           // spans world Y -0.2..1.2, Z -2.0..2.0
         ship.add(body);
 
-        // Smooth Nose
-        const noseGeo = getGeometry('interceptor_nose_smooth', () => new THREE.ConeGeometry(0.5, 2.0, 32));
+        // 2. Nose: bullet ellipsoid sharing the body's circular cross-section so
+        //    the join is invisible (back half hidden inside the body).
+        const noseGeo = getGeometry('interceptor_bullet_nose', () => new THREE.SphereGeometry(1, 32, 24));
         const nose = new THREE.Mesh(noseGeo, bodyMaterial);
-        nose.rotation.x = -Math.PI / 2;
-        // nose.rotation.y = Math.PI / 4; // Check if 4-sided rotation is still needed? No, it's round now.
-        nose.position.set(0, 0.6, -3.0);
+        nose.scale.set(bodyRadius, bodyRadius, 2.2);                                     // cross-section matches body; tip 2.2 forward of centre
+        nose.position.set(0, bodyCenterY, bodyCenterZ - (bodyLength / 2 - bodyRadius));  // centre at front of cylinder section (Z = -1.3)
         ship.add(nose);
 
         // Bi-Plane Delta Wings
         const createDeltaShape = () => {
             const s = new THREE.Shape();
-            const wingSpan = 5.0;
-            const wingChord = 4.5; // Increased from 2.5 to 4.5
-            // Tip is at +Chord/2 (Y+). Back is at -Chord/2 (Y-).
-            // We want tip to be narrower? No, simple triangle.
-            s.moveTo(0, wingChord / 2);
-            s.lineTo(wingSpan / 2, -wingChord / 2);
-            s.lineTo(-wingSpan / 2, -wingChord / 2);
-            s.lineTo(0, wingChord / 2);
+            const hs = 5.0 / 2;   // half span (2.5)
+            const hc = 4.5 / 2;   // half chord (2.25)
+            // Delta pointing forward (+Y = leading edge). Curved leading edges
+            // bowing forward, rounded wingtips, straight trailing edge.
+            s.moveTo(0, hc);                                          // front apex
+            s.quadraticCurveTo(hs * 0.55, hc * 0.5, hs, -hc + 0.5);   // right leading edge bowing forward
+            s.quadraticCurveTo(hs + 0.2, -hc, hs - 0.55, -hc);        // rounded right wingtip
+            s.lineTo(-(hs - 0.55), -hc);                              // straight trailing edge
+            s.quadraticCurveTo(-(hs + 0.2), -hc, -hs, -hc + 0.5);     // rounded left wingtip
+            s.quadraticCurveTo(-hs * 0.55, hc * 0.5, 0, hc);          // left leading edge bowing forward
             return s;
         };
 
@@ -538,7 +540,7 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
             bevelSegments: 2
         };
 
-        const deltaGeo = getGeometry('interceptor_delta_wing_long', () => {
+        const deltaGeo = getGeometry('interceptor_delta_wing_rounded', () => {
             return new THREE.ExtrudeGeometry(createDeltaShape(), deltaSettings);
         });
 
@@ -549,33 +551,32 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
 
         const bottomWing = new THREE.Mesh(deltaGeo, wingMaterial);
         bottomWing.rotation.x = -Math.PI / 2;
-        bottomWing.position.set(0, 0.0, 0.0); // Shifted Z position
+        bottomWing.position.set(0, -0.2, 0.0); // raised so the slimmer round body still touches it
         ship.add(bottomWing);
 
-        // Bi-plane struts connecting the top and bottom wings. The delta wing
-        // at Z=0.5 is only ±1.53 wide, so the previous X=±1.8 placed them
-        // outside the wing entirely. Pull them inboard to where the wings
-        // are widest (centered) and thicken them so they read clearly.
-        const strutGeo = getGeometry('interceptor_strut', () => new THREE.CylinderGeometry(0.08, 0.08, 1.25, 12));
+        // Bi-plane struts ("pylons") connecting the top wing (y=1.2) and the
+        // bottom wing (y=-0.2). Length 1.5 centred at y=0.5 spans the 1.4 gap and
+        // embeds into both wings; X=±1.0 keeps them outboard of the body.
+        const strutGeo = getGeometry('interceptor_strut_mid', () => new THREE.CylinderGeometry(0.08, 0.08, 1.5, 12));
         const strutOffsets: [number, number][] = [[-1.0, -0.3], [1.0, -0.3], [-1.0, 0.6], [1.0, 0.6]];
         strutOffsets.forEach(([sx, sz]) => {
             const strut = new THREE.Mesh(strutGeo, engineMaterial);
-            strut.position.set(sx, 0.6, sz);
+            strut.position.set(sx, 0.5, sz);
             ship.add(strut);
         });
 
         // Engines (4 small ones)
         const engineGeo = getGeometry('interceptor_engine', () => new THREE.CylinderGeometry(0.25, 0.25, 1.0, 8));
         const engOffsets = [
-            { x: -0.8, y: 0.2 }, { x: 0.8, y: 0.2 },
-            { x: -0.8, y: 1.0 }, { x: 0.8, y: 1.0 }
+            { x: -0.9, y: 0.2 }, { x: 0.9, y: 0.2 },     // lower pair: against the body
+            { x: -0.9, y: 0.95 }, { x: 0.9, y: 0.95 }    // upper pair: flush under the top wing (y=1.2)
         ];
         engOffsets.forEach(off => {
             const eng = new THREE.Mesh(engineGeo, engineMaterial);
             eng.rotation.x = Math.PI / 2;
-            eng.position.set(off.x, off.y, 2.0);
+            eng.position.set(off.x, off.y, 1.6);
             ship.add(eng);
-            enginePositions.push(new THREE.Vector3(off.x, off.y, 2.5));
+            enginePositions.push(new THREE.Vector3(off.x, off.y, 2.1));
         });
 
         // Cockpit
@@ -586,34 +587,36 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         ship.add(cabin);
 
         // --- GREEBLES ---
-        // Body: X ±0.5, Y 0 to 1.2, Z -2.0 to 2.0.
-        // Small engines (0.25r) at (±0.8, 0.2 or 1.0, 2.0).
+        // Body (round capsule r=0.7): X ±0.7, Y -0.2 to 1.2, Z -2.0 to 2.0.
+        // Small engines (0.25r) at (±0.9, 0.2 or 0.95, 1.6).
 
-        // 1. Antenna mast on top of the cabin
+        // 1. Antenna mast on the fuselage spine, behind the cockpit canopy
         const intMastGeo = getGeometry('interceptor_mast', () => new THREE.CylinderGeometry(0.03, 0.04, 0.5, 8));
         const intMast = new THREE.Mesh(intMastGeo, engineMaterial);
-        intMast.position.set(0, 1.9, -0.5);
+        intMast.position.set(0, 1.45, 0.4);   // base on the body top (y=1.2), aft of the canopy
         ship.add(intMast);
 
         const intSensorGeo = getGeometry('interceptor_sensor', () => new THREE.SphereGeometry(0.07, 10, 8));
         const intSensor = new THREE.Mesh(intSensorGeo, engineMaterial);
-        intSensor.position.set(0, 2.18, -0.5);
+        intSensor.position.set(0, 1.75, 0.4);  // dome at the top of the mast
         ship.add(intSensor);
 
         // 2. Engine cooling rings - one per engine
         const intRingGeo = getGeometry('interceptor_ring', () => new THREE.TorusGeometry(0.30, 0.04, 8, 20));
-        const intRingOffsets: [number, number][] = [[-0.8, 0.2], [0.8, 0.2], [-0.8, 1.0], [0.8, 1.0]];
+        const intRingOffsets: [number, number][] = [[-0.9, 0.2], [0.9, 0.2], [-0.9, 0.95], [0.9, 0.95]];
         intRingOffsets.forEach(([rx, ry]) => {
             const ring = new THREE.Mesh(intRingGeo, engineMaterial);
-            ring.position.set(rx, ry, 2.0);
+            ring.position.set(rx, ry, 1.6);
             ship.add(ring);
         });
 
-        // 3. Wing-tip strobes - small light pods at the trailing corners
+        // 3. Wing-tip strobes - small light pods at the rear-outer wingtip
+        //    corners, where the rounded tip meets the straight trailing edge
+        //    (x≈±1.95 at world z≈2.25), poking aft.
         const strobeGeo = getGeometry('interceptor_strobe', () => new THREE.SphereGeometry(0.1, 10, 8));
         const strobePositions: [number, number, number][] = [
-            [-2.45, 1.2, 2.2], [2.45, 1.2, 2.2],
-            [-2.45, 0.0, 2.2], [2.45, 0.0, 2.2]
+            [-2.0, 1.2, 2.3], [2.0, 1.2, 2.3],
+            [-2.0, -0.2, 2.3], [2.0, -0.2, 2.3]
         ];
         strobePositions.forEach(([px, py, pz]) => {
             const strobe = new THREE.Mesh(strobeGeo, engineMaterial);
@@ -624,13 +627,14 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         // 4. Nose-top air scoop
         const intScoopGeo = getGeometry('interceptor_scoop', () => new THREE.BoxGeometry(0.2, 0.1, 0.5));
         const intScoop = new THREE.Mesh(intScoopGeo, engineMaterial);
-        intScoop.position.set(0, 0.95, -2.8);
+        intScoop.position.set(0, 1.05, -2.6);
         ship.add(intScoop);
 
-        // 5. Belly fairing - small mechanical bump under the body
+        // 5. Keel fairing - small mechanical bump along the bottom of the body
+        //    where it meets the lowered bottom wing.
         const bellyGeo = getGeometry('interceptor_belly', () => new THREE.BoxGeometry(0.5, 0.15, 1.4));
         const belly = new THREE.Mesh(bellyGeo, engineMaterial);
-        belly.position.set(0, -0.05, 0.3);
+        belly.position.set(0, -0.2, 0.3);
         ship.add(belly);
 
     } else if (type === 'corsair') {
@@ -638,72 +642,78 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         // --- CORSAIR (Anhedral Wings - Bad Guy Look) ---
         // Rounded Edges Update
 
-        // Hull
-        const hullW = 1.2;
-        const hullH = 0.9;
-        const hullL = 5.0;
-        const bevel = 0.1;
-
-        const hullShape = createRoundedRect(hullW - bevel, hullH - bevel, bevel);
-        const hullSettings = {
-            steps: 2,
-            depth: hullL,
-            bevelEnabled: true,
-            bevelThickness: bevel,
-            bevelSize: bevel,
-            bevelSegments: 3
-        };
-        const mainHullGeo = getGeometry('corsair_hull_rounded', () => new THREE.ExtrudeGeometry(hullShape, hullSettings));
+        // 1. Hull: round capsule (cylinder + hemispherical caps), matching the
+        //    Speedster/Fighter/Interceptor treatment. Radius 0.6, length 5 so it
+        //    keeps the same Z range (-2.5 .. 2.5) as the old rounded-box hull.
+        //    Width is unchanged (±0.6) but the round hull is taller: top y=1.1,
+        //    bottom y=-0.1 (was 0.95 / 0.05), so the top greebles are lifted.
+        const hullRadius = 0.6;
+        const hullLength = 5.0;
+        const hullCenterY = 0.5;
+        const hullCylinderLength = hullLength - 2 * hullRadius;   // straight section between caps
+        const mainHullGeo = getGeometry('corsair_capsule_hull', () => new THREE.CapsuleGeometry(hullRadius, hullCylinderLength, 12, 32));
         const hull = new THREE.Mesh(mainHullGeo, bodyMaterial);
-        // Original Box center 0.5. Box range -2.5 + 0.5 (-2.0) to 2.5 + 0.5 (3.0)? 
-        // No, BoxGeometry(0.8, 0.6, 5.0). Center is 0,0,0. Pos is 0, 0.5, 0.
-        // Range Z: -2.5 to 2.5.
-        // Extrude (0 to 5.0).
-        // Start at -2.5.
-        hull.position.set(0, 0.5, -2.5);
+        hull.rotation.x = Math.PI / 2;                            // align capsule axis (local +Y) with world +Z
+        hull.position.set(0, hullCenterY, 0);                     // hull spans world Z = -2.5 to +2.5
         ship.add(hull);
 
-        // Nose Cone (Smooth)
-        const noseGeo = getGeometry('corsair_nose_smooth', () => new THREE.ConeGeometry(0.52, 3.0, 32));
+        // 2. Nose: elongated bullet (stretched sphere) sharing the hull's
+        //    circular cross-section so the join is invisible (back half hidden
+        //    inside the hull).
+        const noseGeo = getGeometry('corsair_bullet_nose', () => new THREE.SphereGeometry(1, 32, 24));
         const nose = new THREE.Mesh(noseGeo, bodyMaterial);
-        nose.rotation.x = -Math.PI / 2;
-        // nose.rotation.y = Math.PI / 4; // Not needed for smooth
-        nose.position.set(0, 0.5, -4.0); // hull front (-2.5) - half len (1.5)
+        nose.scale.set(hullRadius, hullRadius, 2.8);                          // cross-section matches hull; tip 2.8 forward of centre
+        nose.position.set(0, hullCenterY, -(hullLength / 2 - hullRadius));    // centre at front of cylinder section (Z = -1.9)
         ship.add(nose);
 
-        // Anhedral Wings (Angled Down) - Rounded
-        const wingW = 2.5;
-        const wingH = 0.1;
-        const wingL = 1.5; // Depth
-        const wingBevel = 0.02;
-
-        const wingShape = createRoundedRect(wingW - wingBevel, wingH - wingBevel, wingBevel);
-        const wingSettings = {
+        // Anhedral wings (angled down) - tapered planform with a curved leading
+        // edge and rounded wingtip, like the other ships. Built per side (dir +1
+        // right, -1 left) as a proper X-mirror so the curve stays on the
+        // leading/outboard edge. Shape is span(X) × chord(Y, +Y = leading);
+        // rotation.order 'ZYX' makes the flatten (rotation.x) apply first and the
+        // anhedral (rotation.z) second in the world frame. Root anchored at the
+        // old inner end (±0.42, 0.73), span/angle unchanged, so the tip lands on
+        // the same anhedral line and the engines + wing-tip darts stay connected.
+        const createCorsairWing = (rootChord: number, tipChord: number, span: number, dir: number) => {
+            const s = new THREE.Shape();
+            if (dir > 0) {
+                s.moveTo(0, rootChord / 2);
+                s.quadraticCurveTo(span * 0.5, rootChord / 2 + 0.25, span, tipChord / 2);   // curved leading edge
+                s.quadraticCurveTo(span + 0.25, 0, span, -tipChord / 2);                    // rounded wingtip
+                s.lineTo(0, -rootChord / 2);                                                // straight trailing edge
+                s.lineTo(0, rootChord / 2);                                                 // close along root
+            } else {
+                s.moveTo(0, rootChord / 2);
+                s.lineTo(0, -rootChord / 2);
+                s.lineTo(-span, -tipChord / 2);
+                s.quadraticCurveTo(-(span + 0.25), 0, -span, tipChord / 2);
+                s.quadraticCurveTo(-span * 0.5, rootChord / 2 + 0.25, 0, rootChord / 2);
+            }
+            return s;
+        };
+        const corsairWingSettings = {
             steps: 1,
-            depth: wingL,
+            depth: 0.12,        // thickness
             bevelEnabled: true,
-            bevelThickness: 0.05,
-            bevelSize: 0.05,
+            bevelThickness: 0.04,
+            bevelSize: 0.04,
             bevelSegments: 3
         };
-        const wingGeo = getGeometry('corsair_wing_rounded', () => new THREE.ExtrudeGeometry(wingShape, wingSettings));
+        const rightWingGeo = getGeometry('corsair_wing_right', () => new THREE.ExtrudeGeometry(createCorsairWing(1.5, 1.0, 2.5, 1), corsairWingSettings));
+        const leftWingGeo = getGeometry('corsair_wing_left', () => new THREE.ExtrudeGeometry(createCorsairWing(1.5, 1.0, 2.5, -1), corsairWingSettings));
 
-        // Left Wing
-        const leftWing = new THREE.Mesh(wingGeo, wingMaterial);
-        // Original Pos: -1.5, 0.1, 0.5.
-        // Rot Z: PI/6.
-        // Extrude is Z (0 to 1.5). Center at 0.75.
-        // Box Range: -0.75 to 0.75 relative to center.
-        // We want Center at 0.5 world Z.
-        // Start at 0.5 - 0.75 = -0.25.
-        leftWing.position.set(-1.5, 0.1, -0.25);
-        leftWing.rotation.z = Math.PI / 6; // +30 degrees
+        const leftWing = new THREE.Mesh(leftWingGeo, wingMaterial);
+        leftWing.rotation.order = 'ZYX';
+        leftWing.rotation.x = -Math.PI / 2;     // lay flat (chord -> world Z)
+        leftWing.rotation.z = Math.PI / 6;      // anhedral (tip down)
+        leftWing.position.set(-0.42, 0.73, 0.5);
         ship.add(leftWing);
 
-        // Right Wing
-        const rightWing = new THREE.Mesh(wingGeo, wingMaterial);
-        rightWing.position.set(1.5, 0.1, -0.25);
+        const rightWing = new THREE.Mesh(rightWingGeo, wingMaterial);
+        rightWing.rotation.order = 'ZYX';
+        rightWing.rotation.x = -Math.PI / 2;
         rightWing.rotation.z = -Math.PI / 6;
+        rightWing.position.set(0.42, 0.73, 0.5);
         ship.add(rightWing);
 
         // Connecting Wings/Struts (Rounded)
@@ -755,45 +765,46 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         // Engine at same pos, matching rotation?
 
         const leftEng = new THREE.Mesh(engineGeo, engineMaterial);
-        leftEng.position.set(-1.8, 0.0, 1.5); // Slightly outer and lower
+        leftEng.position.set(-1.8, 0.0, 1.0); // outer/lower; front embeds into the wing
         leftEng.rotation.z = Math.PI / 6; // Match wing angle
         ship.add(leftEng);
         // Attach glow directly to engine (local position at back of engine)
         addGlow(new THREE.Vector3(0, 0, engL), leftEng);
 
         const rightEng = new THREE.Mesh(engineGeo, engineMaterial);
-        rightEng.position.set(1.8, 0.0, 1.5);
+        rightEng.position.set(1.8, 0.0, 1.0);
         rightEng.rotation.z = -Math.PI / 6;
         ship.add(rightEng);
         addGlow(new THREE.Vector3(0, 0, engL), rightEng);
 
-        // Cockpit - Aggressive slit
-        const cabinGeo = getGeometry('corsair_cabin', () => new THREE.BoxGeometry(0.5, 0.3, 1.5));
+        // Cockpit - rounded canopy bubble (low, long ellipsoid)
+        const cabinGeo = getGeometry('corsair_cabin_rounded', () => new THREE.SphereGeometry(1, 24, 16));
         const cabin = new THREE.Mesh(cabinGeo, cockpitMaterial);
-        cabin.position.set(0, 1.0, -0.5);
+        cabin.scale.set(0.28, 0.26, 0.8);     // ~0.56 wide × 0.52 tall × 1.6 long
+        cabin.position.set(0, 1.0, -0.5);     // lower half embedded in the hull (top y=1.1)
         ship.add(cabin);
 
         // --- GREEBLES ---
-        // Hull: X ±0.6, Y 0 to 0.9, Z -2.5 to 2.5.
+        // Hull (round capsule r=0.6): X ±0.6, Y -0.1 to 1.1, Z -2.5 to 2.5.
         // Anhedral wings at (±1.5, 0.1, -0.25), rotated Z by ±π/6.
 
-        // 1. Dorsal spike - aggressive blade behind the cockpit.
-        // Leading edge swept back, with a hooked recurve at the back-top tip.
+        // 1. Dorsal fin - a curved, swept-back shark-fin blade behind the
+        //    cockpit: straight base, curved trailing edge up to a hooked top,
+        //    and a curved leading edge sweeping back down to the apex.
         const corsairSpikeShape = new THREE.Shape();
-        corsairSpikeShape.moveTo(0, 0);          // front-bottom
-        corsairSpikeShape.lineTo(1.2, 0);        // bottom-back
-        corsairSpikeShape.lineTo(1.2, 0.35);     // back-top (tall trailing edge)
-        corsairSpikeShape.lineTo(0.9, 0.22);     // forward sweep along the top
-        corsairSpikeShape.lineTo(0, 0);          // swept leading edge back to front-bottom
-        const corsairSpikeGeo = getGeometry('corsair_spike', () => new THREE.ExtrudeGeometry(corsairSpikeShape, { depth: 0.07, bevelEnabled: false }));
+        corsairSpikeShape.moveTo(0, 0);                                  // front-bottom (leading apex)
+        corsairSpikeShape.lineTo(1.2, 0);                                // bottom edge along the hull
+        corsairSpikeShape.quadraticCurveTo(1.3, 0.26, 1.05, 0.46);       // curved trailing edge up to a hooked top
+        corsairSpikeShape.quadraticCurveTo(0.55, 0.5, 0, 0);             // curved leading edge swept back to the apex
+        const corsairSpikeGeo = getGeometry('corsair_fin_curved', () => new THREE.ExtrudeGeometry(corsairSpikeShape, { depth: 0.07, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.015, bevelSegments: 2 }));
         const corsairSpike = new THREE.Mesh(corsairSpikeGeo, engineMaterial);
         corsairSpike.rotation.y = -Math.PI / 2;
-        corsairSpike.position.set(0.035, 0.9, 0.5);
+        corsairSpike.position.set(0.035, 1.1, 0.5);
         ship.add(corsairSpike);
 
         // 2. Forward-facing weapon barrels on the hull sides
         const barrelGeo = getGeometry('corsair_barrel', () => new THREE.CylinderGeometry(0.06, 0.08, 1.2, 12));
-        [-0.55, 0.55].forEach(bx => {
+        [-0.62, 0.62].forEach(bx => {
             const barrel = new THREE.Mesh(barrelGeo, engineMaterial);
             barrel.rotation.x = Math.PI / 2;
             barrel.position.set(bx, 0.35, -2.4);
@@ -809,22 +820,17 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         });
 
         // 4. Wing-tip pointed darts - sharp spikes anchored at each anhedral wing tip.
-        // Wing local +/-X tip after Z-rotation lands at roughly (±2.58, -0.53, -0.25).
+        // The tapered wing tip lands at ~(±2.58, -0.52) with its leading edge at
+        // world z≈0.0, so the darts poke forward from just ahead of it.
         const dartGeo = getGeometry('corsair_dart', () => new THREE.ConeGeometry(0.09, 0.6, 12));
-        ([[-2.58, -0.53, -0.4], [2.58, -0.53, -0.4]] as [number, number, number][]).forEach(([dx, dy, dz]) => {
+        ([[-2.58, -0.53, -0.1], [2.58, -0.53, -0.1]] as [number, number, number][]).forEach(([dx, dy, dz]) => {
             const dart = new THREE.Mesh(dartGeo, engineMaterial);
             dart.rotation.x = -Math.PI / 2;
             dart.position.set(dx, dy, dz);
             ship.add(dart);
         });
 
-        // 5. Rear airbrake fin - small perpendicular spoiler behind the cockpit
-        const airbrakeGeo = getGeometry('corsair_airbrake', () => new THREE.BoxGeometry(1.0, 0.06, 0.3));
-        const airbrake = new THREE.Mesh(airbrakeGeo, engineMaterial);
-        airbrake.position.set(0, 0.95, 1.7);
-        ship.add(airbrake);
-
-        // 6. Engine top fins - swept-back wedge blades running along each twin boom.
+        // 5. Engine top fins - swept-back wedge blades running along each twin boom.
         // Same aero profile as the dorsal fins: low leading edge, tall trailing edge.
         // Added as children of each engine mesh so they inherit the wing-angle Z rotation.
         const corsairFinShape = new THREE.Shape();
@@ -845,50 +851,58 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
 
     } else {
         // FIGHTER
-        // Modified to use Rounded Edges
-        const bodyW = 1.4;
-        const bodyH = 1.0;
-        const bodyL = 5.0;
-        const bevel = 0.1;
+        // --- SMOOTHED FIGHTER (capsule body + bullet nose, matching the
+        //     Speedster treatment) ---
 
-        const bodyShape = createRoundedRect(bodyW - bevel, bodyH - bevel, bevel);
-        const bodySettings = {
-            steps: 2,
-            depth: bodyL,
-            bevelEnabled: true,
-            bevelThickness: bevel,
-            bevelSize: bevel,
-            bevelSegments: 4
-        };
-        const bodyGeometry = getGeometry('fighter_body_rounded', () => new THREE.ExtrudeGeometry(bodyShape, bodySettings));
+        // 1. Body: round capsule (cylinder + hemispherical end caps). Radius
+        //    0.6, total length 5 so it occupies the same Z range (-2.0 .. 3.0)
+        //    as the previous rounded-box body. Top now sits at y = 1.0, sides
+        //    at x = ±0.6 (the round body is narrower at the shoulders than the
+        //    old 1.4-wide box, so side-mounted greebles are tucked in below).
+        const bodyRadius = 0.6;
+        const bodyLength = 5.0;
+        const bodyCenterZ = 0.5;
+        const bodyCylinderLength = bodyLength - 2 * bodyRadius;   // straight section between caps
+        const bodyGeometry = getGeometry('fighter_capsule_body', () => new THREE.CapsuleGeometry(bodyRadius, bodyCylinderLength, 12, 32));
         const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        // Extrude is Z 0 to L. Center at L/2.
-        // Original Pos: 0, 0.4, 0.5. (Center Z=0.5).
-        // Box len 5.0. Center at 0 local. Global Z range: -2.0 to 3.0.
-        // Extrude starts at 0. Send to -2.0.
-        body.position.set(0, 0.4, -2.0);
+        body.rotation.x = Math.PI / 2;                            // align capsule axis (local +Y) with world +Z
+        body.position.set(0, 0.4, bodyCenterZ);                   // body spans world Z = -2.0 to +3.0
         ship.add(body);
 
-        // Nose: Smooth Cone (32 segments)
-        const noseGeometry = getGeometry('fighter_nose_smooth', () => new THREE.ConeGeometry(0.55, 3.5, 32));
+        // 2. Nose: elongated bullet (stretched sphere) projecting forward from
+        //    the cylinder section, sharing the body's circular cross-section so
+        //    the join is invisible (back half hidden inside the body, enclosing
+        //    the capsule's front hemispherical cap).
+        const noseGeometry = getGeometry('fighter_bullet_nose', () => new THREE.SphereGeometry(1, 32, 24));
         const nose = new THREE.Mesh(noseGeometry, bodyMaterial);
-        nose.rotation.x = -Math.PI / 2;
-        nose.position.set(0, 0.4, -3.7);
+        nose.scale.set(bodyRadius, bodyRadius, 3.0);                          // cross-section matches body; tip 3.0 forward of centre
+        nose.position.set(0, 0.4, bodyCenterZ - (bodyLength / 2 - bodyRadius)); // centre at front of cylinder section (Z = -1.4)
         ship.add(nose);
 
-        // Wings: Tapered and Rounded
-        const createTaperedWing = (rootChord: number, tipChord: number, span: number) => {
+        // Wings: tapered planform with a forward-bowed curved leading edge and
+        // a rounded wingtip. Built per-side (dir = +1 right, -1 left) as a
+        // mirror across X so the curve stays on the leading/outboard edge for
+        // both wings — mirroring via rotation.z would flip the chord and throw
+        // the round edge to the rear. The point order is wound consistently
+        // (CW) for both directions so the extruded faces share normals.
+        const createTaperedWing = (rootChord: number, tipChord: number, span: number, dir: number) => {
             const s = new THREE.Shape();
-            // Root at X=0
-            s.moveTo(0, rootChord / 2);
-            s.lineTo(span, tipChord / 2); // Tip Leading Edge
-            s.lineTo(span, -tipChord / 2); // Tip Trailing Edge
-            s.lineTo(0, -rootChord / 2); // Root Trailing
-            s.lineTo(0, rootChord / 2); // Close
+            if (dir > 0) {
+                s.moveTo(0, rootChord / 2);                                              // root leading
+                s.quadraticCurveTo(span * 0.5, rootChord / 2 + 0.4, span, tipChord / 2); // curved leading edge bowing forward
+                s.quadraticCurveTo(span + 0.3, 0, span, -tipChord / 2);                  // rounded wingtip bulging outward
+                s.lineTo(0, -rootChord / 2);                                             // straight trailing edge to root
+                s.lineTo(0, rootChord / 2);                                              // close along root edge
+            } else {
+                s.moveTo(0, rootChord / 2);                                                  // root leading
+                s.lineTo(0, -rootChord / 2);                                                 // down the root edge
+                s.lineTo(-span, -tipChord / 2);                                              // straight trailing edge to tip
+                s.quadraticCurveTo(-(span + 0.3), 0, -span, tipChord / 2);                   // rounded wingtip bulging outward
+                s.quadraticCurveTo(-span * 0.5, rootChord / 2 + 0.4, 0, rootChord / 2);      // curved leading edge back to root
+            }
             return s;
         };
 
-        const wingShape = createTaperedWing(3.5, 2.0, 1.8);
         const wingSettings = {
             steps: 1,
             depth: 0.2, // Thickness (Y)
@@ -898,34 +912,20 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
             bevelSegments: 3
         };
 
-        const wingGeometry = getGeometry('fighter_wing_tapered', () => new THREE.ExtrudeGeometry(wingShape, wingSettings));
+        const rightWingGeometry = getGeometry('fighter_wing_right', () => new THREE.ExtrudeGeometry(createTaperedWing(3.5, 2.0, 1.8, 1), wingSettings));
+        const leftWingGeometry = getGeometry('fighter_wing_left', () => new THREE.ExtrudeGeometry(createTaperedWing(3.5, 2.0, 1.8, -1), wingSettings));
 
-        // Left Wing
-        const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
-        // Shape: X=0 to 1.8. Y= -Chord/2 to +Chord/2. Z (Extrude) = 0 to 0.2.
-        // Orientation: 
-        // We drew it as X = Span, Y = Chord.
-        // We want: X = Span (Lateral), Z = Chord (Longitudinal), Y = Thickness.
-        // So rotate X -90 to put Shape-Y into World-Z? 
-        // Shape X (Span) is fine. Shape Y (Chord) -> Z. Extrude Z (Thickness) -> Y (Up).
-        leftWing.rotation.x = -Math.PI / 2; // Flat
-        leftWing.rotation.z = Math.PI; // Point Left
-
-        // Position: 
-        // Rot Z 180 means shape extends from 0 to -1.8 in X (World).
-        // We want Start at -0.65.
-        // So Position X = -0.65.
-        // Shape goes from PosX to PosX - 1.8. 
-        // -0.65 to -2.45. Correct.
-        leftWing.position.set(-0.65, 0.3, 0.5);
+        // Shape X (span) -> world X, shape Y (chord, +Y = leading) -> world -Z
+        // (forward), extrude thickness -> world +Y. Flat rotation only; the side
+        // is baked into each shape so no chord-flipping rotation is needed.
+        const leftWing = new THREE.Mesh(leftWingGeometry, wingMaterial);
+        leftWing.rotation.x = -Math.PI / 2;
+        leftWing.position.set(-0.55, 0.3, 0.5);
         ship.add(leftWing);
 
-        // Right Wing
-        const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
+        const rightWing = new THREE.Mesh(rightWingGeometry, wingMaterial);
         rightWing.rotation.x = -Math.PI / 2;
-        // Shape 0 to +1.8 in X.
-        // Root at 0.65.
-        rightWing.position.set(0.65, 0.3, 0.5);
+        rightWing.position.set(0.55, 0.3, 0.5);
         ship.add(rightWing);
 
 
@@ -998,18 +998,18 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         const engineGeometry = getGeometry('fighter_engine', () => new THREE.CylinderGeometry(0.4, 0.4, 1.5, 12));
         const leftEngine = new THREE.Mesh(engineGeometry, engineMaterial);
         leftEngine.rotation.x = Math.PI / 2;
-        leftEngine.position.set(-0.9, 0.4, 3.5);
+        leftEngine.position.set(-0.75, 0.4, 3.2);
         ship.add(leftEngine);
 
         const rightEngine = new THREE.Mesh(engineGeometry, engineMaterial);
         rightEngine.rotation.x = Math.PI / 2;
-        rightEngine.position.set(0.9, 0.4, 3.5);
+        rightEngine.position.set(0.75, 0.4, 3.2);
         ship.add(rightEngine);
 
-        enginePositions.push(new THREE.Vector3(-0.9, 0.4, 4.25));
-        enginePositions.push(new THREE.Vector3(0.9, 0.4, 4.25));
+        enginePositions.push(new THREE.Vector3(-0.75, 0.4, 3.95));
+        enginePositions.push(new THREE.Vector3(0.75, 0.4, 3.95));
 
-        const cockpitGeometry = getGeometry('fighter_cockpit', () => new THREE.SphereGeometry(0.55, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2));
+        const cockpitGeometry = getGeometry('fighter_cockpit', () => new THREE.SphereGeometry(0.48, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2));
         const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
         cockpit.rotation.x = -0.5;
         cockpit.scale.z = 1.6;
@@ -1017,24 +1017,24 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         ship.add(cockpit);
 
         // --- GREEBLES ---
-        // Body bounds: X ±0.7, Y -0.1 to 0.9, Z -2.0 to 3.0.
-        // Engines at (±0.9, 0.4, 3.5), length 1.5 → Z 2.75 to 4.25.
+        // Body bounds (round capsule r=0.6): X ±0.6, Y -0.2 to 1.0, Z -2.0 to 3.0.
+        // Engines at (±0.75, 0.4, 3.2), length 1.5 → Z 2.45 to 3.95.
 
         // 1. Top spine - structural reinforcement plate
         const spineGeo = getGeometry('fighter_spine', () => new THREE.BoxGeometry(0.18, 0.1, 3.2));
         const spine = new THREE.Mesh(spineGeo, engineMaterial);
-        spine.position.set(0, 0.92, 1.0);
+        spine.position.set(0, 1.0, 1.0);
         ship.add(spine);
 
         // 2. Side air intakes - angled boxes suggesting engine intakes
         const intakeGeo = getGeometry('fighter_intake', () => new THREE.BoxGeometry(0.22, 0.32, 0.55));
         const leftIntake = new THREE.Mesh(intakeGeo, engineMaterial);
-        leftIntake.position.set(-0.76, 0.45, -1.0);
+        leftIntake.position.set(-0.6, 0.45, -1.0);
         leftIntake.rotation.y = -0.12;
         ship.add(leftIntake);
 
         const rightIntake = new THREE.Mesh(intakeGeo, engineMaterial);
-        rightIntake.position.set(0.76, 0.45, -1.0);
+        rightIntake.position.set(0.6, 0.45, -1.0);
         rightIntake.rotation.y = 0.12;
         ship.add(rightIntake);
 
@@ -1042,8 +1042,8 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         // Torus default lies in XY plane (hole-axis on Z), which already
         // matches the engine cylinder's Z-aligned long axis, so no rotation.
         const ringGeo = getGeometry('fighter_engine_ring', () => new THREE.TorusGeometry(0.46, 0.05, 8, 24));
-        const ringZ = [2.9, 3.5, 4.1];
-        [-0.9, 0.9].forEach(ex => {
+        const ringZ = [2.7, 3.2, 3.7];
+        [-0.75, 0.75].forEach(ex => {
             ringZ.forEach(rz => {
                 const ring = new THREE.Mesh(ringGeo, engineMaterial);
                 ring.position.set(ex, 0.4, rz);
@@ -1054,12 +1054,12 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         // 4. Sensor mast + dome behind the cockpit
         const mastGeo = getGeometry('fighter_mast', () => new THREE.CylinderGeometry(0.04, 0.05, 0.45, 8));
         const mast = new THREE.Mesh(mastGeo, engineMaterial);
-        mast.position.set(0, 1.15, 0.5);
+        mast.position.set(0, 1.2, 0.5);
         ship.add(mast);
 
         const sensorGeo = getGeometry('fighter_sensor', () => new THREE.SphereGeometry(0.09, 12, 8));
         const sensor = new THREE.Mesh(sensorGeo, engineMaterial);
-        sensor.position.set(0, 1.4, 0.5);
+        sensor.position.set(0, 1.45, 0.5);
         ship.add(sensor);
 
         // 5. Wing-tip pylons - small mechanical bumps under the wings
@@ -1075,11 +1075,11 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         // 6. Underbelly stabilizer fin (small ventral fin)
         const bellyGeo = getGeometry('fighter_belly_fin', () => {
             const s = new THREE.Shape();
-            s.moveTo(0, 0);
-            s.lineTo(0.9, 0);
-            s.lineTo(0.4, -0.45);
-            s.lineTo(0, 0);
-            return new THREE.ExtrudeGeometry(s, { depth: 0.08, bevelEnabled: false });
+            s.moveTo(0, 0);                                   // leading root (front-top)
+            s.lineTo(0.9, 0);                                 // trailing root (back-top)
+            s.quadraticCurveTo(0.75, -0.5, 0.45, -0.45);      // curved trailing edge sweeping to the tip
+            s.quadraticCurveTo(0.12, -0.4, 0, 0);             // curved leading edge back up to the front
+            return new THREE.ExtrudeGeometry(s, { depth: 0.08, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 2 });
         });
         const belly = new THREE.Mesh(bellyGeo, engineMaterial);
         belly.rotation.y = -Math.PI / 2;
