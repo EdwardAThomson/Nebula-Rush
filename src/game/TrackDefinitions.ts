@@ -14,6 +14,10 @@ export interface TrackConfig {
     points: THREE.Vector3[];
     pads: BoostPad[];
     difficulty: number; // 1-5
+    // Per-track surface palette (F-Zero-style): road base tint + emissive
+    // edge-rail / center-line accent. Optional; tracks without it fall back to
+    // the plain grey surface.
+    surface?: { base: number; accent: number };
 }
 
 const SCALE = 12.0;
@@ -23,6 +27,7 @@ export const TRACK_1: TrackConfig = {
     name: 'The Awakening',
     description: 'A deformed oval with wide straights and a massive jump. Perfect for beginners.',
     difficulty: 1,
+    surface: { base: 0x2a3340, accent: 0x00e5ff }, // dark blue-grey road, cyan rails
     points: [
         new THREE.Vector3(0, 0, 0),
         new THREE.Vector3(0, 0, -400),

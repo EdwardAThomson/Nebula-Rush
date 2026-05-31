@@ -198,7 +198,71 @@ export const createStartLineMesh = (trackCurve: THREE.CatmullRomCurve3): THREE.M
     return new THREE.Mesh(geometry, material);
 };
 
-export const createTrackMesh = (trackCurve: THREE.CatmullRomCurve3): THREE.Mesh => {
+// Procedurally paints the F-Zero-style road surface for a track palette: a flat
+// base-tinted road with emissive accent rails at the two road↔wall seams and a
+// dashed centre line. Returns an albedo `map` (base + accent) and an
+// `emissiveMap` (accent on black) so only the rails/centre glow. The canvas X
+// axis is the cross-section UV (road spans U≈0.379..0.586, matching the mesh's
+// UVs); the Y axis is one length-tile, repeated along the track via wrapT.
+const createTrackSurfaceTextures = (base: number, accent: number) => {
+    const W = 256, H = 128;
+    const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
+    const baseHex = hex(base), accentHex = hex(accent);
+
+    // Scale a colour toward black (for the dimmer centre-line glow).
+    const dim = (c: number, f: number) => '#' + (
+        (Math.round(((c >> 16) & 0xff) * f) << 16) |
+        (Math.round(((c >> 8) & 0xff) * f) << 8) |
+         Math.round((c & 0xff) * f)
+    ).toString(16).padStart(6, '0');
+
+    const px = (u: number) => Math.round(u * W);
+    const roadL = px(0.379), roadR = px(0.586);   // road↔wall seams
+    const railW = 6;
+    const centerX = px(0.483);
+    const leftWallTop = 0;                         // U≈0   (top edge of left wall)
+    const rightWallTop = px(0.95);                 // U≈0.95 (top edge of right wall, max U≈0.966)
+
+    // railHex: solid single-colour edge rails; wallHex frames the wall tops;
+    // centerHex is the dashed centre line.
+    const paint = (bg: string, railHex: string, centerHex: string, wallHex: string) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = W; canvas.height = H;
+        const ctx = canvas.getContext('2d')!;
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+
+        // Wall top-edge accent lines (solid frame)
+        ctx.fillStyle = wallHex;
+        ctx.fillRect(leftWallTop, 0, 4, H);
+        ctx.fillRect(rightWallTop, 0, 5, H);
+
+        // Solid rails at both road edges
+        ctx.fillStyle = railHex;
+        ctx.fillRect(roadL, 0, railW, H);
+        ctx.fillRect(roadR - railW, 0, railW, H);
+
+        // Dashed centre line
+        ctx.fillStyle = centerHex;
+        for (let y = 0; y < H; y += 32) ctx.fillRect(centerX - 1, y, 3, 18);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = THREE.ClampToEdgeWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 8;
+        return tex;
+    };
+
+    // Albedo carries full colour; the emissive map drives the glow (rails bright,
+    // centre + walls dimmer) so the solid rails stay the hero element.
+    return {
+        map: paint(baseHex, accentHex, accentHex, accentHex),
+        emissiveMap: paint('#000000', accentHex, dim(accent, 0.4), dim(accent, 0.45)),
+    };
+};
+
+export const createTrackMesh = (trackCurve: THREE.CatmullRomCurve3, surface?: { base: number; accent: number }): THREE.Mesh => {
     const trackSegments = 1600; // Optimized resolution (was 2400)
     // const trackWidth = 20;
     const trackDepth = 10; // Deeper walls for wider track
@@ -269,11 +333,25 @@ export const createTrackMesh = (trackCurve: THREE.CatmullRomCurve3): THREE.Mesh 
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
 
-    const material = new THREE.MeshPhongMaterial({
-        color: 0x555555, // Grey Track
-        side: THREE.DoubleSide,
-        shininess: 30
-    });
+    let material: THREE.Material;
+    if (surface) {
+        const { map, emissiveMap } = createTrackSurfaceTextures(surface.base, surface.accent);
+        material = new THREE.MeshStandardMaterial({
+            map,
+            emissive: 0xffffff,        // tinted by emissiveMap, so the rails/centre glow in the accent colour
+            emissiveMap,
+            emissiveIntensity: 1.4,
+            roughness: 0.7,
+            metalness: 0.0,
+            side: THREE.DoubleSide,
+        });
+    } else {
+        material = new THREE.MeshPhongMaterial({
+            color: 0x555555, // Grey Track (fallback for tracks without a surface palette)
+            side: THREE.DoubleSide,
+            shininess: 30
+        });
+    }
 
     return new THREE.Mesh(geometry, material);
 };
