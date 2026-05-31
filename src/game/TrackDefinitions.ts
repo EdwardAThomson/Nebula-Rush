@@ -57,6 +57,7 @@ export const TRACK_2: TrackConfig = {
     name: 'Asteroid Slalom',
     description: 'Wide turns replaced by tight rhythmic curves. Precision is key.',
     difficulty: 2,
+    surface: { base: 0x3a3026, accent: 0xff8c1a }, // warm dark road, amber rails
     points: [
         new THREE.Vector3(0, 0, 0),         // Start
         new THREE.Vector3(0, 0, -500),      // Straight (Extended)
@@ -95,6 +96,7 @@ export const TRACK_3: TrackConfig = {
     name: 'Nebula Complex',
     description: 'A technical circuit intertwining with an orbital station. Features a corkscrew dive and high-G turns.',
     difficulty: 3,
+    surface: { base: 0x2e2640, accent: 0xff3df0 }, // dark purple road, magenta rails
     points: [
         new THREE.Vector3(0, 0, 0),          // Start
         new THREE.Vector3(0, 0, -500),       // Extended Straight (was -300)
@@ -135,6 +137,7 @@ export const TRACK_4: TrackConfig = {
     name: 'Hyperion Raceway',
     description: 'Features a massive vertical loop, a figure-8 crossover, and a death-defying final jump.',
     difficulty: 4,
+    surface: { base: 0x2c3a2c, accent: 0x39ff7a }, // dark slate-green road, green rails
     points: [
         new THREE.Vector3(0, 0, 0),          // Start
         new THREE.Vector3(0, 0, -600),       // Long High Speed Straight
@@ -195,6 +198,7 @@ export const TRACK_5: TrackConfig = {
     name: 'Stellar Vortex',
     description: 'A chaotic storm of high-speed turns and disorienting loops. Only the best can navigate the vortex.',
     difficulty: 5,
+    surface: { base: 0x3a2630, accent: 0xff2a4d }, // dark wine road, crimson rails
     points: [
         new THREE.Vector3(0, 0, 0),         // Start
         new THREE.Vector3(0, 0, -600),      // Initial Straight dive
