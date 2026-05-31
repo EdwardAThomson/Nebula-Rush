@@ -97,14 +97,44 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
   const screenshotRequested = useRef<boolean>(false);
 
+  // Captured race photos: buffered in memory during the race, downloaded from
+  // the results-screen gallery. photosRef is the source of truth (mutated from
+  // the render loop); `photos` mirrors it for rendering.
+  type Photo = { url: string; blob: Blob; time: number };
+  const MAX_PHOTOS = 20;
+  const photosRef = useRef<Photo[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [photoToast, setPhotoToast] = useState(false);
+  const photoToastTimer = useRef<number | null>(null);
+
   const handleScreenshot = () => {
     screenshotRequested.current = true;
+  };
+
+  const downloadPhoto = (p: Photo) => {
+    const link = document.createElement('a');
+    link.href = p.url;
+    link.download = `nebula_rush_${Math.round(p.time * 1000)}.png`;
+    link.click();
+  };
+
+  // Stagger the downloads so the browser doesn't throttle/ignore a burst.
+  const downloadAllPhotos = () => {
+    photos.forEach((p, i) => window.setTimeout(() => downloadPhoto(p), i * 250));
   };
 
   const restartRace = () => {
     // Ideally reload page or reset state
     window.location.reload();
   };
+
+  // Revoke captured-photo object URLs (and the toast timer) on unmount.
+  useEffect(() => {
+    return () => {
+      photosRef.current.forEach((p) => URL.revokeObjectURL(p.url));
+      if (photoToastTimer.current) clearTimeout(photoToastTimer.current);
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -235,7 +265,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     // Track Setup
     const trackCurve = createTrackCurve(currentTrack.points);
     const trackLength = trackCurve.getLength();
-    const trackMesh = createTrackMesh(trackCurve);
+    const trackMesh = createTrackMesh(trackCurve, currentTrack.surface);
     scene.add(trackMesh);
 
     // Environment Setup (Must be after trackCurve creation to place glowglobes)
@@ -647,14 +677,23 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
       if (screenshotRequested.current) {
         screenshotRequested.current = false;
-
-        if (mountRef.current) {
-          const glDataURL = renderer.domElement.toDataURL('image/png');
-          const link = document.createElement('a');
-          link.download = `nebula_rush_screenshot_${Date.now()}.png`;
-          link.href = glDataURL;
-          link.click();
-        }
+        // Capture the just-rendered frame into memory. toBlob snapshots the
+        // canvas now but encodes asynchronously, so there's no main-thread PNG
+        // hitch mid-race; downloads happen later from the results gallery.
+        renderer.domElement.toBlob((blob) => {
+          if (!blob) return;
+          const entry: Photo = { url: URL.createObjectURL(blob), blob, time: gameTimeRef.current };
+          const next = [...photosRef.current, entry];
+          if (next.length > MAX_PHOTOS) {
+            URL.revokeObjectURL(next[0].url); // drop & free the oldest
+            next.shift();
+          }
+          photosRef.current = next;
+          setPhotos(next);
+          setPhotoToast(true);
+          if (photoToastTimer.current) clearTimeout(photoToastTimer.current);
+          photoToastTimer.current = window.setTimeout(() => setPhotoToast(false), 1200);
+        }, 'image/png');
       }
     };
 
@@ -765,6 +804,30 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
               onExit={onExit}
               isCampaign={isCampaign}
             />
+            {photos.length > 0 && (
+              <div className="fixed bottom-4 left-1/2 -translate-x-1/2 max-w-[92vw] p-3 rounded-lg pointer-events-auto" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
+                <div className="flex items-center justify-center gap-3 mb-2">
+                  <span className="text-cyan-300 text-sm font-bold">📷 Race Photos — click to download ({photos.length})</span>
+                  <button onClick={downloadAllPhotos} className="px-2 py-0.5 text-xs font-bold rounded border border-cyan-500 text-cyan-200 hover:bg-cyan-500/20 transition-colors">
+                    Download all
+                  </button>
+                </div>
+                <div className="flex gap-2 overflow-x-auto">
+                  {photos.map((p, i) => (
+                    <button key={i} onClick={() => downloadPhoto(p)} title="Download" className="shrink-0 border border-cyan-700 rounded hover:border-cyan-300 transition-colors">
+                      <img src={p.url} alt={`Race photo ${i + 1}`} className="h-20 rounded" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Capture confirmation toast (works regardless of HUD visibility) */}
+        {photoToast && (
+          <div className="fixed top-24 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg text-cyan-200 font-bold pointer-events-none" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+            📷 Photo saved ({photos.length})
           </div>
         )}
 
