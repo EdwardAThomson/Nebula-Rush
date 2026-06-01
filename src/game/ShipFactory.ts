@@ -131,6 +131,23 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         blending: THREE.AdditiveBlending
     }, THREE.MeshBasicMaterial);
 
+    // Bright inner core cone — narrower and hotter (near-white), nested inside
+    // the outer spray so the flame has a hot centre instead of a flat wash.
+    const coreGeometry = getGeometry('spray_core', () => {
+        const geo = new THREE.ConeGeometry(0.18, 1.6, 16, 1, true);
+        geo.translate(0, 0.8, 0);
+        return geo;
+    });
+
+    const coreMaterial = getMaterial('spray_core', {
+        color: 0xeaf6ff,
+        transparent: true,
+        opacity: 0.55,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    }, THREE.MeshBasicMaterial);
+
     const glowGeometry = getGeometry('glow_sphere', () => new THREE.SphereGeometry(0.3, 8, 8));
 
     const addGlow = (pos: THREE.Vector3, parent: THREE.Object3D = ship) => {
@@ -138,10 +155,15 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         glow.position.copy(pos);
         parent.add(glow);
 
-        const spray = new THREE.Mesh(sprayGeometry, sprayMaterial);
+        const spray = new THREE.Mesh(sprayGeometry, sprayMaterial); // children[0]: outer flame
         spray.rotation.x = Math.PI / 2;
         spray.scale.set(exhaustScale, 1, exhaustScale);
         glow.add(spray);
+
+        const core = new THREE.Mesh(coreGeometry, coreMaterial);   // children[1]: hot inner core
+        core.rotation.x = Math.PI / 2;
+        core.scale.set(exhaustScale, 1, exhaustScale);
+        glow.add(core);
 
         glows.push(glow);
         return glow;

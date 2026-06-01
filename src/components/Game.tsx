@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { createTrackCurve, createTrackMesh, getTrackFrame, createBoostPadMeshes, createStartLineMesh, createTrafficLightMesh } from '../game/TrackFactory';
+import { createStoredZip } from '../utils/zip';
 import { InputManager } from '../game/InputManager';
 import { Ship, type ShipConfig } from '../game/Ship';
 import { OpponentManager, type OpponentConfig } from '../game/OpponentManager';
@@ -111,16 +112,30 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     screenshotRequested.current = true;
   };
 
-  const downloadPhoto = (p: Photo) => {
+  const downloadPhoto = (p: { url: string; time: number }) => {
     const link = document.createElement('a');
     link.href = p.url;
     link.download = `nebula_rush_${Math.round(p.time * 1000)}.png`;
     link.click();
   };
 
-  // Stagger the downloads so the browser doesn't throttle/ignore a burst.
-  const downloadAllPhotos = () => {
-    photos.forEach((p, i) => window.setTimeout(() => downloadPhoto(p), i * 250));
+  // Bundle every shot into one .zip → a single download, so the browser never
+  // shows the "allow multiple downloads" prompt or silently drops files.
+  const downloadAllPhotos = async () => {
+    const items = photosRef.current;
+    if (items.length === 0) return;
+    const entries = await Promise.all(
+      items.map(async (p, i) => ({
+        name: `nebula_rush_photo_${String(i + 1).padStart(2, '0')}.png`,
+        data: new Uint8Array(await p.blob.arrayBuffer()),
+      }))
+    );
+    const url = URL.createObjectURL(createStoredZip(entries));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'nebula_rush_photos.zip';
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000); // revoke after the download starts
   };
 
   const restartRace = () => {
@@ -803,24 +818,10 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
               }
               onExit={onExit}
               isCampaign={isCampaign}
+              photos={photos}
+              onDownloadPhoto={downloadPhoto}
+              onDownloadAll={downloadAllPhotos}
             />
-            {photos.length > 0 && (
-              <div className="fixed bottom-4 left-1/2 -translate-x-1/2 max-w-[92vw] p-3 rounded-lg pointer-events-auto" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
-                <div className="flex items-center justify-center gap-3 mb-2">
-                  <span className="text-cyan-300 text-sm font-bold">📷 Race Photos — click to download ({photos.length})</span>
-                  <button onClick={downloadAllPhotos} className="px-2 py-0.5 text-xs font-bold rounded border border-cyan-500 text-cyan-200 hover:bg-cyan-500/20 transition-colors">
-                    Download all
-                  </button>
-                </div>
-                <div className="flex gap-2 overflow-x-auto">
-                  {photos.map((p, i) => (
-                    <button key={i} onClick={() => downloadPhoto(p)} title="Download" className="shrink-0 border border-cyan-700 rounded hover:border-cyan-300 transition-colors">
-                      <img src={p.url} alt={`Race photo ${i + 1}`} className="h-20 rounded" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
