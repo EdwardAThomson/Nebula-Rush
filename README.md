@@ -15,7 +15,7 @@ I originally started building this game for free using Claude in the web browser
 * [Nebula Rush: 3D Sci-Fi Racer](https://www.youtube.com/watch?v=zMhtxbewmd0)
 
 
-![Screenshot](./nebula_rush.png)
+![Screenshot](./screenshot_nebula_rush_20260601.png)
 
 
 ## Features
