@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export interface RaceResult {
     id: string;
@@ -16,10 +16,26 @@ interface LeaderboardProps {
     onNextRace?: () => void;
     onExit?: () => void;
     isCampaign?: boolean;
+    photos?: { url: string; time: number }[];
+    onDownloadPhoto?: (p: { url: string; time: number }) => void;
+    onDownloadAll?: () => void;
 }
 
-export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, onNextRace, onExit, isCampaign = false }) => {
+export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, onNextRace, onExit, isCampaign = false, photos, onDownloadPhoto, onDownloadAll }) => {
     const [viewMode, setViewMode] = useState<'race' | 'campaign'>('race');
+    const [preview, setPreview] = useState<number | null>(null); // photo lightbox index
+
+    // Lightbox keyboard controls: Esc closes, arrows step through photos.
+    useEffect(() => {
+        if (preview === null || !photos) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setPreview(null);
+            else if (e.key === 'ArrowRight') setPreview(p => (p === null ? p : (p + 1) % photos.length));
+            else if (e.key === 'ArrowLeft') setPreview(p => (p === null ? p : (p - 1 + photos.length) % photos.length));
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [preview, photos]);
 
     // Sort results based on view mode
     const displayedResults = [...results].sort((a, b) => {
@@ -108,6 +124,26 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, on
                     })}
                 </div>
 
+                {photos && photos.length > 0 && (
+                    <div className="mb-6 border-t border-gray-700 pt-4">
+                        <div className="flex items-center justify-center gap-3 mb-2">
+                            <span className="text-cyan-300 text-sm font-bold uppercase tracking-wider">📷 Race Photos ({photos.length})</span>
+                            {onDownloadAll && (
+                                <button onClick={onDownloadAll} className="px-2 py-0.5 text-xs font-bold rounded border border-cyan-500 text-cyan-200 hover:bg-cyan-500/20 transition-colors">
+                                    Download all
+                                </button>
+                            )}
+                        </div>
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                            {photos.map((p, i) => (
+                                <button key={i} onClick={() => setPreview(i)} title="View" className="shrink-0 border border-cyan-700 rounded hover:border-cyan-300 transition-colors">
+                                    <img src={p.url} alt={`Race photo ${i + 1}`} className="h-16 rounded" />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 <div className="flex justify-center space-x-4">
                     <button
                         onClick={onRestart}
@@ -134,6 +170,52 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, on
                     )}
                 </div>
             </div>
+
+            {preview !== null && photos && photos[preview] && (
+                <div
+                    className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-95 p-6"
+                    onClick={() => setPreview(null)}
+                >
+                    <div className="relative flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+                        <img
+                            src={photos[preview].url}
+                            alt={`Race photo ${preview + 1}`}
+                            className="max-w-[90vw] max-h-[78vh] rounded-lg border border-cyan-700 shadow-[0_0_40px_rgba(0,255,255,0.25)]"
+                        />
+                        <div className="flex items-center gap-4 mt-4">
+                            {photos.length > 1 && (
+                                <button
+                                    onClick={() => setPreview(p => (p === null ? p : (p - 1 + photos.length) % photos.length))}
+                                    className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded transition-colors"
+                                >
+                                    ‹ Prev
+                                </button>
+                            )}
+                            <span className="text-gray-300 text-sm font-mono">{preview + 1} / {photos.length}</span>
+                            {photos.length > 1 && (
+                                <button
+                                    onClick={() => setPreview(p => (p === null ? p : (p + 1) % photos.length))}
+                                    className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded transition-colors"
+                                >
+                                    Next ›
+                                </button>
+                            )}
+                            <button
+                                onClick={() => onDownloadPhoto?.(photos[preview])}
+                                className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded uppercase tracking-wider transition-colors"
+                            >
+                                Download
+                            </button>
+                            <button
+                                onClick={() => setPreview(null)}
+                                className="px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded transition-colors"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

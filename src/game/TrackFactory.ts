@@ -81,20 +81,52 @@ export const getTrackFrame = (trackCurve: THREE.Curve<THREE.Vector3>, t: number)
     };
 };
 
+// Forward-chevron arrow texture for boost pads: bright arrows on a faint dark
+// field. Under additive blending the dark field stays near-invisible and the
+// arrows glow, so a boost reads by its arrow shape regardless of the track's
+// accent colour. Tiles along the pad length (V).
+const createBoostArrowTexture = () => {
+    const S = 64;
+    const canvas = document.createElement('canvas');
+    canvas.width = S; canvas.height = S;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#001515';             // faint base glow for the pad footprint
+    ctx.fillRect(0, 0, S, S);
+    ctx.strokeStyle = '#bbffff';           // icy white-cyan arrows
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();                       // one forward chevron per tile
+    ctx.moveTo(8, 46);
+    ctx.lineTo(S / 2, 20);
+    ctx.lineTo(S - 8, 46);
+    ctx.stroke();
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+};
+
 export const createBoostPadMeshes = (trackCurve: THREE.CatmullRomCurve3, pads: BoostPad[]): THREE.Mesh[] => {
     const meshes: THREE.Mesh[] = [];
+    // One shared animated material so every pad's arrows scroll in sync.
+    const arrowTex = createBoostArrowTexture();
     const material = new THREE.MeshBasicMaterial({
-        color: 0xff00ff, // Magenta/Neon Pink
+        map: arrowTex,
+        color: 0xffffff,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.6,
-        blending: THREE.AdditiveBlending
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
     });
 
     pads.forEach((pad: BoostPad) => {
         // Generate a curved strip for each pad
         const geometry = new THREE.BufferGeometry();
         const vertices: number[] = [];
+        const uvs: number[] = [];
 
         // Pad covers [progress - length/2, progress + length/2]
         // Scale segments with pad length so visual smoothness is preserved on enlarged tracks.
@@ -102,6 +134,7 @@ export const createBoostPadMeshes = (trackCurve: THREE.CatmullRomCurve3, pads: B
         const startT = pad.trackProgress - pad.length / 2;
         const endT = pad.trackProgress + pad.length / 2;
         const width = pad.width;
+        const arrowsPerPad = 6;
 
         for (let i = 0; i <= segments; i++) {
             // Interpolate t
@@ -126,6 +159,10 @@ export const createBoostPadMeshes = (trackCurve: THREE.CatmullRomCurve3, pads: B
 
             vertices.push(leftPos.x, leftPos.y, leftPos.z);
             vertices.push(rightPos.x, rightPos.y, rightPos.z);
+
+            const v = (i / segments) * arrowsPerPad;
+            uvs.push(0, v);
+            uvs.push(1, v);
         }
 
         // Indices
@@ -140,27 +177,59 @@ export const createBoostPadMeshes = (trackCurve: THREE.CatmullRomCurve3, pads: B
         }
 
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
         geometry.setIndex(indices);
         geometry.computeVertexNormals();
 
-        const mesh = new THREE.Mesh(geometry, material.clone());
+        const mesh = new THREE.Mesh(geometry, material);
+        // Scroll the arrows forward. Absolute-time based, so the shared texture
+        // lands on the same offset however many pads write it in a frame.
+        mesh.onBeforeRender = () => {
+            arrowTex.offset.y = -(performance.now() * 0.0006) % 1;
+        };
         meshes.push(mesh);
     });
 
     return meshes;
 };
 
+// Classic black/white checkered finish-line texture (2x2 repeating unit;
+// nearest-filtered for crisp edges).
+const createCheckerTexture = () => {
+    const S = 64;
+    const canvas = document.createElement('canvas');
+    canvas.width = S; canvas.height = S;
+    const ctx = canvas.getContext('2d')!;
+    const c = S / 2;
+    for (let y = 0; y < 2; y++) {
+        for (let x = 0; x < 2; x++) {
+            ctx.fillStyle = ((x + y) % 2 === 0) ? '#f5f5f5' : '#141414';
+            ctx.fillRect(x * c, y * c, c, c);
+        }
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    return tex;
+};
+
 export const createStartLineMesh = (trackCurve: THREE.CatmullRomCurve3): THREE.Mesh => {
     // Start line at 0.0 (The official loop start/end)
     const trackProgress = 0.0;
     const width = 140; // Wider to cover full track
-    const length = 0.002; // Thicker line
+    const length = 0.006; // Checkered band (a bit longer so the checks read)
 
     const geometry = new THREE.BufferGeometry();
     const vertices: number[] = [];
+    const uvs: number[] = [];
     const segments = 10;
     const startT = trackProgress - length / 2;
     const endT = trackProgress + length / 2;
+    const checksAcross = 5; // x2 (2x2 tile) = 10 checks across the width
+    const rowsAlong = 2;    // x2 = 4 rows along the band
 
     for (let i = 0; i <= segments; i++) {
         let t = startT + (i / segments) * (endT - startT);
@@ -177,6 +246,10 @@ export const createStartLineMesh = (trackCurve: THREE.CatmullRomCurve3): THREE.M
 
         vertices.push(leftPos.x, leftPos.y, leftPos.z);
         vertices.push(rightPos.x, rightPos.y, rightPos.z);
+
+        const v = (i / segments) * rowsAlong;
+        uvs.push(0, v);
+        uvs.push(checksAcross, v);
     }
 
     const indices: number[] = [];
@@ -187,12 +260,13 @@ export const createStartLineMesh = (trackCurve: THREE.CatmullRomCurve3): THREE.M
     }
 
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
 
     const material = new THREE.MeshBasicMaterial({
-        color: 0xffff00, // Bright Yellow
-        side: THREE.DoubleSide
+        map: createCheckerTexture(),
+        side: THREE.DoubleSide,
     });
 
     return new THREE.Mesh(geometry, material);

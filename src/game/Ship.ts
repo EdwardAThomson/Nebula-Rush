@@ -33,6 +33,8 @@ export class Ship {
 
     // Visual components if we need to animate them (e.g. engine glow)
     private glows: THREE.Mesh[] = [];
+    private boostFlash = 0;                     // 0..1, spikes on boost pickup, then decays
+    private flamePhase = Math.random() * 100;   // desync flame flicker per ship
 
     constructor(scene: THREE.Scene, isPlayer: boolean = false, config?: Partial<ShipConfig>) {
         this.isPlayer = isPlayer;
@@ -59,6 +61,15 @@ export class Ship {
         const { mesh, glows } = createShip(color, type, config?.accentColor);
         this.mesh = mesh;
         this.glows = glows;
+        // Own our glow/flame materials so brightness animates per-ship
+        // (createShip shares them across ships via a cache otherwise).
+        this.glows.forEach(g => {
+            if (g.material) g.material = (g.material as THREE.Material).clone();
+            g.children.forEach(child => {
+                const m = child as THREE.Mesh;
+                if (m.material) m.material = (m.material as THREE.Material).clone();
+            });
+        });
 
         scene.add(this.mesh);
     }
@@ -84,6 +95,7 @@ export class Ship {
             if (this.finished) return; // Don't process lap events if finished
 
             if (msg === "BOOST") {
+                this.boostFlash = 1; // pickup punch (decays in the visual update below)
                 // Play boost sound (only for player ship to avoid spam)
                 if (this.isPlayer) {
                     audioManager.playBoost();
@@ -108,24 +120,56 @@ export class Ship {
             if (onLapComplete) onLapComplete(msg);
         }, raceStarted);
 
-        // Visual Updates (Engine Glow based on Throttle)
+        // Visual Updates — a steady "circle of light" at each engine, a gently
+        // flickering saturated cyan flame, and a hot near-white inner core.
+        // Boost expands the circle, grows/brightens the core, and bumps the
+        // cones modestly (not a big white flare).
         if (this.glows.length > 0) {
-            const glow = 0.5 + this.state.throttle * 0.5;
-            const sprayScale = 0.5 + this.state.throttle * 1.5; // Scale from 0.5x to 2.0x
+            this.boostFlash = Math.max(0, this.boostFlash - 0.05); // decay the pickup punch
+            const boosting = this.state.boostTimer > 0;
+            const heat = Math.min(1, (boosting ? 0.6 : 0) + this.boostFlash); // 0..1 "hotness"
+
+            const time = performance.now() * 0.001 + this.flamePhase;
+            // Gentle flicker for the cones only — small amplitude so it reads as
+            // a live flame, not strobing.
+            const flicker = 0.96 + 0.04 * Math.sin(time * 18) + (Math.random() - 0.5) * 0.02;
+            const throttle = this.state.throttle;
+
+            // Glow disc: steady size/brightness, expands on boost + pickup punch.
+            const glowScale = 1 + 0.4 * heat + 0.3 * this.boostFlash;
+            const glowOpacity = Math.min(1, 0.7 + 0.2 * heat);
+
+            // Outer flame: throttle-driven length, modest boost bump.
+            const outerLen = (0.5 + throttle * 1.5) * flicker * (1 + 0.2 * heat + 0.35 * this.boostFlash);
+            const outerWide = 1 + 0.1 * heat;
+            // Inner core: a touch shorter, grows/brightens more with heat.
+            const coreLen = outerLen * 0.9 * (1 + 0.25 * heat);
+            const coreWide = 1 + 0.3 * heat + 0.4 * this.boostFlash;
 
             this.glows.forEach(glowMesh => {
+                glowMesh.scale.setScalar(glowScale); // steady circle (no flicker)
                 if (glowMesh.material instanceof THREE.MeshBasicMaterial) {
-                    glowMesh.material.opacity = glow;
+                    glowMesh.material.opacity = glowOpacity;
                 }
 
-                // Animate Spray (Children of Glow)
-                if (glowMesh.children[0]) {
-                    const spray = glowMesh.children[0] as THREE.Mesh;
-                    spray.scale.set(1, sprayScale, 1);
+                const outer = glowMesh.children[0] as THREE.Mesh | undefined;
+                if (outer) {
+                    outer.scale.set(
+                        outerWide * (1 + 0.03 * Math.sin(time * 20)),
+                        outerLen,
+                        outerWide * (1 + 0.03 * Math.cos(time * 17))
+                    );
+                    if (outer.material instanceof THREE.MeshBasicMaterial) {
+                        outer.material.opacity = 0.3 + 0.15 * heat; // saturated cyan, no white-out
+                    }
+                }
 
-                    // Jitter effect for "flame"
-                    spray.scale.x = 1.0 + (Math.random() - 0.5) * 0.1;
-                    spray.scale.z = 1.0 + (Math.random() - 0.5) * 0.1;
+                const core = glowMesh.children[1] as THREE.Mesh | undefined;
+                if (core) {
+                    core.scale.set(coreWide, coreLen, coreWide);
+                    if (core.material instanceof THREE.MeshBasicMaterial) {
+                        core.material.opacity = 0.5 + 0.35 * heat; // hot centre brightens on boost
+                    }
                 }
             });
         }
