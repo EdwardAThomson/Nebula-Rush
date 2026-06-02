@@ -371,14 +371,16 @@ function App() {
               <div
                 onClick={() => selectShipAndRace('fighter', 0xcc0000)}
                 onMouseEnter={() => audioManager.playHover()}
-                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-red-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
+                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-red-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 hover:z-50 group"
               >
                 <PaintChip type="fighter" defaultColor={0xcc0000} />
                 <div className="h-48 bg-red-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
                   <ShipPreview color={0xcc0000} type="fighter" />
                 </div>
-                <h3 className="text-2xl font-bold text-red-500 mb-2">FIGHTER</h3>
-                <p className="text-gray-400 text-sm mb-4">Perfectly balanced stats. Good for beginners and pros alike.</p>
+                <div className="flex items-center gap-2 mb-4">
+                  <h3 className="text-2xl font-bold text-red-500">FIGHTER</h3>
+                  <InfoTip text="Perfectly balanced stats. Good for beginners and pros alike." />
+                </div>
 
                 <div className="space-y-2">
                   <StatBar label="Speed" value={getDisplayStats('fighter').speed} color="bg-cyan-500" />
@@ -391,14 +393,16 @@ function App() {
               <div
                 onClick={() => selectShipAndRace('interceptor', 0x00ff00)}
                 onMouseEnter={() => audioManager.playHover()}
-                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-green-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
+                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-green-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 hover:z-50 group"
               >
                 <PaintChip type="interceptor" defaultColor={0x00ff00} />
                 <div className="h-48 bg-green-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
                   <ShipPreview color={0x00ff00} type="interceptor" />
                 </div>
-                <h3 className="text-2xl font-bold text-green-500 mb-2">INTERCEPTOR</h3>
-                <p className="text-gray-400 text-sm mb-4">Bi-plane design. Best-in-class acceleration and turning.</p>
+                <div className="flex items-center gap-2 mb-4">
+                  <h3 className="text-2xl font-bold text-green-500">INTERCEPTOR</h3>
+                  <InfoTip text="Bi-plane design. Best-in-class acceleration and turning." />
+                </div>
 
                 <div className="space-y-2">
                   <StatBar label="Speed" value={getDisplayStats('interceptor').speed} color="bg-cyan-500" />
@@ -411,14 +415,16 @@ function App() {
               <div
                 onClick={() => selectShipAndRace('tank', 0xcccc00)}
                 onMouseEnter={() => audioManager.playHover()}
-                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-yellow-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
+                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-yellow-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 hover:z-50 group"
               >
                 <PaintChip type="tank" defaultColor={0xcccc00} />
                 <div className="h-48 bg-yellow-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
                   <ShipPreview color={0xcccc00} type="tank" />
                 </div>
-                <h3 className="text-2xl font-bold text-yellow-500 mb-2">TANK</h3>
-                <p className="text-gray-400 text-sm mb-4">Incredible acceleration and grip, but lower top speed.</p>
+                <div className="flex items-center gap-2 mb-4">
+                  <h3 className="text-2xl font-bold text-yellow-500">TANK</h3>
+                  <InfoTip text="Incredible acceleration and grip, but lower top speed." />
+                </div>
 
                 <div className="space-y-2">
                   <StatBar label="Speed" value={getDisplayStats('tank').speed} color="bg-cyan-500" />
@@ -431,14 +437,16 @@ function App() {
               <div
                 onClick={() => selectShipAndRace('corsair', 0x5500aa)}
                 onMouseEnter={() => audioManager.playHover()}
-                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-purple-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
+                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-purple-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 hover:z-50 group"
               >
                 <PaintChip type="corsair" defaultColor={0x5500aa} />
                 <div className="h-48 bg-purple-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
                   <ShipPreview color={0x5500aa} type="corsair" />
                 </div>
-                <h3 className="text-2xl font-bold text-purple-500 mb-2">CORSAIR</h3>
-                <p className="text-gray-400 text-sm mb-4">Aggressive styling. High speed and extreme drift capabilities.</p>
+                <div className="flex items-center gap-2 mb-4">
+                  <h3 className="text-2xl font-bold text-purple-500">CORSAIR</h3>
+                  <InfoTip text="Aggressive styling. High speed and extreme drift capabilities." />
+                </div>
 
                 <div className="space-y-2">
                   <StatBar label="Speed" value={getDisplayStats('corsair').speed} color="bg-cyan-500" />
@@ -451,14 +459,16 @@ function App() {
               <div
                 onClick={() => selectShipAndRace('speedster', 0x00ccff)}
                 onMouseEnter={() => audioManager.playHover()}
-                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-cyan-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
+                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-cyan-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 hover:z-50 group"
               >
                 <PaintChip type="speedster" defaultColor={0x00ccff} />
                 <div className="h-48 bg-cyan-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
                   <ShipPreview color={0x00ccff} type="speedster" />
                 </div>
-                <h3 className="text-2xl font-bold text-cyan-400 mb-2">SPEEDSTER</h3>
-                <p className="text-gray-400 text-sm mb-4">High top speed, but slower acceleration. Built for long straights.</p>
+                <div className="flex items-center gap-2 mb-4">
+                  <h3 className="text-2xl font-bold text-cyan-400">SPEEDSTER</h3>
+                  <InfoTip text="High top speed, but slower acceleration. Built for long straights." />
+                </div>
 
                 <div className="space-y-2">
                   <StatBar label="Speed" value={getDisplayStats('speedster').speed} color="bg-cyan-500" />
@@ -483,10 +493,6 @@ function App() {
               >
                 MAIN MENU
               </button>
-            </div>
-
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 text-gray-500 text-sm whitespace-nowrap">
-              © 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)
             </div>
           </div>
         )
@@ -531,10 +537,6 @@ function App() {
               >
                 BACK TO MENU
               </button>
-            </div>
-
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 text-gray-500 text-sm whitespace-nowrap">
-              © 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)
             </div>
           </div>
         )
@@ -627,7 +629,7 @@ function App() {
                 </div>
 
                 <div className="pt-4 border-t border-gray-700 text-xs text-gray-500">
-                  <p>Created by Edward Thomson</p>
+                  <p>© 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)</p>
                   <p>Website: <a href="https://edthomson.com" className="text-blue-400 hover:underline">edthomson.com</a></p>
                 </div>
               </div>
@@ -712,6 +714,19 @@ function App() {
 
     </div>
   )
+}
+
+// Small "i" badge that reveals descriptive text on hover. stopPropagation so
+// clicking the badge doesn't trigger the parent card's onClick (ship select).
+function InfoTip({ text }: { text: string }) {
+  return (
+    <span className="group/tip relative inline-flex" onClick={(e) => e.stopPropagation()}>
+      <span className="w-5 h-5 flex items-center justify-center rounded-full bg-black/60 border border-gray-500 text-gray-300 text-[10px] font-bold cursor-help select-none">i</span>
+      <span className="pointer-events-none absolute left-0 top-7 w-56 p-3 rounded-lg bg-gray-950 bg-opacity-95 border border-cyan-700 text-gray-300 text-xs leading-snug shadow-xl z-30 opacity-0 invisible transition-opacity duration-150 group-hover/tip:opacity-100 group-hover/tip:visible">
+        {text}
+      </span>
+    </span>
+  );
 }
 
 function StatBar({ label, value, color }: { label: string, value: number, color: string }) {

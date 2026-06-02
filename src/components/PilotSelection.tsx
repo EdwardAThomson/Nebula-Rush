@@ -22,12 +22,12 @@ export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK', o
                         onClick={() => { audioManager.playClick(); onSelect(pilot); }}
                         onMouseEnter={() => audioManager.playHover()}
                         className={`
-                            relative bg-gray-900 bg-opacity-80 rounded-xl overflow-hidden cursor-pointer transition-all transform hover:scale-105
+                            relative bg-gray-900 bg-opacity-80 rounded-xl cursor-pointer transition-all transform hover:scale-105
                             w-64 border-2 flex flex-col border-gray-700 hover:border-gray-500 hover:shadow-[0_0_20px_rgba(34,211,238,0.3)]
                         `}
                     >
                         {/* Image */}
-                        <div className="h-64 w-full overflow-hidden">
+                        <div className="h-64 w-full overflow-hidden rounded-t-xl">
                             <img
                                 src={pilot.imagePath}
                                 alt={pilot.name}
@@ -35,12 +35,21 @@ export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK', o
                             />
                         </div>
 
+                        {/* Info badge — bio shown as a tooltip on hover */}
+                        <div className="group/tip absolute top-2 right-2 z-20" onClick={(e) => e.stopPropagation()}>
+                            <div className="w-6 h-6 flex items-center justify-center rounded-full bg-black/70 border border-gray-400 text-gray-200 text-xs font-bold cursor-help select-none">
+                                i
+                            </div>
+                            <div className="pointer-events-none absolute right-0 top-7 w-56 p-3 rounded-lg bg-gray-950 bg-opacity-95 border border-cyan-700 text-gray-300 text-xs italic leading-snug shadow-xl z-30 opacity-0 invisible transition-opacity duration-150 group-hover/tip:opacity-100 group-hover/tip:visible">
+                                {pilot.bio}
+                            </div>
+                        </div>
+
                         {/* Info */}
                         <div className="p-4 flex-1 flex flex-col">
-                            <h3 className="text-xl font-bold mb-2 text-white group-hover:text-cyan-400">
+                            <h3 className="text-xl font-bold mb-4 text-white group-hover:text-cyan-400">
                                 {pilot.name}
                             </h3>
-                            <p className="text-gray-400 text-sm italic mb-4">{pilot.bio}</p>
 
                             {/* Stats */}
                             <div className="space-y-2 mt-auto">
@@ -74,10 +83,6 @@ export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK', o
                         MAIN MENU
                     </button>
                 )}
-            </div>
-
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 text-gray-500 text-sm whitespace-nowrap">
-                © 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)
             </div>
         </div >
     );

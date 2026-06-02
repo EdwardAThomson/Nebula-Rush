@@ -98,10 +98,6 @@ export default function EnvironmentSelection({ onSelect, onBack, onMainMenu }: E
                     CONFIRM
                 </button>
             </div>
-
-            <div className="absolute bottom-8 text-gray-500 text-sm">
-                © 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)
-            </div>
         </div>
     );
 }
