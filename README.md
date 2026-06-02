@@ -23,13 +23,14 @@ I originally started building this game for free using Claude in the web browser
 -   **High-Speed Anti-Gravity Physics**: specialized handling model featuring hovering, banking, drifting, and air-braking.
 -   **Procedural Track Generation**:
     -   Complex 3D spline-based tracks with loops, banked turns, and verticality.
-    -   Multiple unique tracks: *The Awakening*, *Nebula Complex*, *Hyperion Raceway*.
-    -   Dynamic mesh generation for track surfaces and walls.
+    -   Five unique tracks: *The Awakening*, *Asteroid Slalom*, *Nebula Complex*, *Hyperion Raceway*, *Stellar Vortex*.
+    -   Dynamic mesh generation for track surfaces and walls, with per-track neon surface styling (glowing edge rails, centre line, checkered start/finish).
 -   **Campaign Mode**:
     -   Multi-race championship with cumulative points.
     -   Unlockable tracks (planned).
 -   **Ship & Pilot Selection**:
-    -   **3 Ship Classes**: *Speedster* (Fast), *Fighter* (Balanced), *Tank* (Heavy Grip).
+    -   **5 Ship Classes**: *Fighter* (Balanced), *Speedster* (Top Speed), *Tank* (Grip), *Interceptor* (Agile), *Corsair* (Drift).
+    -   **Ship paint customization**: primary + secondary colours with a live preview.
     -   **8 Unique Pilots**: Generated avatars with unique modifiers for Acceleration, Handling, and Velocity.
 -   **Dynamic Environments**:
     -   Day/Night cycles and Weather effects (Rain/Snow/Fog) that affect visibility.
@@ -45,6 +46,7 @@ I originally started building this game for free using Claude in the web browser
     -   Post-race leaderboard tracking rank and points.
 -   **Dynamic Camera**: Smart camera system that prevents motion sickness while maintaining the sensation of extreme speed.
 -   **Minimap**: Real-time track position visualization.
+-   **Race Photos**: capture in-race screenshots and review/download them (gallery + lightbox, single-zip download) on the results screen.
 -   **Debug Tools**:
     -   Track Analysis for gradient/curvature.
     -   Lighting Playground (Dev only).
@@ -67,7 +69,7 @@ Planned work — open to reordering as priorities shift.
 -   **Onboarding / tutorial**: with cups, upgrades, currency, and (eventually) multiplayer layered on, a brand-new player hits a lot of concepts at once. Add at least a one-screen first-run prompt covering controls and race flow, ideally extending as new systems land.
 
 ### Ships & Customization
--   **Metallic ship finish** with **customizable paint** (primary/secondary colors, decals) so the player's ship is recognizable.
+-   ~~**Metallic ship finish** with **customizable paint** (primary/secondary colors)~~ — **done** (PBR metallic ships + live paint preview); **decals** still planned.
 -   **Ship damage**: visual + (optionally) handling consequences when hitting walls / obstacles / other ships.
 
 ### Economy & Upgrades
@@ -76,7 +78,7 @@ Planned work — open to reordering as priorities shift.
 -   **Open question**: upgrades per-ship vs. global (decide before implementing the screen).
 
 ### Visuals
--   **Track surface detail**: replace the flat-colored road with texture / pattern / panel lines / glow strips.
+-   ~~**Track surface detail**: replace the flat-colored road with texture / pattern / panel lines / glow strips.~~ — **done**: per-track neon edge rails, centre line, wall accents, boost-pad arrows, and a checkered start/finish.
 -   **Background art**: each track currently sits inside a plain sky — give each one a distinct backdrop (nebula, station, asteroid field, etc.) matching its name.
 
 ### Audio
