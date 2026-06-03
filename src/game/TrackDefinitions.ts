@@ -258,6 +258,6 @@ export const TUTORIAL_TRACK: TrackConfig = {
         new THREE.Vector3(120, 0, 120),
     ].map(p => p.multiplyScalar(SCALE * 1.5)),
     pads: [
-        { trackProgress: 0.5, lateralPosition: 30, width: 40, length: 0.02 }, // offset → encourages a strafe
+        { trackProgress: 0.5, lateralPosition: 0, width: 40, length: 0.02 }, // on the racing line — hit it straight-on
     ],
 };

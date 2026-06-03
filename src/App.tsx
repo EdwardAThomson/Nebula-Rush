@@ -274,7 +274,7 @@ function App() {
             </AudioButton>
             <AudioButton
               onClick={handleTutorial}
-              className="px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
+              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
             >
               TUTORIAL
             </AudioButton>
@@ -649,7 +649,7 @@ function App() {
                   <ul className="list-disc pl-5 space-y-1 text-sm">
                     <li>Launch the instant the start lights turn <span className="text-green-400">green</span>.</li>
                     <li>Drive through the glowing <span className="text-cyan-300">cyan boost arrows</span> for a speed burst.</li>
-                    <li>Tap <span className="text-white">A / D</span> to strafe and line up on the boost arrows.</li>
+                    <li>Tap <span className="text-white">A / D</span> to strafe — slide sideways without turning.</li>
                     <li>Keep off the walls — scraping kills your momentum.</li>
                   </ul>
                 </div>

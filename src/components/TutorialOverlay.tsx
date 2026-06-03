@@ -17,7 +17,7 @@ interface Step {
 const STEPS: Step[] = [
     { text: 'Hold  W  (or ↑) to accelerate', done: (s) => s.state.velocity.y > 5 },
     { text: 'Steer with  Q / E  through the bend', done: (s) => Math.abs(s.state.rotation) > 0.05 },
-    { text: 'Strafe with  A / D  onto the cyan boost arrows', done: (s) => s.state.boostTimer > 0 },
+    { text: 'Drive through the cyan boost arrows for a speed burst', done: (s) => s.state.boostTimer > 0 },
     { text: 'Now cross the finish line!', done: (s) => s.lap >= 2 },
 ];
 
