@@ -256,8 +256,10 @@ export const TUTORIAL_TRACK: TrackConfig = {
         new THREE.Vector3(420, 0, 0),      // back straight (boost pad ~mid-loop)
         new THREE.Vector3(300, 0, 120),
         new THREE.Vector3(120, 0, 120),
-    ].map(p => p.multiplyScalar(SCALE * 3.0)),
+    ].map(p => p.multiplyScalar(SCALE * 4.0)),
     pads: [
-        { trackProgress: 0.5, lateralPosition: 0, width: 40, length: 0.02 }, // on the racing line — hit it straight-on
+        // Late in the lap (0.7) and on the racing line, so the boost prompt has
+        // time to appear before the player reaches it.
+        { trackProgress: 0.7, lateralPosition: 0, width: 40, length: 0.02 },
     ],
 };
