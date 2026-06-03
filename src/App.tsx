@@ -11,6 +11,7 @@ import EnvironmentSelection from './components/EnvironmentSelection';
 import LightingPlayground from './components/LightingPlayground';
 import PilotSelection from './components/PilotSelection';
 import ShipDemo from './components/ShipDemo';
+import CaptureStudio from './components/CaptureStudio';
 import SettingsMenu from './components/SettingsMenu';
 import type { Pilot } from './game/PilotDefinitions';
 import type { EnvironmentConfig } from './game/EnvironmentManager';
@@ -88,7 +89,7 @@ const AudioButton = ({
 );
 
 function App() {
-  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo'>('start');
+  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo' | 'capture'>('start');
   const [gameMode, setGameMode] = useState<'campaign' | 'single_race'>('campaign');
   const [isLoading, setIsLoading] = useState(false); // NEW: Loading state
   const [showHelp, setShowHelp] = useState(false);
@@ -274,6 +275,15 @@ function App() {
             >
               SELECT TRACK
             </AudioButton>
+            {/* Capture Studio (dev/vlog tool) — delinked from the menu; re-enable
+                this button or call setScreen('capture') to reach it.
+            <button
+              onClick={() => setScreen('capture')}
+              className="px-6 py-3 bg-blue-700 hover:bg-blue-600 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
+            >
+              CAPTURE STUDIO
+            </button>
+            */}
             {/*
             <button
               onClick={() => setScreen('ship_demo')}
@@ -596,6 +606,13 @@ function App() {
       {
         screen === 'ship_demo' && (
           <ShipDemo onBack={() => setScreen('start')} />
+        )
+      }
+
+      {/* CAPTURE STUDIO (dev / vlog image capture) */}
+      {
+        screen === 'capture' && (
+          <CaptureStudio onBack={() => setScreen('start')} />
         )
       }
 

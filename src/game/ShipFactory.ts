@@ -49,7 +49,7 @@ export const SHIP_STATS: Record<ShipType, { accelFactor: number, turnSpeed: numb
 const geometryCache: Record<string, THREE.BufferGeometry> = {};
 const materialCache: Record<string, THREE.Material> = {};
 
-export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter', accentColor: number = 0xeeeeee): ShipParts => {
+export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter', accentColor: number = 0xeeeeee, buggyWing: boolean = false): ShipParts => {
     const ship = new THREE.Group();
     const glows: THREE.Mesh[] = [];
 
@@ -940,8 +940,12 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         // Shape X (span) -> world X, shape Y (chord, +Y = leading) -> world -Z
         // (forward), extrude thickness -> world +Y. Flat rotation only; the side
         // is baked into each shape so no chord-flipping rotation is needed.
-        const leftWing = new THREE.Mesh(leftWingGeometry, wingMaterial);
+        // buggyWing reproduces the original mirror bug: reuse the RIGHT geometry
+        // and mirror via a 180° rotation, which flips the chord too so the curved
+        // leading edge ends up at the back. (Debug/vlog only.)
+        const leftWing = new THREE.Mesh(buggyWing ? rightWingGeometry : leftWingGeometry, wingMaterial);
         leftWing.rotation.x = -Math.PI / 2;
+        if (buggyWing) leftWing.rotation.z = Math.PI;
         leftWing.position.set(-0.55, 0.3, 0.5);
         ship.add(leftWing);
 
