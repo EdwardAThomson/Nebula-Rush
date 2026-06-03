@@ -8,7 +8,8 @@ import { Ship, type ShipConfig } from '../game/Ship';
 import { OpponentManager, type OpponentConfig } from '../game/OpponentManager';
 import { EnvironmentManager, type EnvironmentConfig } from '../game/EnvironmentManager';
 import { Leaderboard, type RaceResult } from './Leaderboard';
-import { TRACKS } from '../game/TrackDefinitions';
+import { TRACKS, type TrackConfig } from '../game/TrackDefinitions';
+import TutorialOverlay from './TutorialOverlay';
 import type { Pilot } from '../game/PilotDefinitions';
 import { DebugLightingPanel } from './DebugLightingPanel';
 import { audioManager } from '../game/AudioManager';
@@ -25,17 +26,20 @@ interface GameProps {
   onExit?: () => void;
   debugLighting?: boolean;
   onReady?: () => void;
+
+  tutorial?: boolean;          // guided tutorial mode (no opponents, prompt overlay)
+  trackOverride?: TrackConfig; // use this track instead of TRACKS[index] (tutorial)
 }
 
 const POINTS_TABLE = [100, 93, 87, 82, 78, 75, 72, 69, 66, 63, 60, 58, 56, 54, 52, 50, 48, 46, 44, 42];
 
 type RaceState = 'intro' | 'racing' | 'finished' | 'results';
 
-export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = true, forcedEnvironment, pilot, opponentCount = 19, onExit, debugLighting = false, onReady }: GameProps) {
+export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = true, forcedEnvironment, pilot, opponentCount = 19, onExit, debugLighting = false, onReady, tutorial = false, trackOverride }: GameProps) {
   const mountRef = useRef<HTMLDivElement>(null);
 
   const [currentTrackIndex, setCurrentTrackIndex] = useState(initialTrackIndex);
-  const currentTrack = TRACKS[currentTrackIndex];
+  const currentTrack = trackOverride ?? TRACKS[currentTrackIndex];
 
   // Campaign State
   // Initialize roster once using a ref or state that doesn't reset on track change
@@ -782,6 +786,10 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   return (
     <div className="w-full h-screen bg-black relative overflow-hidden">
       <div ref={mountRef} className="w-full h-full" />
+
+      {tutorial && (
+        <TutorialOverlay shipRef={playerShip} raceStartedRef={raceStartedRef} onDone={() => onExit?.()} />
+      )}
 
       {/* LIGHTING DEBUG OVERLAY */}
       {debugLighting && (

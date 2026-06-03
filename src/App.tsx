@@ -14,7 +14,7 @@ import ShipDemo from './components/ShipDemo';
 import SettingsMenu from './components/SettingsMenu';
 import type { Pilot } from './game/PilotDefinitions';
 import type { EnvironmentConfig } from './game/EnvironmentManager';
-import { TRACKS } from './game/TrackDefinitions';
+import { TRACKS, TUTORIAL_TRACK } from './game/TrackDefinitions';
 
 // Calculate display stats (0-100) dynamically from SHIP_STATS
 const getDisplayStats = (type: ShipType) => {
@@ -88,7 +88,7 @@ const AudioButton = ({
 );
 
 function App() {
-  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo'>('start');
+  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo' | 'tutorial'>('start');
   const [gameMode, setGameMode] = useState<'campaign' | 'single_race'>('campaign');
   const [isLoading, setIsLoading] = useState(false); // NEW: Loading state
   const [showHelp, setShowHelp] = useState(false);
@@ -165,6 +165,10 @@ function App() {
   const handleTrackSelectMode = () => {
     setGameMode('single_race');
     setScreen('track_selection');
+  };
+
+  const handleTutorial = () => {
+    navigateTo('tutorial', undefined, true);
   };
 
   const handleShipSelect = (config: ShipConfig) => {
@@ -267,6 +271,12 @@ function App() {
               className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
             >
               NEW GAME
+            </AudioButton>
+            <AudioButton
+              onClick={handleTutorial}
+              className="px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
+            >
+              TUTORIAL
             </AudioButton>
             <AudioButton
               onClick={handleTrackSelectMode}
@@ -587,6 +597,22 @@ function App() {
             forcedEnvironment={selectedEnvConfig || undefined}
             pilot={selectedPilot}
             onExit={handleGameExit}
+            onReady={() => setIsLoading(false)}
+          />
+        )
+      }
+
+      {/* TUTORIAL (guided first race: simple loop, no opponents) */}
+      {
+        screen === 'tutorial' && (
+          <Game
+            tutorial
+            trackOverride={TUTORIAL_TRACK}
+            opponentCount={0}
+            isCampaign={false}
+            shipConfig={{ color: 0xcc0000, accentColor: 0xeeeeee, ...SHIP_STATS.fighter, type: 'fighter' }}
+            forcedEnvironment={{ timeOfDay: 'day', weather: 'clear' }}
+            onExit={() => setScreen('start')}
             onReady={() => setIsLoading(false)}
           />
         )
