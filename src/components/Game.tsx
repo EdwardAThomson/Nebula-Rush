@@ -835,24 +835,6 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         {/* Countdown Overlay (Only shows if > 0 and not started) */}
         {!raceFinishedRef.current && hudVisible && (
           <div className="absolute inset-0 pointer-events-none">
-            {/* Top Left: Speed, Lap, Time */}
-            <div className="absolute top-8 left-8 space-y-2 p-4 rounded-lg" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-              <div ref={speedRef} className="text-4xl font-bold italic text-cyan-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                SPEED: 0 km/h
-              </div>
-              <div className="text-2xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                LAP: {Math.max(1, Math.min(lap, 5))} / 5
-              </div>
-              <div ref={timeRef} className="text-2xl font-bold text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                TIME: 00:00.00
-              </div>
-              {lastLapTime > 0 && (
-                <div className="text-lg font-bold text-green-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                  LAST: {formatTime(lastLapTime)}
-                </div>
-              )}
-            </div>
-
             {/* Top Right: Music Track */}
             {currentMusicTrackName && (
               <div className="absolute top-8 right-8 text-right animate-pulse p-3 rounded-lg" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
@@ -866,6 +848,21 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
             <div ref={rankRef} className="absolute bottom-8 left-8 text-6xl font-black italic text-white drop-shadow-[0_4px_8px_rgba(0,0,0,1)]">
               RANK: 1 / {opponentCount + 1}
             </div>
+            {/* Bottom Centre: primary readouts (speed + lap + time) near the line of sight */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center">
+              <div ref={speedRef} className="text-6xl font-black italic text-cyan-400 drop-shadow-[0_4px_8px_rgba(0,0,0,1)]">
+                0 km/h
+              </div>
+              <div className="flex items-baseline gap-6 mt-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                <span className="text-2xl font-bold text-white">LAP: {Math.max(1, Math.min(lap, 5))} / 5</span>
+                <span ref={timeRef} className="text-2xl font-bold text-yellow-400">TIME: 00:00.00</span>
+              </div>
+              {lastLapTime > 0 && (
+                <span className="text-lg font-bold text-green-400 mt-0.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                  LAST: {formatTime(lastLapTime)}
+                </span>
+              )}
+            </div>
             {/* Bottom Right: Minimap */}
             <div className="absolute bottom-8 right-8 p-2 rounded z-10" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
               <div className="text-white text-xs mb-1">MINIMAP</div>
@@ -877,12 +874,6 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
               <div ref={debugTrackProgressRef}>Track Progress: 0.0%</div>
               <div ref={debugPositionRef}>Position: (0.0, 0.0)</div>
             </div> */}
-
-            {/* Controls Hint (Bottom Center) */}
-            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-white text-sm font-mono p-2 rounded z-10" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-              <div>↑/W: Accelerate | Q/E: Steer | ←/→ or A/D: Side Thrusters | SPACE/↓/S: Jump</div>
-              <div className="mt-2 cursor-pointer hover:text-cyan-400 text-cyan-200" onClick={() => handleScreenshot()}>[P] Screenshot</div>
-            </div>
 
             {/* Track Info (Top Center) */}
             <div className="absolute top-8 left-1/2 transform -translate-x-1/2 text-white text-lg font-bold italic drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] p-3 rounded-lg text-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
