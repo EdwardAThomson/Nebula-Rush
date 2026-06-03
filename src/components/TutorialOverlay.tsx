@@ -15,6 +15,9 @@ interface Step {
 
 // Pause (ms) on the "nice!" confirmation between actions, so prompts don't flash by.
 const DWELL_MS = 2000;
+// Minimum time a prompt stays on screen before its action can complete it —
+// guarantees time to read, and stops steps chaining instantly.
+const MIN_READ_MS = 3500;
 
 // Action-gated steps — each advances once the player actually does the thing.
 // Matches the current mechanics (no jump / tight-corner drift yet).
@@ -50,30 +53,33 @@ export default function TutorialOverlay({ shipRef, raceStartedRef, onDone }: Tut
     const phaseRef = useRef<'prompt' | 'success'>('prompt');
     const rafRef = useRef(0);
     const timerRef = useRef<number | null>(null);
+    const promptShownAtRef = useRef<number | null>(null);
 
     useEffect(() => {
         const tick = () => {
             const ship = shipRef.current;
-            if (
-                ship &&
-                raceStartedRef.current &&
-                phaseRef.current === 'prompt' &&
-                stepRef.current < STEPS.length &&
-                STEPS[stepRef.current].done(ship)
-            ) {
-                // Action done — show a confirmation, then advance after a short dwell.
-                phaseRef.current = 'success';
-                setPhase('success');
-                timerRef.current = window.setTimeout(() => {
-                    stepRef.current += 1;
-                    if (stepRef.current >= STEPS.length) {
-                        setComplete(true);
-                    } else {
-                        phaseRef.current = 'prompt';
-                        setStep(stepRef.current);
-                        setPhase('prompt');
-                    }
-                }, DWELL_MS);
+            if (ship && raceStartedRef.current && phaseRef.current === 'prompt' && stepRef.current < STEPS.length) {
+                const now = performance.now();
+                // Start the read timer once the prompt is live (race underway).
+                if (promptShownAtRef.current === null) promptShownAtRef.current = now;
+                const lingered = now - promptShownAtRef.current >= MIN_READ_MS;
+
+                if (lingered && STEPS[stepRef.current].done(ship)) {
+                    // Action done — show a confirmation, then advance after a dwell.
+                    phaseRef.current = 'success';
+                    setPhase('success');
+                    timerRef.current = window.setTimeout(() => {
+                        stepRef.current += 1;
+                        promptShownAtRef.current = null; // restart read timer for the next prompt
+                        if (stepRef.current >= STEPS.length) {
+                            setComplete(true);
+                        } else {
+                            phaseRef.current = 'prompt';
+                            setStep(stepRef.current);
+                            setPhase('prompt');
+                        }
+                    }, DWELL_MS);
+                }
             }
             rafRef.current = requestAnimationFrame(tick);
         };
