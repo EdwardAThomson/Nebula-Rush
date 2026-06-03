@@ -623,7 +623,7 @@ function App() {
                   <strong className="text-purple-400 block">TIPS</strong>
                   <p className="text-sm">
                     Watch out for the traffic light start!
-                    Use boost pads (pink) for extra speed.
+                    Hit the glowing boost arrows for a speed burst.
                     Avoid walls to maintain momentum.
                   </p>
                 </div>
