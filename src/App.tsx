@@ -15,7 +15,7 @@ import CaptureStudio from './components/CaptureStudio';
 import SettingsMenu from './components/SettingsMenu';
 import type { Pilot } from './game/PilotDefinitions';
 import type { EnvironmentConfig } from './game/EnvironmentManager';
-import { TRACKS } from './game/TrackDefinitions';
+import { TRACKS, TUTORIAL_TRACK } from './game/TrackDefinitions';
 
 // Calculate display stats (0-100) dynamically from SHIP_STATS
 const getDisplayStats = (type: ShipType) => {
@@ -89,11 +89,20 @@ const AudioButton = ({
 );
 
 function App() {
-  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo' | 'capture'>('start');
+  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo' | 'capture' | 'tutorial'>('start');
   const [gameMode, setGameMode] = useState<'campaign' | 'single_race'>('campaign');
   const [isLoading, setIsLoading] = useState(false); // NEW: Loading state
   const [showHelp, setShowHelp] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  // First-visit nudge: pulse the TUTORIAL button until the player has raced or
+  // done the tutorial. Persisted so it doesn't reappear on return visits.
+  const [showTutorialPulse, setShowTutorialPulse] = useState(() => {
+    try { return !localStorage.getItem('nebula-rush-onboarded'); } catch { return false; }
+  });
+  const markOnboarded = () => {
+    try { localStorage.setItem('nebula-rush-onboarded', '1'); } catch { /* ignore */ }
+    setShowTutorialPulse(false);
+  };
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
   const [selectedEnvConfig, setSelectedEnvConfig] = useState<EnvironmentConfig | null>(null);
   const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
@@ -133,6 +142,7 @@ function App() {
   };
 
   const handleNewGame = () => {
+    markOnboarded();
     navigateTo('pilot_selection', () => {
       setGameMode('campaign');
       setSelectedTrackIndex(0);
@@ -164,8 +174,15 @@ function App() {
   };
 
   const handleTrackSelectMode = () => {
+    markOnboarded();
     setGameMode('single_race');
     setScreen('track_selection');
+  };
+
+  const handleTutorial = () => {
+    markOnboarded();
+    setShowHelp(false);
+    navigateTo('tutorial', undefined, true);
   };
 
   const handleShipSelect = (config: ShipConfig) => {
@@ -268,6 +285,12 @@ function App() {
               className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
             >
               NEW GAME
+            </AudioButton>
+            <AudioButton
+              onClick={handleTutorial}
+              className={`px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all ${showTutorialPulse ? 'tutorial-pulse' : ''}`}
+            >
+              TUTORIAL
             </AudioButton>
             <AudioButton
               onClick={handleTrackSelectMode}
@@ -597,6 +620,23 @@ function App() {
             forcedEnvironment={selectedEnvConfig || undefined}
             pilot={selectedPilot}
             onExit={handleGameExit}
+            onTutorial={handleTutorial}
+            onReady={() => setIsLoading(false)}
+          />
+        )
+      }
+
+      {/* TUTORIAL (guided first race: simple loop, no opponents) */}
+      {
+        screen === 'tutorial' && (
+          <Game
+            tutorial
+            trackOverride={TUTORIAL_TRACK}
+            opponentCount={0}
+            isCampaign={false}
+            shipConfig={{ color: 0xcc0000, accentColor: 0xeeeeee, ...SHIP_STATS.fighter, type: 'fighter' }}
+            forcedEnvironment={{ timeOfDay: 'day', weather: 'clear' }}
+            onExit={() => setScreen('start')}
             onReady={() => setIsLoading(false)}
           />
         )
@@ -640,7 +680,7 @@ function App() {
                   <ul className="list-disc pl-5 space-y-1 text-sm">
                     <li>Launch the instant the start lights turn <span className="text-green-400">green</span>.</li>
                     <li>Drive through the glowing <span className="text-cyan-300">cyan boost arrows</span> for a speed burst.</li>
-                    <li>Tap <span className="text-white">A / D</span> to strafe and line up on the boost arrows.</li>
+                    <li>Tap <span className="text-white">A / D</span> to strafe — slide sideways without turning.</li>
                     <li>Keep off the walls — scraping kills your momentum.</li>
                   </ul>
                 </div>
@@ -657,8 +697,14 @@ function App() {
               </div>
 
               <button
+                onClick={handleTutorial}
+                className="mt-8 w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded uppercase tracking-wide"
+              >
+                ▶ Start the interactive tutorial
+              </button>
+              <button
                 onClick={() => setShowHelp(false)}
-                className="mt-8 w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded"
+                className="mt-3 w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded"
               >
                 CLOSE
               </button>

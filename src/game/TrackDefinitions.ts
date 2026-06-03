@@ -238,3 +238,28 @@ export const TRACK_5: TrackConfig = {
 };
 
 export const TRACKS = [TRACK_1, TRACK_2, TRACK_3, TRACK_4, TRACK_5];
+
+// Minimal, gentle loop used by the interactive tutorial. Flat, wide, sweeping
+// bends, one laterally-offset boost pad. NOT part of TRACKS (not selectable).
+export const TUTORIAL_TRACK: TrackConfig = {
+    id: 'tutorial',
+    name: 'Training Loop',
+    description: 'A gentle loop for learning the controls.',
+    difficulty: 1,
+    surface: { base: 0x2a3340, accent: 0x00e5ff },
+    points: [
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, 0, -260),     // opening straight (accelerate)
+        new THREE.Vector3(120, 0, -380),   // sweeping bend
+        new THREE.Vector3(300, 0, -380),
+        new THREE.Vector3(420, 0, -260),
+        new THREE.Vector3(420, 0, 0),      // back straight (boost pad ~mid-loop)
+        new THREE.Vector3(300, 0, 120),
+        new THREE.Vector3(120, 0, 120),
+    ].map(p => p.multiplyScalar(SCALE * 4.0)),
+    pads: [
+        // Late in the lap (0.7) and on the racing line, so the boost prompt has
+        // time to appear before the player reaches it.
+        { trackProgress: 0.7, lateralPosition: 0, width: 40, length: 0.02 },
+    ],
+};

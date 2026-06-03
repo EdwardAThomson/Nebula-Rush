@@ -1,1 +1,14 @@
 @import "tailwindcss";
+
+/* First-visit nudge: soft glowing pulse on the TUTORIAL menu button. */
+@keyframes tutorial-pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 12px 2px rgba(129, 140, 248, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.25), 0 0 26px 6px rgba(129, 140, 248, 0.85);
+  }
+}
+.tutorial-pulse {
+  animation: tutorial-pulse-glow 1.6s ease-in-out infinite;
+}
