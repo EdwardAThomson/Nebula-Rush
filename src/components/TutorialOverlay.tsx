@@ -16,7 +16,7 @@ interface Step {
 // Matches the current mechanics (no jump / tight-corner drift yet).
 const STEPS: Step[] = [
     { text: 'Hold  W  (or ↑) to accelerate', done: (s) => s.state.velocity.y > 5 },
-    { text: 'Steer with  Q / E  through the bend', done: (s) => Math.abs(s.state.rotation) > 0.05 },
+    { text: 'Tap  A / D  to shift across the track (it steers itself through bends)', done: (s) => Math.abs(s.state.velocity.x) > 0.05 },
     { text: 'Drive through the cyan boost arrows for a speed burst', done: (s) => s.state.boostTimer > 0 },
     { text: 'Now cross the finish line!', done: (s) => s.lap >= 2 },
 ];
