@@ -19,9 +19,11 @@ interface LeaderboardProps {
     photos?: { url: string; time: number }[];
     onDownloadPhoto?: (p: { url: string; time: number }) => void;
     onDownloadAll?: () => void;
+    onTutorial?: () => void;
+    showTutorialHint?: boolean;
 }
 
-export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, onNextRace, onExit, isCampaign = false, photos, onDownloadPhoto, onDownloadAll }) => {
+export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, onNextRace, onExit, isCampaign = false, photos, onDownloadPhoto, onDownloadAll, onTutorial, showTutorialHint }) => {
     const [viewMode, setViewMode] = useState<'race' | 'campaign'>('race');
     const [preview, setPreview] = useState<number | null>(null); // photo lightbox index
 
@@ -169,6 +171,17 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, on
                         )
                     )}
                 </div>
+
+                {showTutorialHint && onTutorial && (
+                    <div className="text-center mt-4">
+                        <button
+                            onClick={onTutorial}
+                            className="text-sm text-indigo-300 hover:text-indigo-200 underline underline-offset-2"
+                        >
+                            New to the controls? Try the tutorial →
+                        </button>
+                    </div>
+                )}
             </div>
 
             {preview !== null && photos && photos[preview] && (
