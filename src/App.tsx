@@ -603,29 +603,36 @@ function App() {
       {
         showHelp && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90">
-            <div className="bg-gray-800 p-8 rounded-lg max-w-md w-full border border-gray-600">
+            <div className="bg-gray-800 p-8 rounded-lg max-w-lg w-full max-h-[85vh] overflow-y-auto border border-gray-600">
               <h2 className="text-3xl font-bold text-white mb-6">HOW TO PLAY</h2>
 
-              <div className="space-y-4 text-gray-300">
+              <div className="space-y-5 text-gray-300">
                 <div>
-                  <strong className="text-cyan-400 block">CONTROLS</strong>
-                  <ul className="list-disc pl-5 mt-1 space-y-1">
-                    <li><span className="text-white">W / Up</span> : Accelerate</li>
-                    <li><span className="text-white">A / D</span> : Lean Left / Right (Strafe)</li>
-                    <li><span className="text-white">Q / E</span> or <span className="text-white">Left/Right</span> : Steer</li>
-                    <li><span className="text-white">A / D</span> : Side Strafe</li>
-                    <li><span className="text-white">SPACE</span> : Jump</li>
-                    <li><span className="text-white">P</span> : Screenshot</li>
+                  <strong className="text-cyan-400 block mb-2">CONTROLS</strong>
+                  <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+                    <span className="text-white font-mono">W&nbsp;/&nbsp;↑</span><span>Accelerate</span>
+                    <span className="text-white font-mono">Q&nbsp;/&nbsp;E&nbsp;·&nbsp;←&nbsp;/&nbsp;→</span><span>Steer left / right</span>
+                    <span className="text-white font-mono">A&nbsp;/&nbsp;D</span><span>Strafe (side thrust)</span>
+                    <span className="text-white font-mono">Space&nbsp;·&nbsp;S&nbsp;/&nbsp;↓</span><span>Jump</span>
+                    <span className="text-white font-mono">P</span><span>Screenshot</span>
+                    <span className="text-white font-mono">H</span><span>Toggle HUD</span>
+                  </div>
+                </div>
+
+                <div>
+                  <strong className="text-purple-400 block mb-2">TIPS</strong>
+                  <ul className="list-disc pl-5 space-y-1 text-sm">
+                    <li>Launch the instant the start lights turn <span className="text-green-400">green</span>.</li>
+                    <li>Drive through the glowing <span className="text-cyan-300">cyan boost arrows</span> for a speed burst.</li>
+                    <li>Hold <span className="text-white">strafe + steer</span> together to drift tight corners without scrubbing speed.</li>
+                    <li>Tap <span className="text-white">jump</span> to clear gaps or cut a corner.</li>
+                    <li>Keep off the walls — scraping kills your momentum.</li>
                   </ul>
                 </div>
 
                 <div>
-                  <strong className="text-purple-400 block">TIPS</strong>
-                  <p className="text-sm">
-                    Watch out for the traffic light start!
-                    Hit the glowing boost arrows for a speed burst.
-                    Avoid walls to maintain momentum.
-                  </p>
+                  <strong className="text-yellow-400 block mb-2">GOAL</strong>
+                  <p className="text-sm">Finish 5 laps and beat the rival pilots to top the leaderboard.</p>
                 </div>
 
                 <div className="pt-4 border-t border-gray-700 text-xs text-gray-500">
