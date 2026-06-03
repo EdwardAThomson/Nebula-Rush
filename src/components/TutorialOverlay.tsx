@@ -9,45 +9,86 @@ interface TutorialOverlayProps {
 
 interface Step {
     text: string;
+    praise: string; // shown briefly after the action, before the next prompt
     done: (s: Ship) => boolean;
 }
+
+// Pause (ms) on the "nice!" confirmation between actions, so prompts don't flash by.
+const DWELL_MS = 2000;
 
 // Action-gated steps — each advances once the player actually does the thing.
 // Matches the current mechanics (no jump / tight-corner drift yet).
 const STEPS: Step[] = [
-    { text: 'Hold  W  (or ↑) to accelerate', done: (s) => s.state.velocity.y > 5 },
-    { text: 'Tap  A / D  to shift across the track (it steers itself through bends)', done: (s) => Math.abs(s.state.velocity.x) > 0.05 },
-    { text: 'Drive through the cyan boost arrows for a speed burst', done: (s) => s.state.boostTimer > 0 },
-    { text: 'Now cross the finish line!', done: (s) => s.lap >= 2 },
+    {
+        text: 'Hold  W  (or ↑) to accelerate',
+        praise: 'Nice — you\'re moving!',
+        done: (s) => s.state.velocity.y > 5,
+    },
+    {
+        text: 'Use  Q / E  (or  A / D) to shift across the track — it follows the bends on its own',
+        praise: 'Good — that\'s how you pick your line.',
+        done: (s) => Math.abs(s.state.velocity.x) > 0.05,
+    },
+    {
+        text: 'Drive through the cyan boost arrows for a speed burst',
+        praise: 'Boost! Feel the kick.',
+        done: (s) => s.state.boostTimer > 0,
+    },
+    {
+        text: 'Now cross the finish line!',
+        praise: 'You crossed the line!',
+        done: (s) => s.lap >= 2,
+    },
 ];
 
 export default function TutorialOverlay({ shipRef, raceStartedRef, onDone }: TutorialOverlayProps) {
     const [step, setStep] = useState(0);
+    const [phase, setPhase] = useState<'prompt' | 'success'>('prompt');
     const [complete, setComplete] = useState(false);
+
     const stepRef = useRef(0);
+    const phaseRef = useRef<'prompt' | 'success'>('prompt');
     const rafRef = useRef(0);
+    const timerRef = useRef<number | null>(null);
 
     useEffect(() => {
         const tick = () => {
             const ship = shipRef.current;
-            if (ship && raceStartedRef.current && stepRef.current < STEPS.length) {
-                if (STEPS[stepRef.current].done(ship)) {
+            if (
+                ship &&
+                raceStartedRef.current &&
+                phaseRef.current === 'prompt' &&
+                stepRef.current < STEPS.length &&
+                STEPS[stepRef.current].done(ship)
+            ) {
+                // Action done — show a confirmation, then advance after a short dwell.
+                phaseRef.current = 'success';
+                setPhase('success');
+                timerRef.current = window.setTimeout(() => {
                     stepRef.current += 1;
-                    if (stepRef.current >= STEPS.length) setComplete(true);
-                    else setStep(stepRef.current);
-                }
+                    if (stepRef.current >= STEPS.length) {
+                        setComplete(true);
+                    } else {
+                        phaseRef.current = 'prompt';
+                        setStep(stepRef.current);
+                        setPhase('prompt');
+                    }
+                }, DWELL_MS);
             }
             rafRef.current = requestAnimationFrame(tick);
         };
         rafRef.current = requestAnimationFrame(tick);
-        return () => cancelAnimationFrame(rafRef.current);
+        return () => {
+            cancelAnimationFrame(rafRef.current);
+            if (timerRef.current) clearTimeout(timerRef.current);
+        };
     }, [shipRef, raceStartedRef]);
 
     return (
         <>
             {!complete && (
                 <>
-                    {/* Prompt (below the track name) */}
+                    {/* Prompt / confirmation (below the track name) */}
                     <div
                         className="absolute top-28 left-1/2 -translate-x-1/2 z-30 px-6 py-3 rounded-lg text-center pointer-events-none"
                         style={{ backgroundColor: 'rgba(0,0,0,0.65)' }}
@@ -55,9 +96,15 @@ export default function TutorialOverlay({ shipRef, raceStartedRef, onDone }: Tut
                         <div className="text-cyan-300 text-xs font-bold tracking-widest mb-1">
                             TUTORIAL · STEP {step + 1} / {STEPS.length}
                         </div>
-                        <div className="text-white text-2xl font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
-                            {STEPS[step].text}
-                        </div>
+                        {phase === 'prompt' ? (
+                            <div className="text-white text-2xl font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                                {STEPS[step].text}
+                            </div>
+                        ) : (
+                            <div className="text-green-400 text-2xl font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                                ✓ {STEPS[step].praise}
+                            </div>
+                        )}
                     </div>
                     {/* Skip (top-left is free now that lap/time moved to the bottom cluster) */}
                     <button
