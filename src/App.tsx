@@ -613,7 +613,6 @@ function App() {
                     <span className="text-white font-mono">W&nbsp;/&nbsp;↑</span><span>Accelerate</span>
                     <span className="text-white font-mono">Q&nbsp;/&nbsp;E&nbsp;·&nbsp;←&nbsp;/&nbsp;→</span><span>Steer left / right</span>
                     <span className="text-white font-mono">A&nbsp;/&nbsp;D</span><span>Strafe (side thrust)</span>
-                    <span className="text-white font-mono">Space&nbsp;·&nbsp;S&nbsp;/&nbsp;↓</span><span>Jump</span>
                     <span className="text-white font-mono">P</span><span>Screenshot</span>
                     <span className="text-white font-mono">H</span><span>Toggle HUD</span>
                   </div>
@@ -624,8 +623,7 @@ function App() {
                   <ul className="list-disc pl-5 space-y-1 text-sm">
                     <li>Launch the instant the start lights turn <span className="text-green-400">green</span>.</li>
                     <li>Drive through the glowing <span className="text-cyan-300">cyan boost arrows</span> for a speed burst.</li>
-                    <li>Hold <span className="text-white">strafe + steer</span> together to drift tight corners without scrubbing speed.</li>
-                    <li>Tap <span className="text-white">jump</span> to clear gaps or cut a corner.</li>
+                    <li>Tap <span className="text-white">A / D</span> to strafe and line up on the boost arrows.</li>
                     <li>Keep off the walls — scraping kills your momentum.</li>
                   </ul>
                 </div>
