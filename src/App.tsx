@@ -93,6 +93,15 @@ function App() {
   const [isLoading, setIsLoading] = useState(false); // NEW: Loading state
   const [showHelp, setShowHelp] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  // First-visit nudge: pulse the TUTORIAL button until the player has raced or
+  // done the tutorial. Persisted so it doesn't reappear on return visits.
+  const [showTutorialPulse, setShowTutorialPulse] = useState(() => {
+    try { return !localStorage.getItem('nebula-rush-onboarded'); } catch { return false; }
+  });
+  const markOnboarded = () => {
+    try { localStorage.setItem('nebula-rush-onboarded', '1'); } catch { /* ignore */ }
+    setShowTutorialPulse(false);
+  };
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
   const [selectedEnvConfig, setSelectedEnvConfig] = useState<EnvironmentConfig | null>(null);
   const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
@@ -132,6 +141,7 @@ function App() {
   };
 
   const handleNewGame = () => {
+    markOnboarded();
     navigateTo('pilot_selection', () => {
       setGameMode('campaign');
       setSelectedTrackIndex(0);
@@ -163,11 +173,14 @@ function App() {
   };
 
   const handleTrackSelectMode = () => {
+    markOnboarded();
     setGameMode('single_race');
     setScreen('track_selection');
   };
 
   const handleTutorial = () => {
+    markOnboarded();
+    setShowHelp(false);
     navigateTo('tutorial', undefined, true);
   };
 
@@ -274,7 +287,7 @@ function App() {
             </AudioButton>
             <AudioButton
               onClick={handleTutorial}
-              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
+              className={`px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all ${showTutorialPulse ? 'tutorial-pulse' : ''}`}
             >
               TUTORIAL
             </AudioButton>
@@ -597,6 +610,7 @@ function App() {
             forcedEnvironment={selectedEnvConfig || undefined}
             pilot={selectedPilot}
             onExit={handleGameExit}
+            onTutorial={handleTutorial}
             onReady={() => setIsLoading(false)}
           />
         )
@@ -666,8 +680,14 @@ function App() {
               </div>
 
               <button
+                onClick={handleTutorial}
+                className="mt-8 w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded uppercase tracking-wide"
+              >
+                ▶ Start the interactive tutorial
+              </button>
+              <button
                 onClick={() => setShowHelp(false)}
-                className="mt-8 w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded"
+                className="mt-3 w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded"
               >
                 CLOSE
               </button>

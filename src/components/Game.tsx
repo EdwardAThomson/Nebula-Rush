@@ -24,6 +24,7 @@ interface GameProps {
   opponentCount?: number;
 
   onExit?: () => void;
+  onTutorial?: () => void;     // jump to the tutorial (offered on a rough result)
   debugLighting?: boolean;
   onReady?: () => void;
 
@@ -35,7 +36,7 @@ const POINTS_TABLE = [100, 93, 87, 82, 78, 75, 72, 69, 66, 63, 60, 58, 56, 54, 5
 
 type RaceState = 'intro' | 'racing' | 'finished' | 'results';
 
-export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = true, forcedEnvironment, pilot, opponentCount = 19, onExit, debugLighting = false, onReady, tutorial = false, trackOverride }: GameProps) {
+export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = true, forcedEnvironment, pilot, opponentCount = 19, onExit, onTutorial, debugLighting = false, onReady, tutorial = false, trackOverride }: GameProps) {
   const mountRef = useRef<HTMLDivElement>(null);
 
   const [currentTrackIndex, setCurrentTrackIndex] = useState(initialTrackIndex);
@@ -829,6 +830,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
               photos={photos}
               onDownloadPhoto={downloadPhoto}
               onDownloadAll={downloadAllPhotos}
+              onTutorial={onTutorial}
+              showTutorialHint={finalRank !== null && opponentCount >= 3 && finalRank >= opponentCount + 1 - 2}
             />
           </div>
         )}
