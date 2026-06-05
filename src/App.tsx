@@ -549,15 +549,7 @@ function App() {
                     <TrackPreview points={track.points} />
                   </div>
                   <h3 className="text-2xl font-bold text-purple-400 mb-2">{track.name}</h3>
-                  <p className="text-gray-400 text-sm mb-4 h-12">{track.description}</p>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs text-gray-500 uppercase">Difficulty:</span>
-                    <div className="flex space-x-1">
-                      {[...Array(5)].map((_, i) => (
-                        <div key={i} className={`w-2 h-2 rounded-full ${i < track.difficulty ? 'bg-purple-500' : 'bg-gray-700'}`} />
-                      ))}
-                    </div>
-                  </div>
+                  <p className="text-gray-400 text-sm">{track.description}</p>
                 </div>
               ))}
             </div>
