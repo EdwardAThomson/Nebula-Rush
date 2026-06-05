@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { BoostPad, Hazard } from './TrackDefinitions';
+import { HAZARD_BLOCK_DEPTH } from './TrackDefinitions';
 
 // Create track path using curve
 export const createTrackCurve = (points: THREE.Vector3[]): THREE.CatmullRomCurve3 => {
@@ -264,7 +265,7 @@ export const createHazardMeshes = (trackCurve: THREE.CatmullRomCurve3, hazards: 
         } else {
             // Block: a raised, warning-coloured box oriented to the track frame.
             const blockHeight = 8;
-            const blockDepth = 14; // footprint along the track
+            const blockDepth = HAZARD_BLOCK_DEPTH; // footprint along the track (matches collision)
             const geo = new THREE.BoxGeometry(h.width, blockHeight, blockDepth);
             const mat = new THREE.MeshStandardMaterial({
                 color: 0x1a1a1a,

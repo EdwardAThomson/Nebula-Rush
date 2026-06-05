@@ -105,7 +105,9 @@ export class Ship {
             }
 
             if (msg === "HAZARD") {
-                // Hook for hit feedback (SFX/visual). Physics penalty already applied.
+                // Physics penalty already applied; forward to the HUD for a hit
+                // flash (player only, to avoid AI spam).
+                if (this.isPlayer && onLapComplete) onLapComplete("HAZARD");
                 return;
             }
 

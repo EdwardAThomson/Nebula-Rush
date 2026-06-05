@@ -18,8 +18,12 @@ export interface Hazard {
     trackProgress: number;   // 0.0 to 1.0 along the lap
     lateralPosition: number; // centre offset across the track (0 = centre)
     width: number;           // lateral span
-    length: number;          // span in track-progress units
+    length: number;          // span in track-progress units (slick patches)
 }
+
+// Along-track depth (world units) of a 'block' hazard box. Shared so the
+// collision in PhysicsEngine lines up with the visible mesh in TrackFactory.
+export const HAZARD_BLOCK_DEPTH = 14;
 
 export interface TrackConfig {
     id: string;
@@ -108,9 +112,16 @@ export const TRACK_2: TrackConfig = {
         { trackProgress: 0.75, lateralPosition: 0, width: 40, length: 0.03 },   // Back Straight Long Boost
     ],
     hazards: [
-        { type: 'block', trackProgress: 0.30, lateralPosition: 20, width: 24, length: 0.015 },
-        { type: 'block', trackProgress: 0.55, lateralPosition: -20, width: 24, length: 0.015 },
-        { type: 'slick', trackProgress: 0.85, lateralPosition: 0, width: 55, length: 0.035 },
+        // Cluster of 3 blocks — thread the open lane on the right.
+        { type: 'block', trackProgress: 0.30, lateralPosition: -36, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.30, lateralPosition: -18, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.30, lateralPosition: 0, width: 16, length: 0.015 },
+        // Cluster of 3 blocks — thread the open lane on the left.
+        { type: 'block', trackProgress: 0.55, lateralPosition: 0, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.55, lateralPosition: 18, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.55, lateralPosition: 36, width: 16, length: 0.015 },
+        // Offset slick → clear lane on the left.
+        { type: 'slick', trackProgress: 0.85, lateralPosition: 22, width: 32, length: 0.035 },
     ]
 };
 
@@ -154,9 +165,16 @@ export const TRACK_3: TrackConfig = {
         { trackProgress: 0.9, lateralPosition: 0, width: 40, length: 0.02 },    // Final sprint
     ],
     hazards: [
-        { type: 'slick', trackProgress: 0.30, lateralPosition: 0, width: 50, length: 0.03 },
-        { type: 'block', trackProgress: 0.60, lateralPosition: 18, width: 22, length: 0.015 },
-        { type: 'block', trackProgress: 0.82, lateralPosition: -18, width: 22, length: 0.015 },
+        // Offset slick → clear lane on the left.
+        { type: 'slick', trackProgress: 0.30, lateralPosition: 22, width: 32, length: 0.03 },
+        // Cluster of 3 blocks — thread the open lane on the right.
+        { type: 'block', trackProgress: 0.60, lateralPosition: -36, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.60, lateralPosition: -18, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.60, lateralPosition: 0, width: 16, length: 0.015 },
+        // Cluster of 3 blocks — thread the open lane on the left.
+        { type: 'block', trackProgress: 0.82, lateralPosition: 0, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.82, lateralPosition: 18, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.82, lateralPosition: 36, width: 16, length: 0.015 },
     ]
 };
 

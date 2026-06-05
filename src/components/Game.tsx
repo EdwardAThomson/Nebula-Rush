@@ -113,6 +113,10 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const [photoToast, setPhotoToast] = useState(false);
   const photoToastTimer = useRef<number | null>(null);
 
+  // Brief red vignette when the player clips a hazard block.
+  const [hazardFlash, setHazardFlash] = useState(false);
+  const hazardFlashTimer = useRef<number | null>(null);
+
   const handleScreenshot = () => {
     screenshotRequested.current = true;
   };
@@ -153,6 +157,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     return () => {
       photosRef.current.forEach((p) => URL.revokeObjectURL(p.url));
       if (photoToastTimer.current) clearTimeout(photoToastTimer.current);
+      if (hazardFlashTimer.current) clearTimeout(hazardFlashTimer.current);
     };
   }, []);
 
@@ -533,6 +538,12 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       // If player finished, they can still move? Or auto-pilot?
       // For now, let them drive but ignoring laps.
       playerShip.current.update(dt, inputManager, trackLength, currentTrack.pads, (msg: any) => {
+        if (msg === "HAZARD") {
+          setHazardFlash(true);
+          if (hazardFlashTimer.current) clearTimeout(hazardFlashTimer.current);
+          hazardFlashTimer.current = window.setTimeout(() => setHazardFlash(false), 250);
+          return;
+        }
         if (msg === "INCREMENT") {
           setLap(l => l + 1);
           // Record Lap Time
@@ -798,6 +809,14 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
       {tutorial && (
         <TutorialOverlay shipRef={playerShip} raceStartedRef={raceStartedRef} onDone={() => onExit?.()} />
+      )}
+
+      {/* Hazard hit flash — red vignette when a block clips the player. */}
+      {hazardFlash && (
+        <div
+          className="absolute inset-0 z-30 pointer-events-none"
+          style={{ boxShadow: 'inset 0 0 140px 50px rgba(255,0,0,0.55)' }}
+        />
       )}
 
       {/* LIGHTING DEBUG OVERLAY */}

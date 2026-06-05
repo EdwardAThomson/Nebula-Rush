@@ -25,7 +25,7 @@ export interface GameState {
     cameraLateral: number; // Visual-only laggy camera position
     boostTimer: number; // Time remaining for speed boost
     lastBoostPadIndex: number; // Track which pad was last hit (for sound effects)
-    lastHazardIndex: number; // Block hazard currently overlapped (-1 = none); avoids re-triggering each frame
+    hazardCooldown: number; // Seconds of immunity after a block hit (stops cluster re-trigger / vibration)
     hasCrossedStartLine: boolean; // True once the player crosses the line for the first time
 }
 
@@ -55,11 +55,12 @@ export const INITIAL_GAME_STATE: GameState = {
     cameraLateral: 0, // Visual-only laggy camera position
     boostTimer: 0,
     lastBoostPadIndex: -1,
-    lastHazardIndex: -1,
+    hazardCooldown: 0,
     hasCrossedStartLine: false
 };
 
 import type { BoostPad, Hazard } from './TrackDefinitions';
+import { HAZARD_BLOCK_DEPTH } from './TrackDefinitions';
 
 export const updatePhysics = (
     state: GameState,
@@ -179,27 +180,31 @@ export const updatePhysics = (
         if (onLapComplete) onLapComplete("BOOST");
     }
 
-    // --- Track Hazards (same AABB test as pads, but they penalise) ---
-    let insideBlock = -1;
+    // --- Track Hazards ---
+    if (state.hazardCooldown > 0) state.hazardCooldown -= dt / 60; // approx seconds
     let onSlick = false;
-    hazards.forEach((h, index) => {
-        const progressDiff = Math.abs(state.trackProgress - h.trackProgress);
-        if (progressDiff < h.length / 2 && Math.abs(state.lateralPosition - h.lateralPosition) < h.width / 2) {
-            if (h.type === 'block') {
-                insideBlock = index;
-                // Penalise once per entry, not every frame we overlap.
-                if (state.lastHazardIndex !== index) {
-                    state.velocity.y *= 0.4; // bleed most of the speed
-                    const side = state.lateralPosition >= h.lateralPosition ? 1 : -1;
-                    state.velocity.x += side * 3.0; // shove sideways, away from the block centre
-                    if (onLapComplete) onLapComplete("HAZARD");
-                }
-            } else if (h.type === 'slick') {
-                onSlick = true;
+    // Blocks are short boxes; at race speed we'd step over a thin track-progress
+    // band in one frame, so test the SWEPT interval we cover this frame, sized to
+    // the box's real depth. This fires right at the visible block (no early hit)
+    // and never tunnels.
+    const blockMargin = (HAZARD_BLOCK_DEPTH / 2) / trackLength;
+    const sweepLo = Math.min(state.trackProgress, state.trackProgress + progressChange) - blockMargin;
+    const sweepHi = Math.max(state.trackProgress, state.trackProgress + progressChange) + blockMargin;
+    hazards.forEach((h) => {
+        const onLane = Math.abs(state.lateralPosition - h.lateralPosition) < h.width / 2;
+        if (h.type === 'block') {
+            if (onLane && h.trackProgress >= sweepLo && h.trackProgress <= sweepHi && state.hazardCooldown <= 0) {
+                state.velocity.y *= 0.4; // bleed most of the speed
+                const side = state.lateralPosition >= h.lateralPosition ? 1 : -1;
+                state.velocity.x += side * 3.0; // shove sideways, away from the block
+                state.hazardCooldown = 0.6; // brief immunity → no cluster re-trigger / vibration
+                if (onLapComplete) onLapComplete("HAZARD");
             }
+        } else if (h.type === 'slick') {
+            // Slick patches are long; their visual strip matches this length band.
+            if (onLane && Math.abs(state.trackProgress - h.trackProgress) < h.length / 2) onSlick = true;
         }
     });
-    state.lastHazardIndex = insideBlock; // -1 once clear of all blocks → re-armable
     if (onSlick) {
         // Oil/ice: cap top speed so you slow down unless you steer around it.
         const slickCap = 28;
