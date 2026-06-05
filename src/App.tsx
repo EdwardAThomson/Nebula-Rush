@@ -679,9 +679,10 @@ function App() {
                   <strong className="text-purple-400 block mb-2">TIPS</strong>
                   <ul className="list-disc pl-5 space-y-1 text-sm">
                     <li>Launch the instant the start lights turn <span className="text-green-400">green</span>.</li>
-                    <li>Drive through the glowing <span className="text-cyan-300">cyan boost arrows</span> for a speed burst.</li>
+                    <li>Drive through the glowing <span className="text-cyan-300">boost arrows</span> for a speed burst.</li>
                     <li>Tap <span className="text-white">A / D</span> to strafe — slide sideways without turning.</li>
                     <li>Keep off the walls — scraping kills your momentum.</li>
+                    <li>Dodge the <span className="text-red-400">red obstacle blocks</span> and <span className="text-red-300">slick patches</span> — both bleed your speed.</li>
                   </ul>
                 </div>
 

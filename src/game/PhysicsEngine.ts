@@ -25,6 +25,7 @@ export interface GameState {
     cameraLateral: number; // Visual-only laggy camera position
     boostTimer: number; // Time remaining for speed boost
     lastBoostPadIndex: number; // Track which pad was last hit (for sound effects)
+    hazardCooldown: number; // Seconds of immunity after a block hit (stops cluster re-trigger / vibration)
     hasCrossedStartLine: boolean; // True once the player crosses the line for the first time
 }
 
@@ -54,10 +55,12 @@ export const INITIAL_GAME_STATE: GameState = {
     cameraLateral: 0, // Visual-only laggy camera position
     boostTimer: 0,
     lastBoostPadIndex: -1,
+    hazardCooldown: 0,
     hasCrossedStartLine: false
 };
 
-import type { BoostPad } from './TrackDefinitions';
+import type { BoostPad, Hazard } from './TrackDefinitions';
+import { HAZARD_BLOCK_DEPTH } from './TrackDefinitions';
 
 export const updatePhysics = (
     state: GameState,
@@ -66,7 +69,8 @@ export const updatePhysics = (
     pads: BoostPad[], // New Argument
     dt: number = 1.0,
     onLapComplete?: (msg: any) => void,
-    raceStarted: boolean = true // NEW Param
+    raceStarted: boolean = true, // NEW Param
+    hazards: Hazard[] = [] // blocks / slick patches
 ) => {
     // --- INPUT HANDLING ---
 
@@ -81,17 +85,24 @@ export const updatePhysics = (
         state.throttle = Math.max(state.throttle - decayRate * dt, 0);
     }
 
-    // 2. Steering (Yaw)
-    // Swapped A<->Q, D<->E per user request
+    // 2. Steering (Yaw) — player-only (the AI steers via strafe). Stronger yaw
+    // authority + a visible bank so Q/E reads as real steering that arcs your
+    // line, not a nose twitch. Still on-rails; changing this can't affect the AI.
+    // Swapped A<->Q, D<->E per user request.
+    const STEER_GAIN = 3.0;   // amplify yaw build-up for a meatier arc
+    const STEER_BANK = 0.35;  // roll/lean into the turn (matches strafe's feel)
+    const MAX_YAW = 0.4;      // clamp so the nose can't crab to extremes
     if (inputManager.isKeyPressed('q')) {
-        state.yaw += state.turnSpeed * dt;
+        state.yaw += state.turnSpeed * STEER_GAIN * dt;
+        state.targetRotation = -STEER_BANK; // lean left into the turn
     } else if (inputManager.isKeyPressed('e')) {
-        state.yaw -= state.turnSpeed * dt;
-        // state.targetRotation = -0.4; // Removed per user request
+        state.yaw -= state.turnSpeed * STEER_GAIN * dt;
+        state.targetRotation = STEER_BANK;  // lean right into the turn
     } else {
         state.yaw *= Math.pow(0.98, dt); // Self-align
         state.targetRotation = 0;
     }
+    state.yaw = Math.max(-MAX_YAW, Math.min(MAX_YAW, state.yaw));
 
     // --- PHYSICS INTEGRATION ---
 
@@ -168,6 +179,38 @@ export const updatePhysics = (
     if (hitBoostPad) {
         if (onLapComplete) onLapComplete("BOOST");
     }
+
+    // --- Track Hazards ---
+    if (state.hazardCooldown > 0) state.hazardCooldown -= dt / 60; // approx seconds
+    let onSlick = false;
+    // Blocks are short boxes; at race speed we'd step over a thin track-progress
+    // band in one frame, so test the SWEPT interval we cover this frame, sized to
+    // the box's real depth. This fires right at the visible block (no early hit)
+    // and never tunnels.
+    const blockMargin = (HAZARD_BLOCK_DEPTH / 2) / trackLength;
+    const sweepLo = Math.min(state.trackProgress, state.trackProgress + progressChange) - blockMargin;
+    const sweepHi = Math.max(state.trackProgress, state.trackProgress + progressChange) + blockMargin;
+    hazards.forEach((h) => {
+        const onLane = Math.abs(state.lateralPosition - h.lateralPosition) < h.width / 2;
+        if (h.type === 'block') {
+            if (onLane && h.trackProgress >= sweepLo && h.trackProgress <= sweepHi && state.hazardCooldown <= 0) {
+                state.velocity.y *= 0.4; // bleed most of the speed
+                const side = state.lateralPosition >= h.lateralPosition ? 1 : -1;
+                state.velocity.x += side * 3.0; // shove sideways, away from the block
+                state.hazardCooldown = 0.6; // brief immunity → no cluster re-trigger / vibration
+                if (onLapComplete) onLapComplete("HAZARD");
+            }
+        } else if (h.type === 'slick') {
+            // Slick patches are long; their visual strip matches this length band.
+            if (onLane && Math.abs(state.trackProgress - h.trackProgress) < h.length / 2) onSlick = true;
+        }
+    });
+    if (onSlick) {
+        // Oil/ice: cap top speed so you slow down unless you steer around it.
+        const slickCap = 28;
+        if (state.velocity.y > slickCap) state.velocity.y *= 0.94;
+    }
+
     // --- Lap Counting & Position Update ---
 
     state.trackProgress += progressChange;

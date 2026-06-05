@@ -3,7 +3,7 @@ import { createShip, type ShipType } from './ShipFactory';
 import { updatePhysics, INITIAL_GAME_STATE, type GameState } from './PhysicsEngine';
 import { type InputSource } from './InputManager';
 import { getTrackFrame } from './TrackFactory';
-import type { BoostPad } from './TrackDefinitions';
+import type { BoostPad, Hazard } from './TrackDefinitions';
 import { audioManager } from './AudioManager';
 
 export interface ShipConfig {
@@ -81,7 +81,8 @@ export class Ship {
         pads: BoostPad[],
         onLapComplete?: (msg: any) => void,
         raceStarted: boolean = true,
-        gameTime: number = 0  // Game time in ms (pauses when tab inactive)
+        gameTime: number = 0,  // Game time in ms (pauses when tab inactive)
+        hazards: Hazard[] = []
     ) {
         // Update Physics
         // For AI, we would pass a Mock InputManager or different logic
@@ -103,6 +104,13 @@ export class Ship {
                 return; // Don't pass boost signal to lap handler
             }
 
+            if (msg === "HAZARD") {
+                // Physics penalty already applied; forward to the HUD for a hit
+                // flash (player only, to avoid AI spam).
+                if (this.isPlayer && onLapComplete) onLapComplete("HAZARD");
+                return;
+            }
+
             if (msg === 1) {
                 this.lap = 1;
             } else if (msg === "INCREMENT") {
@@ -118,7 +126,7 @@ export class Ship {
             }
 
             if (onLapComplete) onLapComplete(msg);
-        }, raceStarted);
+        }, raceStarted, hazards);
 
         // Visual Updates — a steady "circle of light" at each engine, a gently
         // flickering saturated cyan flame, and a hot near-white inner core.

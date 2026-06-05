@@ -4,7 +4,7 @@ import { type ShipType, SHIP_STATS } from './ShipFactory';
 
 import type { InputSource } from './InputManager';
 import type { GameState } from './PhysicsEngine';
-import type { BoostPad } from './TrackDefinitions';
+import type { BoostPad, Hazard } from './TrackDefinitions';
 
 class AIInputController implements InputSource {
     private keys: { [key: string]: boolean } = {};
@@ -142,7 +142,7 @@ export class OpponentManager {
         return roster;
     }
 
-    public update(dt: number, trackLength: number, pads: BoostPad[], raceStarted: boolean, gameTime: number = 0) {
+    public update(dt: number, trackLength: number, pads: BoostPad[], raceStarted: boolean, gameTime: number = 0, hazards: Hazard[] = []) {
         for (let i = 0; i < this.opponents.length; i++) {
             const opponent = this.opponents[i];
             const controller = this.controllers[i];
@@ -154,7 +154,7 @@ export class OpponentManager {
             opponent.update(dt, controller, trackLength, pads, (_msg) => {
                 // Handle lap complete if needed (e.g. AI lap counter)
                 // For now, ignore
-            }, raceStarted, gameTime);
+            }, raceStarted, gameTime, hazards);
 
             // 3. Update Mesh
             opponent.updateMesh(this.trackCurve);
