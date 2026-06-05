@@ -7,6 +7,7 @@ import { InputManager } from '../game/InputManager';
 import { Ship, type ShipConfig } from '../game/Ship';
 import { OpponentManager, type OpponentConfig } from '../game/OpponentManager';
 import { EnvironmentManager, type EnvironmentConfig } from '../game/EnvironmentManager';
+import { WorldReference } from '../game/WorldReference';
 import { Leaderboard, type RaceResult } from './Leaderboard';
 import { TRACKS, type TrackConfig } from '../game/TrackDefinitions';
 import TutorialOverlay from './TutorialOverlay';
@@ -100,6 +101,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const playerShip = useRef<Ship | null>(null);
   const opponentManager = useRef<OpponentManager | null>(null);
   const environmentManagerRef = useRef<EnvironmentManager | null>(null);
+  const worldReferenceRef = useRef<WorldReference | null>(null);
 
   const screenshotRequested = useRef<boolean>(false);
 
@@ -299,6 +301,16 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     const envConfig = forcedEnvironment || EnvironmentManager.generateRandomConfig();
     envManager.setup(envConfig, trackCurve, currentTrack.id);
     setEnvironment(envConfig);
+
+    // Background depth cues (grid floor + pillars + ship blob shadow) so the
+    // track's rises/dips read. Opt-in per track (see TrackConfig.depthCues).
+    if (currentTrack.depthCues) {
+      const worldRef = new WorldReference(scene);
+      worldRef.setup(trackCurve, currentTrack.surface?.accent ?? 0x3388ff);
+      worldReferenceRef.current = worldRef;
+    } else {
+      worldReferenceRef.current = null;
+    }
 
     // Create Boost Pads
     const boostPads = createBoostPadMeshes(trackCurve, currentTrack.pads);
@@ -710,6 +722,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       }
 
       envManager.update(dt, playerShip.current.mesh.position);
+      worldReferenceRef.current?.update(playerShip.current.mesh.position);
 
       updateMinimapShip();
       renderer.render(scene, camera);

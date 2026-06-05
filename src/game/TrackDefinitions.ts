@@ -37,6 +37,11 @@ export interface TrackConfig {
     // edge-rail / center-line accent. Optional; tracks without it fall back to
     // the plain grey surface.
     surface?: { base: number; accent: number };
+    // Opt-in background depth cues (grid floor + support pillars + ship blob
+    // shadow) so the track's rises and dips read against a fixed-altitude floor.
+    // See WorldReference. Only enable on tracks without track-over-track
+    // crossovers, or pillars will poke through a lower section.
+    depthCues?: boolean;
 }
 
 const SCALE = 12.0;
@@ -47,6 +52,7 @@ export const TRACK_1: TrackConfig = {
     description: 'A deformed oval with wide straights and a massive jump. Perfect for beginners.',
     difficulty: 1,
     surface: { base: 0x2a3340, accent: 0x00e5ff }, // dark blue-grey road, cyan rails
+    depthCues: true, // first pass: grid floor + pillars + blob shadow (no crossovers here)
     points: [
         new THREE.Vector3(0, 0, 0),
         new THREE.Vector3(0, 0, -400),
@@ -81,6 +87,7 @@ export const TRACK_2: TrackConfig = {
     description: 'Wide turns replaced by tight rhythmic curves. Precision is key.',
     difficulty: 2,
     surface: { base: 0x3a3026, accent: 0xff8c1a }, // warm dark road, amber rails
+    depthCues: true, // flat slalom, no crossovers
     points: [
         new THREE.Vector3(0, 0, 0),         // Start
         new THREE.Vector3(0, 0, -500),      // Straight (Extended)
@@ -132,6 +139,7 @@ export const TRACK_3: TrackConfig = {
     description: 'A technical circuit intertwining with an orbital station. Features a corkscrew dive and high-G turns.',
     difficulty: 3,
     surface: { base: 0x2e2640, accent: 0xff3df0 }, // dark purple road, magenta rails
+    depthCues: true, // has a cross-over; pillars auto-skip lower decks
     points: [
         new THREE.Vector3(0, 0, 0),          // Start
         new THREE.Vector3(0, 0, -500),       // Extended Straight (was -300)
@@ -185,6 +193,7 @@ export const TRACK_4: TrackConfig = {
     description: 'Features a massive vertical loop, a figure-8 crossover, and a death-defying final jump.',
     difficulty: 4,
     surface: { base: 0x2c3a2c, accent: 0x39ff7a }, // dark slate-green road, green rails
+    depthCues: true, // flyover crossover; pillars auto-skip lower decks
     points: [
         new THREE.Vector3(0, 0, 0),          // Start
         new THREE.Vector3(0, 0, -600),       // Long High Speed Straight
@@ -260,6 +269,7 @@ export const TRACK_5: TrackConfig = {
     description: 'A chaotic storm of high-speed turns and disorienting loops. Only the best can navigate the vortex.',
     difficulty: 5,
     surface: { base: 0x3a2630, accent: 0xff2a4d }, // dark wine road, crimson rails
+    depthCues: true, // overpass + underpass; pillars auto-skip lower decks
     points: [
         new THREE.Vector3(0, 0, 0),         // Start
         new THREE.Vector3(0, 0, -600),      // Initial Straight dive
