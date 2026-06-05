@@ -25,6 +25,7 @@ export interface GameState {
     cameraLateral: number; // Visual-only laggy camera position
     boostTimer: number; // Time remaining for speed boost
     lastBoostPadIndex: number; // Track which pad was last hit (for sound effects)
+    lastHazardIndex: number; // Block hazard currently overlapped (-1 = none); avoids re-triggering each frame
     hasCrossedStartLine: boolean; // True once the player crosses the line for the first time
 }
 
@@ -54,10 +55,11 @@ export const INITIAL_GAME_STATE: GameState = {
     cameraLateral: 0, // Visual-only laggy camera position
     boostTimer: 0,
     lastBoostPadIndex: -1,
+    lastHazardIndex: -1,
     hasCrossedStartLine: false
 };
 
-import type { BoostPad } from './TrackDefinitions';
+import type { BoostPad, Hazard } from './TrackDefinitions';
 
 export const updatePhysics = (
     state: GameState,
@@ -66,7 +68,8 @@ export const updatePhysics = (
     pads: BoostPad[], // New Argument
     dt: number = 1.0,
     onLapComplete?: (msg: any) => void,
-    raceStarted: boolean = true // NEW Param
+    raceStarted: boolean = true, // NEW Param
+    hazards: Hazard[] = [] // blocks / slick patches
 ) => {
     // --- INPUT HANDLING ---
 
@@ -81,17 +84,24 @@ export const updatePhysics = (
         state.throttle = Math.max(state.throttle - decayRate * dt, 0);
     }
 
-    // 2. Steering (Yaw)
-    // Swapped A<->Q, D<->E per user request
+    // 2. Steering (Yaw) — player-only (the AI steers via strafe). Stronger yaw
+    // authority + a visible bank so Q/E reads as real steering that arcs your
+    // line, not a nose twitch. Still on-rails; changing this can't affect the AI.
+    // Swapped A<->Q, D<->E per user request.
+    const STEER_GAIN = 3.0;   // amplify yaw build-up for a meatier arc
+    const STEER_BANK = 0.35;  // roll/lean into the turn (matches strafe's feel)
+    const MAX_YAW = 0.4;      // clamp so the nose can't crab to extremes
     if (inputManager.isKeyPressed('q')) {
-        state.yaw += state.turnSpeed * dt;
+        state.yaw += state.turnSpeed * STEER_GAIN * dt;
+        state.targetRotation = -STEER_BANK; // lean left into the turn
     } else if (inputManager.isKeyPressed('e')) {
-        state.yaw -= state.turnSpeed * dt;
-        // state.targetRotation = -0.4; // Removed per user request
+        state.yaw -= state.turnSpeed * STEER_GAIN * dt;
+        state.targetRotation = STEER_BANK;  // lean right into the turn
     } else {
         state.yaw *= Math.pow(0.98, dt); // Self-align
         state.targetRotation = 0;
     }
+    state.yaw = Math.max(-MAX_YAW, Math.min(MAX_YAW, state.yaw));
 
     // --- PHYSICS INTEGRATION ---
 
@@ -168,6 +178,34 @@ export const updatePhysics = (
     if (hitBoostPad) {
         if (onLapComplete) onLapComplete("BOOST");
     }
+
+    // --- Track Hazards (same AABB test as pads, but they penalise) ---
+    let insideBlock = -1;
+    let onSlick = false;
+    hazards.forEach((h, index) => {
+        const progressDiff = Math.abs(state.trackProgress - h.trackProgress);
+        if (progressDiff < h.length / 2 && Math.abs(state.lateralPosition - h.lateralPosition) < h.width / 2) {
+            if (h.type === 'block') {
+                insideBlock = index;
+                // Penalise once per entry, not every frame we overlap.
+                if (state.lastHazardIndex !== index) {
+                    state.velocity.y *= 0.4; // bleed most of the speed
+                    const side = state.lateralPosition >= h.lateralPosition ? 1 : -1;
+                    state.velocity.x += side * 3.0; // shove sideways, away from the block centre
+                    if (onLapComplete) onLapComplete("HAZARD");
+                }
+            } else if (h.type === 'slick') {
+                onSlick = true;
+            }
+        }
+    });
+    state.lastHazardIndex = insideBlock; // -1 once clear of all blocks → re-armable
+    if (onSlick) {
+        // Oil/ice: cap top speed so you slow down unless you steer around it.
+        const slickCap = 28;
+        if (state.velocity.y > slickCap) state.velocity.y *= 0.94;
+    }
+
     // --- Lap Counting & Position Update ---
 
     state.trackProgress += progressChange;

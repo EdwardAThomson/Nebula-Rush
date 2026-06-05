@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { createTrackCurve, createTrackMesh, getTrackFrame, createBoostPadMeshes, createStartLineMesh, createTrafficLightMesh } from '../game/TrackFactory';
+import { createTrackCurve, createTrackMesh, getTrackFrame, createBoostPadMeshes, createHazardMeshes, createStartLineMesh, createTrafficLightMesh } from '../game/TrackFactory';
 import { createStoredZip } from '../utils/zip';
 import { InputManager } from '../game/InputManager';
 import { Ship, type ShipConfig } from '../game/Ship';
@@ -299,6 +299,10 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     const boostPads = createBoostPadMeshes(trackCurve, currentTrack.pads);
     boostPads.forEach(mesh => scene.add(mesh));
 
+    // Create Hazards (blocks / slick patches)
+    const hazardMeshes = createHazardMeshes(trackCurve, currentTrack.hazards ?? []);
+    hazardMeshes.forEach(obj => scene.add(obj));
+
     // Create Traffic Light
     const trafficLight = createTrafficLightMesh();
     trafficLightRef.current = trafficLight;
@@ -548,7 +552,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           audioManager.stopEngineRumble();
         }
 
-      }, raceStartedRef.current, gameTimeRef.current);
+      }, raceStartedRef.current, gameTimeRef.current, currentTrack.hazards ?? []);
 
       if (!raceFinishedRef.current && raceStartedRef.current) {
         const currentLapTime = gameTimeRef.current - lapStartGameTime.current;
@@ -560,7 +564,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       // --- OPPONENT UPDATE ---
       if (opponentManager.current) {
         if (raceStartedRef.current) {
-          opponentManager.current.update(dt, trackLength, currentTrack.pads, raceStartedRef.current, gameTimeRef.current);
+          opponentManager.current.update(dt, trackLength, currentTrack.pads, raceStartedRef.current, gameTimeRef.current, currentTrack.hazards ?? []);
         }
       }
 
@@ -649,14 +653,18 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       const effectiveVerticalPos = currentState.verticalPosition * cameraFollowRatio;
       const visualLateralPos = currentState.cameraLateral;
 
-      const shipForward = tangent.clone().applyAxisAngle(normal, currentState.yaw).normalize();
+      // Camera follows only part of the yaw, so the ship's nose (rotated by the
+      // full yaw in updateMesh) visibly swings toward your steer instead of the
+      // camera turning with it. Keeps the world mostly stable.
+      const CAMERA_YAW_FOLLOW = 0.5;
+      const cameraForward = tangent.clone().applyAxisAngle(normal, currentState.yaw * CAMERA_YAW_FOLLOW).normalize();
       const cameraDist = 12;
       const cameraHeightBase = 5;
 
       const targetCameraPos = trackPos.clone()
         .add(trackBinormal.clone().multiplyScalar(visualLateralPos))
         .add(normal.clone().multiplyScalar(effectiveVerticalPos + cameraHeightBase))
-        .add(shipForward.clone().multiplyScalar(-cameraDist));
+        .add(cameraForward.clone().multiplyScalar(-cameraDist));
 
       if (!isNaN(targetCameraPos.x) && !isNaN(targetCameraPos.y) && !isNaN(targetCameraPos.z)) {
         // Lock camera rigidly to ship at high speeds to prevent "Ghosting" / Temporal Aliasing.
@@ -667,7 +675,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         // Old Smooth Follow (caused ghosting at >600km/h)
         // camera.position.lerp(targetCameraPos, 0.8);
 
-        const lookAtTarget = playerShip.current.mesh.position.clone().add(shipForward.clone().multiplyScalar(20));
+        const lookAtTarget = playerShip.current.mesh.position.clone().add(cameraForward.clone().multiplyScalar(20));
         camera.lookAt(lookAtTarget);
         camera.up.copy(normal);
       } else {

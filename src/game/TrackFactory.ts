@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { BoostPad } from './TrackDefinitions';
+import type { BoostPad, Hazard } from './TrackDefinitions';
 
 // Create track path using curve
 export const createTrackCurve = (points: THREE.Vector3[]): THREE.CatmullRomCurve3 => {
@@ -214,6 +214,77 @@ const createCheckerTexture = () => {
     tex.magFilter = THREE.NearestFilter;
     tex.minFilter = THREE.NearestFilter;
     return tex;
+};
+
+// Hazard visuals: raised warning-striped boxes for 'block', and a flat
+// translucent oily/icy strip (hugging the track) for 'slick'.
+export const createHazardMeshes = (trackCurve: THREE.CatmullRomCurve3, hazards: Hazard[]): THREE.Object3D[] => {
+    const objects: THREE.Object3D[] = [];
+
+    hazards.forEach((h) => {
+        const frame = getTrackFrame(trackCurve, h.trackProgress);
+
+        if (h.type === 'slick') {
+            // Curved strip that follows the track, like a boost pad but inert.
+            const geometry = new THREE.BufferGeometry();
+            const vertices: number[] = [];
+            const segments = Math.max(16, Math.ceil(h.length * 2000));
+            const startT = h.trackProgress - h.length / 2;
+            const endT = h.trackProgress + h.length / 2;
+            for (let i = 0; i <= segments; i++) {
+                let t = startT + (i / segments) * (endT - startT);
+                if (t < 0) t += 1;
+                if (t > 1) t -= 1;
+                const f = getTrackFrame(trackCurve, t);
+                const lift = f.normal.clone().multiplyScalar(0.4);
+                const left = f.position.clone().add(f.binormal.clone().multiplyScalar(h.lateralPosition - h.width / 2)).add(lift);
+                const right = f.position.clone().add(f.binormal.clone().multiplyScalar(h.lateralPosition + h.width / 2)).add(lift);
+                vertices.push(left.x, left.y, left.z, right.x, right.y, right.z);
+            }
+            const indices: number[] = [];
+            for (let i = 0; i < segments; i++) {
+                const a = i * 2, b = i * 2 + 1, c = (i + 1) * 2, d = (i + 1) * 2 + 1;
+                indices.push(a, b, c, b, d, c);
+            }
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setIndex(indices);
+            geometry.computeVertexNormals();
+            const material = new THREE.MeshStandardMaterial({
+                color: 0x2a6fff,
+                emissive: 0x1133aa,
+                emissiveIntensity: 0.5,
+                transparent: true,
+                opacity: 0.45,
+                roughness: 0.15,
+                metalness: 0.0,
+                side: THREE.DoubleSide,
+                depthWrite: false,
+            });
+            objects.push(new THREE.Mesh(geometry, material));
+        } else {
+            // Block: a raised, warning-coloured box oriented to the track frame.
+            const blockHeight = 8;
+            const blockDepth = 14; // footprint along the track
+            const geo = new THREE.BoxGeometry(h.width, blockHeight, blockDepth);
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0x1a1a1a,
+                emissive: 0xff3300,
+                emissiveIntensity: 0.6,
+                roughness: 0.5,
+                metalness: 0.3,
+            });
+            const box = new THREE.Mesh(geo, mat);
+            box.position.copy(frame.position)
+                .add(frame.binormal.clone().multiplyScalar(h.lateralPosition))
+                .add(frame.normal.clone().multiplyScalar(blockHeight / 2));
+            // rotationMatrix basis = (binormal, normal, -tangent): local x→lateral,
+            // y→up, z→along-track, which matches the box's (width, height, depth).
+            box.quaternion.setFromRotationMatrix(frame.rotationMatrix);
+            objects.push(box);
+        }
+    });
+
+    return objects;
 };
 
 export const createStartLineMesh = (trackCurve: THREE.CatmullRomCurve3): THREE.Mesh => {

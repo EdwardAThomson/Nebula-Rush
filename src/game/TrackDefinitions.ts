@@ -7,12 +7,27 @@ export interface BoostPad {
     length: number; // In track progress units (approx)
 }
 
+// Track hazards. Detected with the same AABB test as boost pads, but they
+// penalise instead of boost:
+//  - 'block' : a raised obstacle — first contact bleeds speed + knocks you sideways.
+//  - 'slick' : an oil/ice patch — caps your top speed while you're on it.
+export type HazardType = 'block' | 'slick';
+
+export interface Hazard {
+    type: HazardType;
+    trackProgress: number;   // 0.0 to 1.0 along the lap
+    lateralPosition: number; // centre offset across the track (0 = centre)
+    width: number;           // lateral span
+    length: number;          // span in track-progress units
+}
+
 export interface TrackConfig {
     id: string;
     name: string;
     description: string;
     points: THREE.Vector3[];
     pads: BoostPad[];
+    hazards?: Hazard[]; // optional obstacles / slip patches
     difficulty: number; // 1-5
     // Per-track surface palette (F-Zero-style): road base tint + emissive
     // edge-rail / center-line accent. Optional; tracks without it fall back to
@@ -48,6 +63,10 @@ export const TRACK_1: TrackConfig = {
         { trackProgress: 0.35, lateralPosition: -30, width: 40, length: 0.02 },
         { trackProgress: 0.55, lateralPosition: 30, width: 40, length: 0.02 },
         { trackProgress: 0.85, lateralPosition: 0, width: 40, length: 0.02 },
+    ],
+    hazards: [
+        { type: 'slick', trackProgress: 0.25, lateralPosition: -22, width: 32, length: 0.03 }, // offset → clear lane to the right
+        { type: 'block', trackProgress: 0.62, lateralPosition: -22, width: 24, length: 0.015 },
     ]
 };
 
@@ -87,6 +106,11 @@ export const TRACK_2: TrackConfig = {
         { trackProgress: 0.25, lateralPosition: -20, width: 30, length: 0.02 }, // Slalom Entry
         { trackProgress: 0.45, lateralPosition: 20, width: 30, length: 0.02 },  // Mid Slalom
         { trackProgress: 0.75, lateralPosition: 0, width: 40, length: 0.03 },   // Back Straight Long Boost
+    ],
+    hazards: [
+        { type: 'block', trackProgress: 0.30, lateralPosition: 20, width: 24, length: 0.015 },
+        { type: 'block', trackProgress: 0.55, lateralPosition: -20, width: 24, length: 0.015 },
+        { type: 'slick', trackProgress: 0.85, lateralPosition: 0, width: 55, length: 0.035 },
     ]
 };
 
@@ -128,6 +152,11 @@ export const TRACK_3: TrackConfig = {
         { trackProgress: 0.45, lateralPosition: -20, width: 30, length: 0.02 }, // Post-corkscrew
         { trackProgress: 0.7, lateralPosition: 20, width: 30, length: 0.02 },   // Back straight
         { trackProgress: 0.9, lateralPosition: 0, width: 40, length: 0.02 },    // Final sprint
+    ],
+    hazards: [
+        { type: 'slick', trackProgress: 0.30, lateralPosition: 0, width: 50, length: 0.03 },
+        { type: 'block', trackProgress: 0.60, lateralPosition: 18, width: 22, length: 0.015 },
+        { type: 'block', trackProgress: 0.82, lateralPosition: -18, width: 22, length: 0.015 },
     ]
 };
 
@@ -256,10 +285,16 @@ export const TUTORIAL_TRACK: TrackConfig = {
         new THREE.Vector3(420, 0, 0),      // back straight (boost pad ~mid-loop)
         new THREE.Vector3(300, 0, 120),
         new THREE.Vector3(120, 0, 120),
-    ].map(p => p.multiplyScalar(SCALE * 4.0)),
+    ].map(p => p.multiplyScalar(SCALE * 5.0)),
     pads: [
         // Late in the lap (0.7) and on the racing line, so the boost prompt has
         // time to appear before the player reaches it.
         { trackProgress: 0.7, lateralPosition: 0, width: 40, length: 0.02 },
+    ],
+    hazards: [
+        // A dodgeable slick before the boost — offset right with a clear lane on
+        // the left, so the strafe lesson has something to practise on. Kept well
+        // ahead of the boost pad (0.7) so they don't arrive back-to-back.
+        { type: 'slick', trackProgress: 0.45, lateralPosition: 22, width: 36, length: 0.03 },
     ],
 };

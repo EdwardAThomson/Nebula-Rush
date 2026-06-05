@@ -28,13 +28,14 @@ Inspired by F-Zero / Wipeout. The README Roadmap section is the source plan.
 - [x] In-race screenshots → results gallery (lightbox, single-zip download)
 - [x] Live deploy (Cloudflare Pages + custom domain) with social/OG preview
 - [x] Dev tools (track analysis, ship/pilot balance tests, lighting playground, env test)
+- [x] Onboarding: How-to-Play modal + interactive guided tutorial (first-visit pulse, Help link, results-screen hint)
+- [x] Track hazards: obstacle blocks (speed loss + knock) and slip/slow patches (affect player + AI)
 
 ## Next
 
 - [ ] Harder AI (boost opponent acceleration / top speed / handling)
 - [ ] Progression — cups (5 tracks each, unlock chain), pilot unlocks, track unlocks
-- [ ] Onboarding / tutorial (controls + race-flow guide)
-- [ ] Track obstacles / hazards beyond curve geometry
+- [ ] More hazards + verticality: jump ramps (reintroduce jump/drift mechanics + tutorial steps)
 
 ## Backlog
 
