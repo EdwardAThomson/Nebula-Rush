@@ -65,8 +65,8 @@ export const TRACK_1: TrackConfig = {
         { trackProgress: 0.85, lateralPosition: 0, width: 40, length: 0.02 },
     ],
     hazards: [
-        { type: 'slick', trackProgress: 0.25, lateralPosition: -22, width: 32, length: 0.03 }, // offset → clear lane to the right
-        { type: 'block', trackProgress: 0.62, lateralPosition: -22, width: 24, length: 0.015 },
+        { type: 'slick', trackProgress: 0.25, lateralPosition: -22, width: 32, length: 0.03 }, // offset left → clear lane to the right
+        { type: 'slick', trackProgress: 0.62, lateralPosition: 22, width: 32, length: 0.03 },  // offset right → clear lane to the left
     ]
 };
 
