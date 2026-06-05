@@ -250,8 +250,8 @@ export const createHazardMeshes = (trackCurve: THREE.CatmullRomCurve3, hazards: 
             geometry.setIndex(indices);
             geometry.computeVertexNormals();
             const material = new THREE.MeshStandardMaterial({
-                color: 0x2a6fff,
-                emissive: 0x1133aa,
+                color: 0xff3b3b,
+                emissive: 0xaa1111,
                 emissiveIntensity: 0.5,
                 transparent: true,
                 opacity: 0.45,

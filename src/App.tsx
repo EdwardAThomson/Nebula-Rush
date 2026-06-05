@@ -682,7 +682,7 @@ function App() {
                     <li>Drive through the glowing <span className="text-cyan-300">boost arrows</span> for a speed burst.</li>
                     <li>Tap <span className="text-white">A / D</span> to strafe — slide sideways without turning.</li>
                     <li>Keep off the walls — scraping kills your momentum.</li>
-                    <li>Dodge <span className="text-red-400">red obstacle blocks</span> and <span className="text-blue-300">blue slick patches</span> — both bleed your speed.</li>
+                    <li>Dodge the <span className="text-red-400">red obstacle blocks</span> and <span className="text-red-300">slick patches</span> — both bleed your speed.</li>
                   </ul>
                 </div>
 
