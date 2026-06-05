@@ -57,3 +57,8 @@ Audio under `public/assets/audio/{music,sfx}/`, pilot portraits under `public/as
 ## Development branch
 
 Develop on a descriptive feature branch (e.g. `feat/enlarge-track-1`), open a PR, and merge into `master`. Do not commit directly to `master` or push to other branches without explicit permission.
+
+## Committing
+
+- Commits are **SSH-signed** (`commit.gpgsign=true`, `gpg.format=ssh`). On the maintainer's machine, `git commit` triggers an **OS passphrase popup** to unlock the signing key — this is expected; the user approves it.
+- If the ssh-agent key has timed out, `git commit` fails with `failed to write commit object` (preceded by `Load key … incorrect passphrase`). The user reloads the key (`ssh-add ~/.ssh/github_ed25519`) or approves the popup, then retry — staged changes are preserved.

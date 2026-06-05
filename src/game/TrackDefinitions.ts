@@ -167,14 +167,14 @@ export const TRACK_3: TrackConfig = {
     hazards: [
         // Offset slick → clear lane on the left.
         { type: 'slick', trackProgress: 0.30, lateralPosition: 22, width: 32, length: 0.03 },
-        // Cluster of 3 blocks — thread the open lane on the right.
-        { type: 'block', trackProgress: 0.60, lateralPosition: -36, width: 16, length: 0.015 },
-        { type: 'block', trackProgress: 0.60, lateralPosition: -18, width: 16, length: 0.015 },
-        { type: 'block', trackProgress: 0.60, lateralPosition: 0, width: 16, length: 0.015 },
         // Cluster of 3 blocks — thread the open lane on the left.
+        { type: 'block', trackProgress: 0.60, lateralPosition: 0, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.60, lateralPosition: 18, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.60, lateralPosition: 36, width: 16, length: 0.015 },
+        // Cluster of 3 blocks — thread the open lane on the right.
+        { type: 'block', trackProgress: 0.82, lateralPosition: -36, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.82, lateralPosition: -18, width: 16, length: 0.015 },
         { type: 'block', trackProgress: 0.82, lateralPosition: 0, width: 16, length: 0.015 },
-        { type: 'block', trackProgress: 0.82, lateralPosition: 18, width: 16, length: 0.015 },
-        { type: 'block', trackProgress: 0.82, lateralPosition: 36, width: 16, length: 0.015 },
     ]
 };
 
@@ -234,6 +234,20 @@ export const TRACK_4: TrackConfig = {
         { trackProgress: 0.35, lateralPosition: 30, width: 30, length: 0.02 },  // Hook Exit
         { trackProgress: 0.6, lateralPosition: -20, width: 30, length: 0.02 },  // Pre-Jump
         { trackProgress: 0.9, lateralPosition: 0, width: 50, length: 0.04 },    // Final Straight
+    ],
+    hazards: [
+        // Slick on the opening section — clear lane on the right.
+        { type: 'slick', trackProgress: 0.20, lateralPosition: -22, width: 32, length: 0.03 },
+        // Block cluster — thread the gap on the right.
+        { type: 'block', trackProgress: 0.45, lateralPosition: -36, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.45, lateralPosition: -18, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.45, lateralPosition: 0, width: 16, length: 0.015 },
+        // Block cluster — thread the gap on the left.
+        { type: 'block', trackProgress: 0.72, lateralPosition: 0, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.72, lateralPosition: 18, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.72, lateralPosition: 36, width: 16, length: 0.015 },
+        // Slick on the return — clear lane on the left.
+        { type: 'slick', trackProgress: 0.82, lateralPosition: 22, width: 32, length: 0.03 },
     ]
 };
 
@@ -281,6 +295,20 @@ export const TRACK_5: TrackConfig = {
         { trackProgress: 0.45, lateralPosition: 20, width: 30, length: 0.02 },
         { trackProgress: 0.65, lateralPosition: -20, width: 30, length: 0.02 },
         { trackProgress: 0.85, lateralPosition: 0, width: 40, length: 0.04 },
+    ],
+    hazards: [
+        // Slick early — clear lane on the right.
+        { type: 'slick', trackProgress: 0.15, lateralPosition: -22, width: 32, length: 0.03 },
+        // Block cluster — thread the gap on the left.
+        { type: 'block', trackProgress: 0.35, lateralPosition: 0, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.35, lateralPosition: 18, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.35, lateralPosition: 36, width: 16, length: 0.015 },
+        // Slick mid-lap — clear lane on the left.
+        { type: 'slick', trackProgress: 0.55, lateralPosition: 22, width: 32, length: 0.03 },
+        // Block cluster — thread the gap on the right.
+        { type: 'block', trackProgress: 0.75, lateralPosition: -36, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.75, lateralPosition: -18, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.75, lateralPosition: 0, width: 16, length: 0.015 },
     ]
 };
 
