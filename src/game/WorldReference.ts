@@ -165,23 +165,30 @@ export class WorldReference {
         // a thin margin lets a strut peek through the driving surface; sink them
         // below the underside (the gap is hidden from the chase camera anyway).
         const ROAD_UNDERSIDE_GAP = 28;
-        // Flyover guard: how close (XZ) a lower track section must be to a pillar's
-        // column to count as a collision, and how far below it must sit. The road
-        // half-width is ~70, so this comfortably covers the deck beneath.
-        const CLEAR_RADIUS_SQ = 95 * 95;
-        const BELOW_MARGIN = 80;
+        // Flyover guard: skip a pillar if a *different* stretch of track passes
+        // below its column (an upper deck at a flyover/overpass). Radius covers the
+        // road half-width (~70) plus margin so an overlap at the road edge counts.
+        const CLEAR_RADIUS_SQ = 120 * 120;
+        const BELOW_MARGIN = 45;
+        // Ignore scan points on the pillar's own stretch of track (within this
+        // fraction of the lap), so the deck's own gradient doesn't trip the guard.
+        const SELF_WINDOW = 0.04;
         for (let i = 0; i < PILLAR_COUNT; i++) {
-            const { position } = getTrackFrame(trackCurve, i / PILLAR_COUNT);
+            const tPillar = i / PILLAR_COUNT;
+            const { position } = getTrackFrame(trackCurve, tPillar);
             const top = position.y - ROAD_UNDERSIDE_GAP;
             const height = top - this.floorY;
             if (height <= 0) continue;
 
-            // Skip the pillar if any *lower* part of the track passes through its
-            // vertical column — i.e. this is an upper deck at a flyover/overpass.
             let blocked = false;
             for (let j = 0; j < scan.length; j++) {
+                // Skip the pillar's own segment (circular distance in curve param).
+                let dt = Math.abs(j / scan.length - tPillar);
+                if (dt > 0.5) dt = 1 - dt;
+                if (dt < SELF_WINDOW) continue;
+
                 const q = scan[j];
-                if (q.y > top - BELOW_MARGIN) continue; // not below us → can't be a lower deck
+                if (q.y > top - BELOW_MARGIN) continue; // not below us → not a lower deck
                 const dx = q.x - position.x;
                 const dz = q.z - position.z;
                 if (dx * dx + dz * dz < CLEAR_RADIUS_SQ) { blocked = true; break; }
