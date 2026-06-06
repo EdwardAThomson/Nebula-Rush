@@ -10,12 +10,15 @@ import EnvironmentTest from './components/EnvironmentTest';
 import EnvironmentSelection from './components/EnvironmentSelection';
 import LightingPlayground from './components/LightingPlayground';
 import PilotSelection from './components/PilotSelection';
+import CupSelection from './components/CupSelection';
 import ShipDemo from './components/ShipDemo';
 import CaptureStudio from './components/CaptureStudio';
 import SettingsMenu from './components/SettingsMenu';
 import type { Pilot } from './game/PilotDefinitions';
 import type { EnvironmentConfig } from './game/EnvironmentManager';
 import { TRACKS, TUTORIAL_TRACK } from './game/TrackDefinitions';
+import { resolveCupTracks, getCupForTrack, type Cup } from './game/CupDefinitions';
+import { markCupCleared } from './game/cupProgress';
 
 // Calculate display stats (0-100) dynamically from SHIP_STATS
 const getDisplayStats = (type: ShipType) => {
@@ -89,7 +92,7 @@ const AudioButton = ({
 );
 
 function App() {
-  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo' | 'capture' | 'tutorial'>('start');
+  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'cup_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo' | 'capture' | 'tutorial'>('start');
   const [gameMode, setGameMode] = useState<'campaign' | 'single_race'>('campaign');
   const [isLoading, setIsLoading] = useState(false); // NEW: Loading state
   const [showHelp, setShowHelp] = useState(false);
@@ -104,6 +107,7 @@ function App() {
     setShowTutorialPulse(false);
   };
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
+  const [selectedCup, setSelectedCup] = useState<Cup | null>(null);
   const [selectedEnvConfig, setSelectedEnvConfig] = useState<EnvironmentConfig | null>(null);
   const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
   const [selectedShipConfig, setSelectedShipConfig] = useState<ShipConfig>({
@@ -143,11 +147,24 @@ function App() {
 
   const handleNewGame = () => {
     markOnboarded();
+    setGameMode('campaign');
+    setScreen('cup_selection');
+  };
+
+  // Chose a cup → race its tracks in order, accumulating points.
+  const handleCupSelect = (cup: Cup) => {
+    setSelectedCup(cup);
     navigateTo('pilot_selection', () => {
       setGameMode('campaign');
       setSelectedTrackIndex(0);
       setSelectedEnvConfig(null);
     });
+  };
+
+  // Called when the final race of a cup ends. Clearing it (top 3 overall)
+  // unlocks the next cup.
+  const handleCupComplete = (clearedTop3: boolean) => {
+    if (clearedTop3 && selectedCup) markCupCleared(selectedCup.id);
   };
 
   /*
@@ -169,7 +186,7 @@ function App() {
     if (gameMode === 'single_race') {
       setScreen('env_selection');
     } else {
-      setScreen('start');
+      setScreen('cup_selection');
     }
   };
 
@@ -531,6 +548,13 @@ function App() {
         )
       }
 
+      {/* CUP SELECTION SCREEN (campaign entry) */}
+      {
+        screen === 'cup_selection' && (
+          <CupSelection onSelect={handleCupSelect} onBack={() => setScreen('start')} />
+        )
+      }
+
       {/* TRACK SELECTION SCREEN */}
       {
         screen === 'track_selection' && (
@@ -609,6 +633,13 @@ function App() {
             shipConfig={selectedShipConfig}
             initialTrackIndex={selectedTrackIndex}
             isCampaign={gameMode === 'campaign'}
+            trackList={gameMode === 'campaign' && selectedCup ? resolveCupTracks(selectedCup) : undefined}
+            // Theme dressing: the cup's bias in campaign, or the selected track's
+            // own cup's bias in single race — so Select Track shows it too.
+            envBias={gameMode === 'campaign'
+              ? selectedCup?.envBias
+              : getCupForTrack(TRACKS[selectedTrackIndex]?.id ?? '')?.envBias}
+            onCupComplete={handleCupComplete}
             forcedEnvironment={selectedEnvConfig || undefined}
             pilot={selectedPilot}
             onExit={handleGameExit}

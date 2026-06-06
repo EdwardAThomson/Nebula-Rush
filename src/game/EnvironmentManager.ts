@@ -7,12 +7,16 @@ export type Weather = 'clear' | 'fog' | 'rain';
 export interface EnvironmentConfig {
     timeOfDay: TimeOfDay;
     weather: Weather;
+    // Deep-space dressing: nebula skybox, always-on starfield, distant planets.
+    // Overlays the chosen timeOfDay (which still drives the star/sun lighting),
+    // so a cup can read as "in space" while keeping per-track lighting variety.
+    space?: boolean;
 }
 
 export interface EnvironmentState {
     config: EnvironmentConfig;
     sun: THREE.Mesh | null;
-    stars: THREE.Points | null;
+    stars: THREE.Object3D | null;
     rainSystem: THREE.Points | null;
     lights: {
         ambient: THREE.AmbientLight;
@@ -20,7 +24,193 @@ export interface EnvironmentState {
         directional: THREE.DirectionalLight;
     };
     globes: { mesh: THREE.Mesh, light: THREE.PointLight }[];
+    planets: THREE.Object3D[]; // distant deep-space bodies (follow the player)
 }
+
+// Painted equirectangular nebula for the deep-space skybox: a dark base with a
+// few soft coloured cloud blobs and scattered stars. Cheap (one canvas), and
+// avoids a heavy procedural shader. Seeded so each track gets a stable but
+// distinct sky.
+
+// FNV-1a string hash → 32-bit seed.
+const hashString = (s: string): number => {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+};
+
+// mulberry32 PRNG: deterministic stream of [0,1) from a seed.
+const mulberry32 = (seed: number) => {
+    let a = seed >>> 0;
+    return () => {
+        a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+};
+
+// Palette of distant-body looks. `glow` marks self-lit bodies (lava/ember).
+const PLANET_PALETTES = [
+    { color: 0x4a6fa5, emissive: 0x10203a },              // azure gas giant
+    { color: 0xc8884a, emissive: 0x2a1604 },              // amber
+    { color: 0x3f8f7a, emissive: 0x05231c },              // jade
+    { color: 0x7a5fb0, emissive: 0x1a1030 },              // violet
+    { color: 0xb05a3a, emissive: 0x2a0e06 },              // rust
+    { color: 0xbfe0ef, emissive: 0x18303a },              // ice
+    { color: 0xbfc4cc, emissive: 0x1a1d22 },              // pale moon
+    { color: 0x802a1a, emissive: 0xaa2200, glow: true },  // ember/lava
+];
+
+// Build one distant body (optionally ringed) and place it around the player.
+const createPlanet = (rng: () => number, index: number, count: number): THREE.Object3D => {
+    const pal = PLANET_PALETTES[Math.floor(rng() * PLANET_PALETTES.length)];
+    const radius = 120 + rng() * 200; // capped so a body never looms like a wall
+    const group = new THREE.Group();
+
+    const body = new THREE.Mesh(
+        new THREE.SphereGeometry(radius, 32, 32),
+        new THREE.MeshStandardMaterial({
+            color: pal.color,
+            emissive: pal.emissive,
+            emissiveIntensity: pal.glow ? 1.3 : 0.5,
+            roughness: 1.0,
+            metalness: 0.0,
+        })
+    );
+    group.add(body);
+
+    // ~40% of bodies (more often the big ones) get a ring.
+    if (rng() < 0.3 + radius / 1400) {
+        const ring = new THREE.Mesh(
+            new THREE.RingGeometry(radius * 1.4, radius * 2.1, 64),
+            new THREE.MeshBasicMaterial({ color: pal.color, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
+        );
+        ring.rotation.set(Math.PI / 2.4 + (rng() - 0.5) * 0.8, rng() * 0.6, 0);
+        group.add(ring);
+    }
+
+    // Spread bodies around the player: split the circle into slots + jitter, so
+    // they don't clump. Distance keeps them in front of the star shell (~4600).
+    const az = ((index + rng() * 0.6) / count) * Math.PI * 2;
+    const dist = 2200 + rng() * 900; // far enough to read as a distant body
+    const y = 450 + rng() * 750;
+    group.position.set(Math.cos(az) * dist, y, Math.sin(az) * dist);
+    return group;
+};
+
+type NebulaCloud = { x: number; y: number; r: number; c: string };
+
+// The original hand-tuned nebula for Track 1 (kept by request).
+const TRACK1_CLOUDS: NebulaCloud[] = [
+    { x: 0.25, y: 0.45, r: 0.45, c: '64,0,128' },   // purple
+    { x: 0.65, y: 0.35, r: 0.55, c: '0,90,140' },   // teal
+    { x: 0.80, y: 0.70, r: 0.40, c: '150,20,90' },  // magenta
+    { x: 0.10, y: 0.75, r: 0.35, c: '20,40,120' },  // blue
+];
+
+const NEBULA_CLOUD_COLORS = ['64,0,128', '0,90,140', '150,20,90', '20,40,120', '120,40,140', '0,120,110', '150,60,30'];
+
+// A crisp screen-space-sized starfield layer. `gen` supplies each star's
+// position. Kept as real points (not baked into the sky texture) so they stay
+// sharp at any distance.
+const makeStarLayer = (count: number, size: number, opacity: number, gen: () => [number, number, number]): THREE.Points => {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+        const [x, y, z] = gen();
+        pos[i * 3] = x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z;
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const mat = new THREE.PointsMaterial({ color: 0xffffff, size, sizeAttenuation: false, transparent: true, opacity });
+    return new THREE.Points(geo, mat);
+};
+
+// The original hand-placed deep-space pair (kept for Track 1): a ringed blue-grey
+// gas giant and a pale moon.
+const createClassicPlanets = (): THREE.Object3D[] => {
+    const giant = new THREE.Group();
+    giant.add(new THREE.Mesh(
+        new THREE.SphereGeometry(360, 32, 32),
+        new THREE.MeshStandardMaterial({ color: 0x4a6fa5, emissive: 0x10203a, emissiveIntensity: 0.5, roughness: 1.0, metalness: 0.0 })
+    ));
+    const ring = new THREE.Mesh(
+        new THREE.RingGeometry(480, 700, 64),
+        new THREE.MeshBasicMaterial({ color: 0x7fa8d0, transparent: true, opacity: 0.35, side: THREE.DoubleSide })
+    );
+    ring.rotation.set(Math.PI / 2.4, 0.3, 0);
+    giant.add(ring);
+    giant.position.set(-1800, 700, -2000);
+
+    const moon = new THREE.Mesh(
+        new THREE.SphereGeometry(150, 24, 24),
+        new THREE.MeshStandardMaterial({ color: 0xbfc4cc, emissive: 0x1a1d22, emissiveIntensity: 0.4, roughness: 1.0, metalness: 0.0 })
+    );
+    moon.position.set(1700, 450, -1700);
+
+    return [giant, moon];
+};
+
+const createNebulaTexture = (rng: () => number, fixedClouds?: NebulaCloud[]): THREE.Texture => {
+    const W = 2048, H = 1024;
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d')!;
+
+    // Deep space base
+    ctx.fillStyle = '#05060f';
+    ctx.fillRect(0, 0, W, H);
+
+    // Clouds: either the fixed Track 1 set, or a seeded set kept in a mid band so
+    // the equirect poles don't smear them.
+    let clouds: NebulaCloud[];
+    if (fixedClouds) {
+        clouds = fixedClouds;
+    } else {
+        const cloudCount = 3 + Math.floor(rng() * 3); // 3–5
+        clouds = [];
+        for (let i = 0; i < cloudCount; i++) {
+            clouds.push({
+                x: rng(),
+                y: 0.28 + rng() * 0.44,   // keep away from the poles
+                r: 0.3 + rng() * 0.35,
+                c: NEBULA_CLOUD_COLORS[Math.floor(rng() * NEBULA_CLOUD_COLORS.length)],
+            });
+        }
+    }
+
+    // Draw each cloud, plus wrapped copies one canvas-width to each side, so a
+    // cloud straddling the left/right edge blends across the equirect seam
+    // instead of being hard-clipped (which showed up as a vertical "wall").
+    for (const cl of clouds) {
+        const cy = cl.y * H, rad = cl.r * H;
+        for (const cx of [cl.x * W - W, cl.x * W, cl.x * W + W]) {
+            const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+            g.addColorStop(0, `rgba(${cl.c},0.5)`);
+            g.addColorStop(0.5, `rgba(${cl.c},0.18)`);
+            g.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = g;
+            ctx.fillRect(0, 0, W, H);
+        }
+    }
+
+    // Faint small background dust only — the bright/large stars come from the 3D
+    // starfield (crisp), not this low-res texture (which magnified to a blur).
+    for (let i = 0; i < 1200; i++) {
+        const x = rng() * W, y = rng() * H;
+        const s = rng();
+        ctx.fillStyle = `rgba(255,255,255,${0.25 + s * 0.35})`;
+        ctx.fillRect(x, y, 1, 1);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.mapping = THREE.EquirectangularReflectionMapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+};
 
 // Visual Configurations
 const TIME_SETTINGS = {
@@ -88,6 +278,7 @@ export class EnvironmentManager {
     private scene: THREE.Scene;
     public state: EnvironmentState | null = null;
     private rainValues: { positions: Float32Array; velocities: Float32Array } | null = null;
+    private planetOffsets = new Map<THREE.Object3D, THREE.Vector3>();
 
     constructor(scene: THREE.Scene) {
         this.scene = scene;
@@ -110,19 +301,35 @@ export class EnvironmentManager {
         const timeSettings = TIME_SETTINGS[config.timeOfDay];
         const weatherSettings = WEATHER_SETTINGS[config.weather];
 
+        // Per-track sky RNG: same track id → same nebula, stars and planets every
+        // time, but each track gets its own distinct sky.
+        const skyRng = mulberry32(hashString(trackId ?? 'space'));
+
         // 1. SKY & FOG
         // Adjust density by weather
         const fogDensity = timeSettings.fogDensity * weatherSettings.fogMultiplier;
 
-        this.scene.background = new THREE.Color(timeSettings.skyColor);
-        // Use exponential fog for distance fading. Some times of day (night) override the fog
-        // colour so the fog reads against the sky instead of disappearing into it.
-        const fogColor = ('fogColor' in timeSettings ? timeSettings.fogColor : timeSettings.skyColor) as number;
-        this.scene.fog = new THREE.FogExp2(fogColor, fogDensity);
+        if (config.space) {
+            // Deep-space: nebula skybox + very thin dark fog so the distant
+            // planets and nebula stay visible (FogExp2 erases far objects fast).
+            // Track 1 keeps its original hand-tuned nebula; others vary per seed.
+            this.scene.background = createNebulaTexture(skyRng, trackId === 'track_1' ? TRACK1_CLOUDS : undefined);
+            this.scene.fog = new THREE.FogExp2(0x070912, 0.00012);
+        } else {
+            this.scene.background = new THREE.Color(timeSettings.skyColor);
+            // Use exponential fog for distance fading. Some times of day (night) override the fog
+            // colour so the fog reads against the sky instead of disappearing into it.
+            const fogColor = ('fogColor' in timeSettings ? timeSettings.fogColor : timeSettings.skyColor) as number;
+            this.scene.fog = new THREE.FogExp2(fogColor, fogDensity);
+        }
 
         // 2. LIGHTING
-        // Use configured ambient intensity
-        const ambientLight = new THREE.AmbientLight(timeSettings.lightColor, timeSettings.ambientIntensity);
+        // Use configured ambient intensity. In space, damp the ambient on bright
+        // times of day so the dark nebula backdrop still reads.
+        const ambientIntensity = config.space
+            ? Math.min(timeSettings.ambientIntensity, 0.32)
+            : timeSettings.ambientIntensity;
+        const ambientLight = new THREE.AmbientLight(timeSettings.lightColor, ambientIntensity);
         this.scene.add(ambientLight);
 
         const hemisphereLight = new THREE.HemisphereLight(
@@ -152,23 +359,51 @@ export class EnvironmentManager {
             this.scene.add(sunMesh);
         }
 
-        // 4. STARS (Night only)
-        let stars = null;
-        if (config.timeOfDay === 'night' && config.weather === 'clear') {
-            const starGeo = new THREE.BufferGeometry();
-            const starCount = 2000;
-            const positions = new Float32Array(starCount * 3);
-
-            for (let i = 0; i < starCount * 3; i++) {
-                positions[i] = (Math.random() - 0.5) * 4000; // Spread wide
-            }
-
-            starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 2, sizeAttenuation: false });
-            stars = new THREE.Points(starGeo, starMat);
-            // Ensure stars don't block the track (render order or massive scale)
-            // Or just move them high up
+        // 4. STARS (night, or always in space)
+        let stars: THREE.Object3D | null = null;
+        if (config.space && config.weather === 'clear') {
+            // Far spherical shell (seeded per track), beyond the planets so they
+            // occlude it. Two crisp layers: a dense faint field plus fewer bright,
+            // bigger stars — both sharp points (not baked into the sky texture).
+            const shell = (): [number, number, number] => {
+                const u = skyRng() * 2 - 1;
+                const theta = skyRng() * Math.PI * 2;
+                const s = Math.sqrt(1 - u * u);
+                const r = 4600 + skyRng() * 400;
+                return [r * s * Math.cos(theta), r * u, r * s * Math.sin(theta)];
+            };
+            const group = new THREE.Group();
+            group.add(makeStarLayer(1700, 1.6, 0.85, shell)); // faint field
+            group.add(makeStarLayer(260, 3.4, 1.0, shell));   // bright, bigger
+            stars = group;
             this.scene.add(stars);
+        } else if (config.timeOfDay === 'night' && config.weather === 'clear') {
+            // Night: original near cube (a far shell would be fogged out by the
+            // denser night fog).
+            const cube = (): [number, number, number] => [
+                (Math.random() - 0.5) * 4000,
+                (Math.random() - 0.5) * 4000,
+                (Math.random() - 0.5) * 4000,
+            ];
+            stars = makeStarLayer(2000, 2, 1.0, cube);
+            this.scene.add(stars);
+        }
+
+        // 4a. PLANETS (space only) — a seeded set of distant lit bodies that
+        // follow the player so they read as infinitely far. Count, colours,
+        // types, sizes and arrangement vary per track.
+        const planets: THREE.Object3D[] = [];
+        if (config.space) {
+            if (trackId === 'track_1') {
+                // Track 1 keeps the original hand-placed pair.
+                planets.push(...createClassicPlanets());
+            } else {
+                const planetCount = 1 + Math.floor(skyRng() * 3); // 1–3
+                for (let i = 0; i < planetCount; i++) {
+                    planets.push(createPlanet(skyRng, i, planetCount));
+                }
+            }
+            planets.forEach((p) => this.scene.add(p));
         }
 
         // 4b. GLOWGLOBES (Night, Evening, or Fog)
@@ -276,8 +511,11 @@ export class EnvironmentManager {
             stars,
             rainSystem,
             lights: { ambient: ambientLight, hemisphere: hemisphereLight, directional: directionalLight },
-            globes: globes
+            globes: globes,
+            planets: planets
         };
+        // Remember each planet's offset so it can trail the player (feels infinite).
+        planets.forEach((p) => { this.planetOffsets.set(p, p.position.clone()); });
     }
 
     public update(dt: number, playerPos: THREE.Vector3) {
@@ -322,6 +560,12 @@ export class EnvironmentManager {
 
         if (this.state.stars) {
             this.state.stars.position.copy(playerPos); // Stars feel infinite, move with us
+        }
+
+        // Distant planets trail the player at their fixed offset (feel infinite).
+        for (const planet of this.state.planets) {
+            const offset = this.planetOffsets.get(planet);
+            if (offset) planet.position.copy(playerPos).add(offset);
         }
     }
 }

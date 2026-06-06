@@ -26,22 +26,28 @@ interface GameProps {
 
   onExit?: () => void;
   onTutorial?: () => void;     // jump to the tutorial (offered on a rough result)
+  onCupComplete?: (clearedTop3: boolean) => void; // fired when the last cup race ends
   debugLighting?: boolean;
   onReady?: () => void;
 
   tutorial?: boolean;          // guided tutorial mode (no opponents, prompt overlay)
   trackOverride?: TrackConfig; // use this track instead of TRACKS[index] (tutorial)
+  trackList?: TrackConfig[];   // the sequence to race (a cup's tracks); defaults to all TRACKS
+  envBias?: Partial<EnvironmentConfig>; // cup theme overlay on the random per-track env
 }
 
 const POINTS_TABLE = [100, 93, 87, 82, 78, 75, 72, 69, 66, 63, 60, 58, 56, 54, 52, 50, 48, 46, 44, 42];
 
 type RaceState = 'intro' | 'racing' | 'finished' | 'results';
 
-export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = true, forcedEnvironment, pilot, opponentCount = 19, onExit, onTutorial, debugLighting = false, onReady, tutorial = false, trackOverride }: GameProps) {
+export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = true, forcedEnvironment, pilot, opponentCount = 19, onExit, onTutorial, onCupComplete, debugLighting = false, onReady, tutorial = false, trackOverride, trackList, envBias }: GameProps) {
   const mountRef = useRef<HTMLDivElement>(null);
 
+  // The race sequence: a cup's tracks when provided, otherwise the full pool.
+  const tracks = trackList ?? TRACKS;
+
   const [currentTrackIndex, setCurrentTrackIndex] = useState(initialTrackIndex);
-  const currentTrack = trackOverride ?? TRACKS[currentTrackIndex];
+  const currentTrack = trackOverride ?? tracks[currentTrackIndex];
 
   // Campaign State
   // Initialize roster once using a ref or state that doesn't reset on track change
@@ -298,7 +304,11 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     // Environment Setup (Must be after trackCurve creation to place glowglobes)
     const envManager = new EnvironmentManager(scene);
     environmentManagerRef.current = envManager;
-    const envConfig = forcedEnvironment || EnvironmentManager.generateRandomConfig();
+    // A cup's envBias (e.g. deep-space) overlays the environment so the theme
+    // reads consistently — over the player's chosen env in single race, or over
+    // a random per-track env in campaign (each track keeps its lighting variety).
+    const baseEnv = forcedEnvironment || EnvironmentManager.generateRandomConfig();
+    const envConfig = { ...baseEnv, ...envBias };
     envManager.setup(envConfig, trackCurve, currentTrack.id);
     setEnvironment(envConfig);
 
@@ -663,6 +673,16 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
           setCampaignScores(updatedScores);
           setRaceResults(results);
+
+          // Cup complete: on the final race, rank everyone by cumulative cup
+          // points and report whether the player placed top 3 (unlocks next cup).
+          if (isCampaign && currentTrackIndex === tracks.length - 1 && onCupComplete) {
+            const standings = allShips
+              .map(s => ({ isPlayer: s.isPlayer, total: updatedScores[s.id] || 0 }))
+              .sort((a, b) => b.total - a.total);
+            const playerCupRank = standings.findIndex(s => s.isPlayer) + 1;
+            onCupComplete(playerCupRank >= 1 && playerCupRank <= 3);
+          }
         }
       }
 
@@ -796,7 +816,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   }, [onReady, currentTrackIndex]);
 
   const handleNextRace = () => {
-    if (currentTrackIndex < TRACKS.length - 1) {
+    if (currentTrackIndex < tracks.length - 1) {
       // Reset State
       if (speedRef.current) speedRef.current.textContent = "0 km/h";
       setLap(0);
@@ -861,7 +881,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
               results={raceResults}
               onRestart={restartRace}
               onNextRace={
-                isCampaign && currentTrackIndex < TRACKS.length - 1
+                isCampaign && currentTrackIndex < tracks.length - 1
                   ? handleNextRace
                   : undefined
               }
