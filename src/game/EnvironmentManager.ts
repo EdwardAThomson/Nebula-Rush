@@ -398,7 +398,7 @@ export class EnvironmentManager {
                 // Track 1 keeps the original hand-placed pair.
                 planets.push(...createClassicPlanets());
             } else {
-                const planetCount = 1 + Math.floor(skyRng() * 3); // 1–3
+                const planetCount = 2 + Math.floor(skyRng() * 3); // 2–4
                 for (let i = 0; i < planetCount; i++) {
                     planets.push(createPlanet(skyRng, i, planetCount));
                 }
