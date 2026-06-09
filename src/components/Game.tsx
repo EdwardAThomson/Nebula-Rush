@@ -8,6 +8,7 @@ import { Ship, type ShipConfig } from '../game/Ship';
 import { OpponentManager, type OpponentConfig } from '../game/OpponentManager';
 import { EnvironmentManager, type EnvironmentConfig } from '../game/EnvironmentManager';
 import { WorldReference } from '../game/WorldReference';
+import { CanyonTerrain, createCanyonWallLimit } from '../game/CanyonTerrain';
 import { Leaderboard, type RaceResult } from './Leaderboard';
 import { TRACKS, type TrackConfig } from '../game/TrackDefinitions';
 import TutorialOverlay from './TutorialOverlay';
@@ -108,6 +109,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const opponentManager = useRef<OpponentManager | null>(null);
   const environmentManagerRef = useRef<EnvironmentManager | null>(null);
   const worldReferenceRef = useRef<WorldReference | null>(null);
+  const canyonTerrainRef = useRef<CanyonTerrain | null>(null);
 
   const screenshotRequested = useRef<boolean>(false);
 
@@ -298,7 +300,14 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     // Track Setup
     const trackCurve = createTrackCurve(currentTrack.points);
     const trackLength = trackCurve.getLength();
-    const trackMesh = createTrackMesh(trackCurve, currentTrack.surface);
+    // Canyon (desert) tracks run flat — no banking — so the vertical rock walls
+    // are reachable/solid. All frame/mesh builders take this `bank` flag.
+    const bankTrack = currentTrack.terrain !== 'canyon';
+    // Per-t hard-wall lateral clamp for canyon tracks (player + AI share it).
+    const wallLimit = currentTrack.terrain === 'canyon'
+      ? createCanyonWallLimit(trackCurve, currentTrack.id)
+      : undefined;
+    const trackMesh = createTrackMesh(trackCurve, currentTrack.surface, bankTrack, currentTrack.terrain);
     scene.add(trackMesh);
 
     // Environment Setup (Must be after trackCurve creation to place glowglobes)
@@ -308,33 +317,43 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     // reads consistently — over the player's chosen env in single race, or over
     // a random per-track env in campaign (each track keeps its lighting variety).
     const baseEnv = forcedEnvironment || EnvironmentManager.generateRandomConfig();
-    const envConfig = { ...baseEnv, ...envBias };
+    const envConfig = { ...baseEnv, ...envBias, terrain: currentTrack.terrain };
     envManager.setup(envConfig, trackCurve, currentTrack.id);
+    // Time-of-day tone-mapping exposure (space tracks dim at night / brighten by
+    // day; 1.0 otherwise). EnvironmentManager computes it during setup.
+    renderer.toneMappingExposure = envManager.exposure;
     setEnvironment(envConfig);
 
     // Background depth cues (grid floor + pillars + ship blob shadow) so the
     // track's rises/dips read. Opt-in per track (see TrackConfig.depthCues).
-    if (currentTrack.depthCues) {
+    if (currentTrack.terrain === 'canyon') {
+      const canyon = new CanyonTerrain(scene);
+      canyon.setup(trackCurve, currentTrack.id);
+      canyonTerrainRef.current = canyon;
+      worldReferenceRef.current = null;
+    } else if (currentTrack.depthCues) {
       const worldRef = new WorldReference(scene);
       worldRef.setup(trackCurve, currentTrack.surface?.accent ?? 0x3388ff);
       worldReferenceRef.current = worldRef;
+      canyonTerrainRef.current = null;
     } else {
       worldReferenceRef.current = null;
+      canyonTerrainRef.current = null;
     }
 
     // Create Boost Pads
-    const boostPads = createBoostPadMeshes(trackCurve, currentTrack.pads);
+    const boostPads = createBoostPadMeshes(trackCurve, currentTrack.pads, bankTrack);
     boostPads.forEach(mesh => scene.add(mesh));
 
     // Create Hazards (blocks / slick patches)
-    const hazardMeshes = createHazardMeshes(trackCurve, currentTrack.hazards ?? []);
+    const hazardMeshes = createHazardMeshes(trackCurve, currentTrack.hazards ?? [], bankTrack, currentTrack.terrain);
     hazardMeshes.forEach(obj => scene.add(obj));
 
     // Create Traffic Light
     const trafficLight = createTrafficLightMesh();
     trafficLightRef.current = trafficLight;
 
-    const startFrame = getTrackFrame(trackCurve, PLAYER_START_T);
+    const startFrame = getTrackFrame(trackCurve, PLAYER_START_T, bankTrack);
     // Align to track. Use a fixed world-units offset (not a track-progress offset)
     // so the light sits the same distance ahead of the ship regardless of track scale.
     trafficLight.position.copy(startFrame.position);
@@ -354,7 +373,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     setCountdown(7);
 
     // Create Start Line
-    const startLine = createStartLineMesh(trackCurve);
+    const startLine = createStartLineMesh(trackCurve, bankTrack);
     scene.add(startLine);
 
     // Create minimap
@@ -437,7 +456,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
     // Opponent Manager
     // Always create a new manager because 'scene' is new on every mount/effect run.
-    opponentManager.current = new OpponentManager(scene, trackCurve, roster);
+    opponentManager.current = new OpponentManager(scene, trackCurve, roster, bankTrack, wallLimit);
 
 
 
@@ -585,7 +604,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           audioManager.stopEngineRumble();
         }
 
-      }, raceStartedRef.current, gameTimeRef.current, currentTrack.hazards ?? []);
+      }, raceStartedRef.current, gameTimeRef.current, currentTrack.hazards ?? [], wallLimit);
 
       if (!raceFinishedRef.current && raceStartedRef.current) {
         const currentLapTime = gameTimeRef.current - lapStartGameTime.current;
@@ -687,9 +706,9 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       }
 
       // --- MESH UPDATE ---
-      const { position: trackPos, tangent, normal, binormal: trackBinormal } = getTrackFrame(trackCurve, currentState.trackProgress);
+      const { position: trackPos, tangent, normal, binormal: trackBinormal } = getTrackFrame(trackCurve, currentState.trackProgress, bankTrack);
 
-      playerShip.current.updateMesh(trackCurve);
+      playerShip.current.updateMesh(trackCurve, bankTrack);
 
       // --- Camera Update ---
       const cameraFollowRatio = 0.0;
@@ -743,6 +762,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
       envManager.update(dt, playerShip.current.mesh.position);
       worldReferenceRef.current?.update(playerShip.current.mesh.position);
+      canyonTerrainRef.current?.update(playerShip.current.mesh.position);
 
       updateMinimapShip();
       renderer.render(scene, camera);

@@ -11,6 +11,9 @@ export interface EnvironmentConfig {
     // Overlays the chosen timeOfDay (which still drives the star/sun lighting),
     // so a cup can read as "in space" while keeping per-track lighting variety.
     space?: boolean;
+    // Open desert canyon: skip the distance fog and the glowglobes (which sit out
+    // in the rock walls and tank perf at night). Set from TrackConfig.terrain.
+    terrain?: 'canyon';
 }
 
 export interface EnvironmentState {
@@ -117,7 +120,7 @@ const NEBULA_CLOUD_COLORS = ['64,0,128', '0,90,140', '150,20,90', '20,40,120', '
 // A crisp screen-space-sized starfield layer. `gen` supplies each star's
 // position. Kept as real points (not baked into the sky texture) so they stay
 // sharp at any distance.
-const makeStarLayer = (count: number, size: number, opacity: number, gen: () => [number, number, number]): THREE.Points => {
+const makeStarLayer = (count: number, size: number, opacity: number, gen: () => [number, number, number], color: number = 0xffffff): THREE.Points => {
     const geo = new THREE.BufferGeometry();
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
@@ -125,7 +128,7 @@ const makeStarLayer = (count: number, size: number, opacity: number, gen: () => 
         pos[i * 3] = x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z;
     }
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const mat = new THREE.PointsMaterial({ color: 0xffffff, size, sizeAttenuation: false, transparent: true, opacity });
+    const mat = new THREE.PointsMaterial({ color, size, sizeAttenuation: false, transparent: true, opacity });
     return new THREE.Points(geo, mat);
 };
 
@@ -154,14 +157,14 @@ const createClassicPlanets = (): THREE.Object3D[] => {
     return [giant, moon];
 };
 
-const createNebulaTexture = (rng: () => number, fixedClouds?: NebulaCloud[]): THREE.Texture => {
+const createNebulaTexture = (rng: () => number, fixedClouds?: NebulaCloud[], tint?: { base: string; screen?: string }): THREE.Texture => {
     const W = 2048, H = 1024;
     const canvas = document.createElement('canvas');
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d')!;
 
-    // Deep space base
-    ctx.fillStyle = '#05060f';
+    // Deep space base (time-of-day shifts the backdrop colour/brightness in space)
+    ctx.fillStyle = tint?.base ?? '#05060f';
     ctx.fillRect(0, 0, W, H);
 
     // Clouds: either the fixed Track 1 set, or a seeded set kept in a mid band so
@@ -204,6 +207,15 @@ const createNebulaTexture = (rng: () => number, fixedClouds?: NebulaCloud[]): TH
         const s = rng();
         ctx.fillStyle = `rgba(255,255,255,${0.25 + s * 0.35})`;
         ctx.fillRect(x, y, 1, 1);
+    }
+
+    // Time-of-day wash: a screen-blended tint lifts the whole sky toward the
+    // time's hue/brightness (bright cool day, warm dawn, magenta dusk, faint night).
+    if (tint?.screen) {
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = tint.screen;
+        ctx.fillRect(0, 0, W, H);
+        ctx.globalCompositeOperation = 'source-over';
     }
 
     const tex = new THREE.CanvasTexture(canvas);
@@ -274,9 +286,25 @@ const WEATHER_SETTINGS = {
     }
 };
 
+// Deep-space time-of-day looks. In space there's no atmosphere to colour, so
+// each time gets a distinct backdrop tint, render exposure, and starfield
+// brightness/colour. `base` is the nebula's deep-space fill; `screen` is a
+// screen-blended wash that lifts the sky toward that time's hue/brightness;
+// `exposure` drives the renderer tone-mapping; `starOpacityMul`/`starColor`
+// make stars blaze at night and wash out by day.
+const SPACE_TIME: Record<TimeOfDay, { base: string; screen?: string; exposure: number; starOpacityMul: number; starColor: number }> = {
+    morning: { base: '#0a0710', screen: 'rgba(72,36,46,0.18)', exposure: 1.0, starOpacityMul: 0.7, starColor: 0xfff0e6 },
+    day:     { base: '#0b1322', screen: 'rgba(46,78,122,0.26)', exposure: 1.15, starOpacityMul: 0.45, starColor: 0xffffff },
+    evening: { base: '#090610', screen: 'rgba(86,30,66,0.13)', exposure: 0.72, starOpacityMul: 0.85, starColor: 0xffe2d2 },
+    night:   { base: '#010205', screen: 'rgba(16,20,42,0.05)', exposure: 0.55, starOpacityMul: 1.0, starColor: 0xcdd6ff },
+};
+
 export class EnvironmentManager {
     private scene: THREE.Scene;
     public state: EnvironmentState | null = null;
+    // Suggested renderer tone-mapping exposure for the current setup (space only;
+    // 1.0 otherwise). Game.tsx reads this after setup() to dim night / brighten day.
+    public exposure = 1.0;
     private rainValues: { positions: Float32Array; velocities: Float32Array } | null = null;
     private planetOffsets = new Map<THREE.Object3D, THREE.Vector3>();
 
@@ -300,6 +328,9 @@ export class EnvironmentManager {
 
         const timeSettings = TIME_SETTINGS[config.timeOfDay];
         const weatherSettings = WEATHER_SETTINGS[config.weather];
+        // Deep-space time-of-day look (null on planet-side tracks).
+        const spaceTime = config.space ? SPACE_TIME[config.timeOfDay] : null;
+        this.exposure = spaceTime ? spaceTime.exposure : 1.0;
 
         // Per-track sky RNG: same track id → same nebula, stars and planets every
         // time, but each track gets its own distinct sky.
@@ -313,8 +344,17 @@ export class EnvironmentManager {
             // Deep-space: nebula skybox + very thin dark fog so the distant
             // planets and nebula stay visible (FogExp2 erases far objects fast).
             // Track 1 keeps its original hand-tuned nebula; others vary per seed.
-            this.scene.background = createNebulaTexture(skyRng, trackId === 'track_1' ? TRACK1_CLOUDS : undefined);
+            this.scene.background = createNebulaTexture(
+                skyRng,
+                trackId === 'track_1' ? TRACK1_CLOUDS : undefined,
+                spaceTime ? { base: spaceTime.base, screen: spaceTime.screen } : undefined,
+            );
             this.scene.fog = new THREE.FogExp2(0x070912, 0.00012);
+        } else if (config.terrain === 'canyon') {
+            // Open desert: keep the time's sky colour, but no distance fog — the
+            // time fog (evening especially) murks the gorge out. Dust supplies haze.
+            this.scene.background = new THREE.Color(timeSettings.skyColor);
+            this.scene.fog = null;
         } else {
             this.scene.background = new THREE.Color(timeSettings.skyColor);
             // Use exponential fog for distance fading. Some times of day (night) override the fog
@@ -348,7 +388,10 @@ export class EnvironmentManager {
 
         // 3. SUN / MOON VISUAL
         let sunMesh = null;
-        if (config.weather !== 'rain' && config.weather !== 'fog') { // Hide sun in heavy weather
+        // Hidden in heavy weather, and in space (the nebula/planets/stars carry the
+        // sky there; a flat sun disc just reads as another planet). Lighting is
+        // unaffected — the directional light below is separate from this disc.
+        if (config.weather !== 'rain' && config.weather !== 'fog' && !config.space) {
             const sunGeo = new THREE.SphereGeometry(config.timeOfDay === 'night' ? 20 : 50, 32, 32);
             const sunMat = new THREE.MeshBasicMaterial({ color: timeSettings.sunColor });
             sunMesh = new THREE.Mesh(sunGeo, sunMat);
@@ -372,9 +415,14 @@ export class EnvironmentManager {
                 const r = 4600 + skyRng() * 400;
                 return [r * s * Math.cos(theta), r * u, r * s * Math.sin(theta)];
             };
+            // Stars blaze at night, wash out by day (opacity scaled by time), and
+            // pick up the time's tint; the bright layer also grows a touch at night.
+            const starMul = spaceTime ? spaceTime.starOpacityMul : 1.0;
+            const starCol = spaceTime ? spaceTime.starColor : 0xffffff;
+            const brightSize = 3.4 * (config.timeOfDay === 'night' ? 1.25 : 1.0);
             const group = new THREE.Group();
-            group.add(makeStarLayer(1700, 1.6, 0.85, shell)); // faint field
-            group.add(makeStarLayer(260, 3.4, 1.0, shell));   // bright, bigger
+            group.add(makeStarLayer(1700, 1.6, 0.85 * starMul, shell, starCol)); // faint field
+            group.add(makeStarLayer(260, brightSize, 1.0 * starMul, shell, starCol)); // bright, bigger
             stars = group;
             this.scene.add(stars);
         } else if (config.timeOfDay === 'night' && config.weather === 'clear') {
@@ -408,7 +456,10 @@ export class EnvironmentManager {
 
         // 4b. GLOWGLOBES (Night, Evening, or Fog)
         // Enable lights if it's dark OR visibility is low
-        const useLights = config.timeOfDay === 'night' || config.timeOfDay === 'evening' || config.weather === 'fog';
+        // Canyon skips glowglobes entirely (they sit in the rock walls and 40 real
+        // point-lights tank the PBR-heavy desert scene at night/evening).
+        const useLights = (config.timeOfDay === 'night' || config.timeOfDay === 'evening' || config.weather === 'fog')
+            && config.terrain !== 'canyon';
 
         const globes: { mesh: THREE.Mesh, light: THREE.PointLight }[] = [];
         if (useLights && trackCurve) {
@@ -421,6 +472,12 @@ export class EnvironmentManager {
             if (trackId === 'track_4') {
                 numGlobes = 50; // High count for visual density
                 lightBoost = 10.0; // DOUBLE brightness because we have fewer real lights per meter
+            }
+
+            // In deep space we want a darker, moodier night — halve the glowglobes
+            // so they don't wash out the track (planet-side tracks keep full density).
+            if (config.space) {
+                numGlobes = Math.ceil(numGlobes / 2);
             }
 
             // SAFETY LIMIT: WebGL typically crashes with > 50-100 forward lights depending on driver.

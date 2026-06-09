@@ -70,7 +70,11 @@ export const updatePhysics = (
     dt: number = 1.0,
     onLapComplete?: (msg: any) => void,
     raceStarted: boolean = true, // NEW Param
-    hazards: Hazard[] = [] // blocks / slick patches
+    hazards: Hazard[] = [], // blocks / slick patches
+    // Optional per-t lateral clamp [min, max] (canyon walls). When provided it
+    // replaces the fixed ±60 wall — real geometry becomes the limit. Player + AI
+    // share this so both get solid walls.
+    lateralLimit?: (t: number) => [number, number]
 ) => {
     // --- INPUT HANDLING ---
 
@@ -294,7 +298,7 @@ export const updatePhysics = (
     state.verticalPosition += state.verticalVelocity * dt;
 
     // --- COLLISION DETECTION ---
-    checkCollision(state);
+    checkCollision(state, lateralLimit);
 
     // --- VISUAL ROTATION LAG ---
     // Smoothly interpolate current rotation to target rotation
@@ -310,37 +314,40 @@ export const updatePhysics = (
     return state.trackProgress === 0 && progressChange > 0; // Return true if lap completed (rough check)
 };
 
-const checkCollision = (state: GameState) => {
-    // Exact visual boundaries
-    // Track Width 120 -> Half Width = 60. Wall goes 60->70.
-    // Tweak to 68.0 to keep ship fully inside the visible mesh
-    const visualWallLimit = 60.0; // Exact edge of flat track
-    const softWallLimit = visualWallLimit - 5.0; // Start pushing back earlier (55.0)
+const checkCollision = (state: GameState, lateralLimit?: (t: number) => [number, number]) => {
+    if (lateralLimit) {
+        // Canyon: clamp to the real rock walls (per-t), killing into-wall slide so
+        // you rest on the rock instead of grinding. Replaces the ±60 box wall.
+        const [minL, maxL] = lateralLimit(state.trackProgress);
+        if (state.lateralPosition < minL) {
+            state.lateralPosition = minL;
+            if (state.velocity.x < 0) state.velocity.x = 0;
+        } else if (state.lateralPosition > maxL) {
+            state.lateralPosition = maxL;
+            if (state.velocity.x > 0) state.velocity.x = 0;
+        }
+    } else {
+        // Default tracks: the fixed ±60 box wall (soft repel + hard clamp).
+        const visualWallLimit = 60.0; // Exact edge of flat track
+        const softWallLimit = visualWallLimit - 5.0; // Start pushing back earlier (55.0)
+        const wallForceStrength = 2.0; // Stronger than engine (beats boost of ~1.35)
 
-    // Soft wall force
-    const wallForceStrength = 2.0; // Stronger than engine (beats boost of ~1.35)
-
-    if (Math.abs(state.lateralPosition) > softWallLimit) {
-        const penetration = Math.abs(state.lateralPosition) - softWallLimit;
-        const sign = Math.sign(state.lateralPosition);
-
-        // Repulsive Force
-        state.velocity.x -= sign * penetration * wallForceStrength;
-
-        // Wall Friction/Damping
-        if (sign * state.velocity.x > 0) {
-            if (Math.abs(state.lateralPosition) > visualWallLimit - 1.0) {
-                state.velocity.x *= -0.4; // Hard bounce
-            } else {
-                state.velocity.x *= 0.95; // Soft drag
+        if (Math.abs(state.lateralPosition) > softWallLimit) {
+            const penetration = Math.abs(state.lateralPosition) - softWallLimit;
+            const sign = Math.sign(state.lateralPosition);
+            state.velocity.x -= sign * penetration * wallForceStrength;
+            if (sign * state.velocity.x > 0) {
+                if (Math.abs(state.lateralPosition) > visualWallLimit - 1.0) {
+                    state.velocity.x *= -0.4; // Hard bounce
+                } else {
+                    state.velocity.x *= 0.95; // Soft drag
+                }
             }
         }
-    }
-
-    // Hard clamp
-    if (Math.abs(state.lateralPosition) > visualWallLimit) {
-        state.lateralPosition = Math.sign(state.lateralPosition) * (visualWallLimit - 0.1);
-        state.velocity.x *= -0.2;
+        if (Math.abs(state.lateralPosition) > visualWallLimit) {
+            state.lateralPosition = Math.sign(state.lateralPosition) * (visualWallLimit - 0.1);
+            state.velocity.x *= -0.2;
+        }
     }
 
     // Ground Floor

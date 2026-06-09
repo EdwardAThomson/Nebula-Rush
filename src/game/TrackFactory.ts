@@ -9,7 +9,10 @@ export const createTrackCurve = (points: THREE.Vector3[]): THREE.CatmullRomCurve
     return new THREE.CatmullRomCurve3(points, true, 'centripetal');
 };
 
-export const getTrackFrame = (trackCurve: THREE.Curve<THREE.Vector3>, t: number) => {
+// `bank` (default true) tilts the frame into curves. Pass false for flat tracks
+// (e.g. desert canyons): the frame stays level so lateral motion is truly
+// horizontal — which is what makes vertical canyon walls reachable/solid.
+export const getTrackFrame = (trackCurve: THREE.Curve<THREE.Vector3>, t: number, bank: boolean = true) => {
     const point = trackCurve.getPoint(t);
     const tangent = trackCurve.getTangent(t).normalize();
 
@@ -67,7 +70,8 @@ export const getTrackFrame = (trackCurve: THREE.Curve<THREE.Vector3>, t: number)
 
     if (binormal.length() < 0.01) binormal.set(1, 0, 0);
 
-    // Apply banking rotation
+    // Apply banking rotation (skipped on flat tracks → level, horizontal frame)
+    if (!bank) bankAngle = 0;
     binormal.applyAxisAngle(tangent, bankAngle);
 
     // N = B x T (Right x Forward = Up)
@@ -109,7 +113,7 @@ const createBoostArrowTexture = () => {
     return tex;
 };
 
-export const createBoostPadMeshes = (trackCurve: THREE.CatmullRomCurve3, pads: BoostPad[]): THREE.Mesh[] => {
+export const createBoostPadMeshes = (trackCurve: THREE.CatmullRomCurve3, pads: BoostPad[], bank: boolean = true): THREE.Mesh[] => {
     const meshes: THREE.Mesh[] = [];
     // One shared animated material so every pad's arrows scroll in sync.
     const arrowTex = createBoostArrowTexture();
@@ -144,7 +148,7 @@ export const createBoostPadMeshes = (trackCurve: THREE.CatmullRomCurve3, pads: B
             if (t < 0) t += 1;
             if (t > 1) t -= 1;
 
-            const { position, normal, binormal } = getTrackFrame(trackCurve, t);
+            const { position, normal, binormal } = getTrackFrame(trackCurve, t, bank);
 
             // Left and Right vertices of the strip
             // Calculate lateral offset for the pad center + width
@@ -219,11 +223,11 @@ const createCheckerTexture = () => {
 
 // Hazard visuals: raised warning-striped boxes for 'block', and a flat
 // translucent oily/icy strip (hugging the track) for 'slick'.
-export const createHazardMeshes = (trackCurve: THREE.CatmullRomCurve3, hazards: Hazard[]): THREE.Object3D[] => {
+export const createHazardMeshes = (trackCurve: THREE.CatmullRomCurve3, hazards: Hazard[], bank: boolean = true, terrain?: 'canyon'): THREE.Object3D[] => {
     const objects: THREE.Object3D[] = [];
 
     hazards.forEach((h) => {
-        const frame = getTrackFrame(trackCurve, h.trackProgress);
+        const frame = getTrackFrame(trackCurve, h.trackProgress, bank);
 
         if (h.type === 'slick') {
             // Curved strip that follows the track, like a boost pad but inert.
@@ -236,7 +240,7 @@ export const createHazardMeshes = (trackCurve: THREE.CatmullRomCurve3, hazards: 
                 let t = startT + (i / segments) * (endT - startT);
                 if (t < 0) t += 1;
                 if (t > 1) t -= 1;
-                const f = getTrackFrame(trackCurve, t);
+                const f = getTrackFrame(trackCurve, t, bank);
                 const lift = f.normal.clone().multiplyScalar(0.4);
                 const left = f.position.clone().add(f.binormal.clone().multiplyScalar(h.lateralPosition - h.width / 2)).add(lift);
                 const right = f.position.clone().add(f.binormal.clone().multiplyScalar(h.lateralPosition + h.width / 2)).add(lift);
@@ -267,13 +271,11 @@ export const createHazardMeshes = (trackCurve: THREE.CatmullRomCurve3, hazards: 
             const blockHeight = 8;
             const blockDepth = HAZARD_BLOCK_DEPTH; // footprint along the track (matches collision)
             const geo = new THREE.BoxGeometry(h.width, blockHeight, blockDepth);
-            const mat = new THREE.MeshStandardMaterial({
-                color: 0x1a1a1a,
-                emissive: 0xff3300,
-                emissiveIntensity: 0.6,
-                roughness: 0.5,
-                metalness: 0.3,
-            });
+            // Canyon: brown sandstone boulder (fits the gorge). Otherwise the
+            // default dark block with a warning-orange glow.
+            const mat = terrain === 'canyon'
+                ? new THREE.MeshStandardMaterial({ color: 0x6e4a2c, emissive: 0x1c0f05, emissiveIntensity: 0.3, roughness: 0.95, metalness: 0.0, flatShading: true })
+                : new THREE.MeshStandardMaterial({ color: 0x1a1a1a, emissive: 0xff3300, emissiveIntensity: 0.6, roughness: 0.5, metalness: 0.3 });
             const box = new THREE.Mesh(geo, mat);
             box.position.copy(frame.position)
                 .add(frame.binormal.clone().multiplyScalar(h.lateralPosition))
@@ -288,7 +290,7 @@ export const createHazardMeshes = (trackCurve: THREE.CatmullRomCurve3, hazards: 
     return objects;
 };
 
-export const createStartLineMesh = (trackCurve: THREE.CatmullRomCurve3): THREE.Mesh => {
+export const createStartLineMesh = (trackCurve: THREE.CatmullRomCurve3, bank: boolean = true): THREE.Mesh => {
     // Start line at 0.0 (The official loop start/end)
     const trackProgress = 0.0;
     const width = 140; // Wider to cover full track
@@ -308,7 +310,7 @@ export const createStartLineMesh = (trackCurve: THREE.CatmullRomCurve3): THREE.M
         if (t < 0) t += 1.0;
         if (t > 1) t -= 1.0;
 
-        const { position, normal, binormal } = getTrackFrame(trackCurve, t);
+        const { position, normal, binormal } = getTrackFrame(trackCurve, t, bank);
 
         const leftOffset = binormal.clone().multiplyScalar(-width / 2);
         const leftPos = position.clone().add(leftOffset).add(normal.clone().multiplyScalar(0.1));
@@ -350,7 +352,7 @@ export const createStartLineMesh = (trackCurve: THREE.CatmullRomCurve3): THREE.M
 // `emissiveMap` (accent on black) so only the rails/centre glow. The canvas X
 // axis is the cross-section UV (road spans U≈0.379..0.586, matching the mesh's
 // UVs); the Y axis is one length-tile, repeated along the track via wrapT.
-const createTrackSurfaceTextures = (base: number, accent: number) => {
+const createTrackSurfaceTextures = (base: number, accent: number, centerLine = true, grain = false) => {
     const W = 256, H = 128;
     const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
     const baseHex = hex(base), accentHex = hex(accent);
@@ -371,12 +373,29 @@ const createTrackSurfaceTextures = (base: number, accent: number) => {
 
     // railHex: solid single-colour edge rails; wallHex frames the wall tops;
     // centerHex is the dashed centre line.
-    const paint = (bg: string, railHex: string, centerHex: string, wallHex: string) => {
+    const paint = (bg: string, railHex: string, centerHex: string, wallHex: string, withGrain = false) => {
         const canvas = document.createElement('canvas');
         canvas.width = W; canvas.height = H;
         const ctx = canvas.getContext('2d')!;
         ctx.fillStyle = bg;
         ctx.fillRect(0, 0, W, H);
+
+        // Packed-sand grain on the albedo (canyon): soft mottle + speckle over the
+        // base, drawn UNDER the rails/centre so those stay crisp.
+        if (withGrain) {
+            for (let i = 0; i < 40; i++) {
+                const x = Math.random() * W, y = Math.random() * H, r = 6 + Math.random() * 22;
+                const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+                g.addColorStop(0, Math.random() > 0.5 ? 'rgba(110,90,55,0.5)' : 'rgba(60,48,28,0.5)');
+                g.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+            }
+            for (let i = 0; i < 2200; i++) {
+                const x = Math.random() * W, y = Math.random() * H, v = Math.random();
+                ctx.fillStyle = v > 0.6 ? 'rgba(30,24,12,0.45)' : 'rgba(150,124,80,0.3)';
+                ctx.fillRect(x, y, 1, 1);
+            }
+        }
 
         // Wall top-edge accent lines (solid frame)
         ctx.fillStyle = wallHex;
@@ -388,9 +407,11 @@ const createTrackSurfaceTextures = (base: number, accent: number) => {
         ctx.fillRect(roadL, 0, railW, H);
         ctx.fillRect(roadR - railW, 0, railW, H);
 
-        // Dashed centre line
-        ctx.fillStyle = centerHex;
-        for (let y = 0; y < H; y += 32) ctx.fillRect(centerX - 1, y, 3, 18);
+        // Dashed centre line (optional)
+        if (centerLine) {
+            ctx.fillStyle = centerHex;
+            for (let y = 0; y < H; y += 32) ctx.fillRect(centerX - 1, y, 3, 18);
+        }
 
         const tex = new THREE.CanvasTexture(canvas);
         tex.wrapS = THREE.ClampToEdgeWrapping;
@@ -403,12 +424,50 @@ const createTrackSurfaceTextures = (base: number, accent: number) => {
     // Albedo carries full colour; the emissive map drives the glow (rails bright,
     // centre + walls dimmer) so the solid rails stay the hero element.
     return {
-        map: paint(baseHex, accentHex, accentHex, accentHex),
+        map: paint(baseHex, accentHex, accentHex, accentHex, grain), // grain only on albedo
         emissiveMap: paint('#000000', accentHex, dim(accent, 0.4), dim(accent, 0.45)),
     };
 };
 
-export const createTrackMesh = (trackCurve: THREE.CatmullRomCurve3, surface?: { base: number; accent: number }): THREE.Mesh => {
+// Subtle grain normal map for the canyon road (two octaves of smooth value
+// noise) so the sun rakes a little surface texture. Linear (not sRGB).
+const createRoadGrainNormal = (): THREE.Texture => {
+    const S = 256, L = 64;
+    const lattice = new Float32Array(L * L);
+    for (let i = 0; i < L * L; i++) lattice[i] = Math.random();
+    const sample = (fx: number, fy: number) => {
+        const gx = fx / S * L, gy = fy / S * L;
+        const x0 = ((Math.floor(gx) % L) + L) % L, y0 = ((Math.floor(gy) % L) + L) % L;
+        const x1 = (x0 + 1) % L, y1 = (y0 + 1) % L;
+        const tx = gx - Math.floor(gx), ty = gy - Math.floor(gy);
+        const a = lattice[y0 * L + x0], b = lattice[y0 * L + x1], c = lattice[y1 * L + x0], d = lattice[y1 * L + x1];
+        const top = a + (b - a) * tx, bot = c + (d - c) * tx;
+        return top + (bot - top) * ty;
+    };
+    const H = (x: number, y: number) => sample(x, y) * 1.0 + sample(x * 2.3, y * 2.3) * 0.5;
+    const canvas = document.createElement('canvas'); canvas.width = S; canvas.height = S;
+    const ctx = canvas.getContext('2d')!;
+    const img = ctx.createImageData(S, S);
+    const strength = 2.0;
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+        const hL = H(x - 1, y), hR = H(x + 1, y), hD = H(x, y - 1), hU = H(x, y + 1);
+        let nx = (hL - hR) * strength, ny = (hD - hU) * strength, nz = 1;
+        const len = Math.hypot(nx, ny, nz) || 1; nx /= len; ny /= len; nz /= len;
+        const i = (y * S + x) * 4;
+        img.data[i] = (nx * 0.5 + 0.5) * 255;
+        img.data[i + 1] = (ny * 0.5 + 0.5) * 255;
+        img.data[i + 2] = (nz * 0.5 + 0.5) * 255;
+        img.data[i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.NoColorSpace;
+    tex.repeat.set(3, 30);
+    return tex;
+};
+
+export const createTrackMesh = (trackCurve: THREE.CatmullRomCurve3, surface?: { base: number; accent: number; centerLine?: boolean }, bank: boolean = true, terrain?: 'canyon'): THREE.Mesh => {
     const trackSegments = 1600; // Optimized resolution (was 2400)
     // const trackWidth = 20;
     const trackDepth = 10; // Deeper walls for wider track
@@ -422,7 +481,7 @@ export const createTrackMesh = (trackCurve: THREE.CatmullRomCurve3, surface?: { 
     for (let i = 0; i <= trackSegments; i++) {
         const t = i / trackSegments;
         // Use the consistent frame generator
-        const { position: point, normal, binormal } = getTrackFrame(trackCurve, t);
+        const { position: point, normal, binormal } = getTrackFrame(trackCurve, t, bank);
 
         // Create flat-bottomed U-shaped cross-section like \___/
         const crossSectionPoints = [];
@@ -481,16 +540,23 @@ export const createTrackMesh = (trackCurve: THREE.CatmullRomCurve3, surface?: { 
 
     let material: THREE.Material;
     if (surface) {
-        const { map, emissiveMap } = createTrackSurfaceTextures(surface.base, surface.accent);
-        material = new THREE.MeshStandardMaterial({
+        const isCanyon = terrain === 'canyon';
+        const { map, emissiveMap } = createTrackSurfaceTextures(surface.base, surface.accent, surface.centerLine ?? true, isCanyon);
+        const stdMat = new THREE.MeshStandardMaterial({
             map,
             emissive: 0xffffff,        // tinted by emissiveMap, so the rails/centre glow in the accent colour
             emissiveMap,
             emissiveIntensity: 1.4,
-            roughness: 0.7,
+            roughness: isCanyon ? 0.95 : 0.7, // packed sand reads matte
             metalness: 0.0,
             side: THREE.DoubleSide,
         });
+        if (isCanyon) {
+            // Packed-sand grain relief on the road bed.
+            stdMat.normalMap = createRoadGrainNormal();
+            stdMat.normalScale.set(0.35, 0.35);
+        }
+        material = stdMat;
     } else {
         material = new THREE.MeshPhongMaterial({
             color: 0x555555, // Grey Track (fallback for tracks without a surface palette)

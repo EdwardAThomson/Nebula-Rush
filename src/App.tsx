@@ -17,7 +17,7 @@ import SettingsMenu from './components/SettingsMenu';
 import type { Pilot } from './game/PilotDefinitions';
 import type { EnvironmentConfig } from './game/EnvironmentManager';
 import { TRACKS, TUTORIAL_TRACK } from './game/TrackDefinitions';
-import { resolveCupTracks, getCupForTrack, type Cup } from './game/CupDefinitions';
+import { CUPS, resolveCupTracks, getCupForTrack, type Cup } from './game/CupDefinitions';
 import { markCupCleared } from './game/cupProgress';
 
 // Calculate display stats (0-100) dynamically from SHIP_STATS
@@ -561,19 +561,43 @@ function App() {
           <div className="relative z-10 flex flex-col items-center h-full p-8">
             <h2 className="text-4xl font-bold text-white mb-8">SELECT TRACK</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
-              {TRACKS.map((track, index) => (
-                <div
-                  key={track.id}
-                  onClick={() => { audioManager.playClick(); handleTrackSelect(index); }}
-                  onMouseEnter={() => audioManager.playHover()}
-                  className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-purple-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
-                >
-                  <div className="h-48 bg-black bg-opacity-50 rounded mb-4 flex items-center justify-center overflow-hidden border border-gray-700">
-                    <TrackPreview points={track.points} />
+            <div className="w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide space-y-10">
+              {[
+                ...CUPS.map(cup => ({ id: cup.id, label: cup.name, sub: cup.theme, accent: cup.accent, tracks: resolveCupTracks(cup) })),
+                // Any track not yet assigned to a cup (work-in-progress tracks).
+                { id: '_dev', label: 'In Development', sub: 'Unassigned', accent: 0x9ca3af, tracks: TRACKS.filter(t => !getCupForTrack(t.id)) },
+              ].filter(group => group.tracks.length > 0).map(group => (
+                <div key={group.id}>
+                  {/* Cup divider */}
+                  <div className="flex items-center gap-4 mb-5">
+                    <div className="h-0.5 flex-1 rounded" style={{ backgroundColor: numToCss(group.accent), opacity: 0.4 }} />
+                    <div className="text-center px-2">
+                      <div className="text-xl font-extrabold" style={{ color: numToCss(group.accent) }}>{group.label}</div>
+                      <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500">{group.sub}</div>
+                    </div>
+                    <div className="h-0.5 flex-1 rounded" style={{ backgroundColor: numToCss(group.accent), opacity: 0.4 }} />
                   </div>
-                  <h3 className="text-2xl font-bold text-purple-400 mb-2">{track.name}</h3>
-                  <p className="text-gray-400 text-sm">{track.description}</p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {group.tracks.map(track => {
+                      const index = TRACKS.indexOf(track);
+                      return (
+                        <div
+                          key={track.id}
+                          onClick={() => { audioManager.playClick(); handleTrackSelect(index); }}
+                          onMouseEnter={() => audioManager.playHover()}
+                          className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
+                          style={{ borderColor: numToCss(group.accent) }}
+                        >
+                          <div className="h-48 bg-black bg-opacity-50 rounded mb-4 flex items-center justify-center overflow-hidden border border-gray-700">
+                            <TrackPreview points={track.points} />
+                          </div>
+                          <h3 className="text-2xl font-bold mb-2" style={{ color: numToCss(group.accent) }}>{track.name}</h3>
+                          <p className="text-gray-400 text-sm">{track.description}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>

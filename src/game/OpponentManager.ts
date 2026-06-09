@@ -9,9 +9,11 @@ import type { BoostPad, Hazard } from './TrackDefinitions';
 class AIInputController implements InputSource {
     private keys: { [key: string]: boolean } = {};
     public targetLateral: number = 0;
+    public baseLane: number = 0; // preferred lane before any canyon-width clamp
 
     constructor(target: number) {
         this.targetLateral = target;
+        this.baseLane = target;
     }
 
     update(state: GameState) {
@@ -60,14 +62,20 @@ export class OpponentManager {
 
     private scene: THREE.Scene;
     private trackCurve: THREE.Curve<THREE.Vector3>;
+    private bank: boolean;
+    private wallLimit?: (t: number) => [number, number];
 
     constructor(
         scene: THREE.Scene,
         trackCurve: THREE.Curve<THREE.Vector3>,
-        roster: OpponentConfig[]
+        roster: OpponentConfig[],
+        bank: boolean = true,
+        wallLimit?: (t: number) => [number, number]
     ) {
         this.scene = scene;
         this.trackCurve = trackCurve;
+        this.bank = bank;
+        this.wallLimit = wallLimit;
         this.spawnOpponents(roster);
     }
 
@@ -99,7 +107,7 @@ export class OpponentManager {
             this.opponents.push(opponent);
 
             // Initial Mesh Update
-            opponent.updateMesh(this.trackCurve);
+            opponent.updateMesh(this.trackCurve, this.bank);
         });
     }
 
@@ -147,17 +155,24 @@ export class OpponentManager {
             const opponent = this.opponents[i];
             const controller = this.controllers[i];
 
-            // 1. Update AI Decision
+            // 1. Update AI Decision. On canyon tracks, keep the target lane inside
+            // the local gorge width so opponents thread the canyon instead of
+            // steering into (and grinding against) the rock on tight bends.
+            if (this.wallLimit) {
+                const [minL, maxL] = this.wallLimit(opponent.state.trackProgress);
+                const buf = 4;
+                controller.targetLateral = Math.max(minL + buf, Math.min(maxL - buf, controller.baseLane));
+            }
             controller.update(opponent.state);
 
-            // 2. Update Physics
+            // 2. Update Physics (same wall clamp as the player → solid walls for AI)
             opponent.update(dt, controller, trackLength, pads, (_msg) => {
                 // Handle lap complete if needed (e.g. AI lap counter)
                 // For now, ignore
-            }, raceStarted, gameTime, hazards);
+            }, raceStarted, gameTime, hazards, this.wallLimit);
 
             // 3. Update Mesh
-            opponent.updateMesh(this.trackCurve);
+            opponent.updateMesh(this.trackCurve, this.bank);
         }
     }
 }

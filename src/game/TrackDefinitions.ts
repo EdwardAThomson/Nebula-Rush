@@ -36,12 +36,16 @@ export interface TrackConfig {
     // Per-track surface palette (F-Zero-style): road base tint + emissive
     // edge-rail / center-line accent. Optional; tracks without it fall back to
     // the plain grey surface.
-    surface?: { base: number; accent: number };
+    surface?: { base: number; accent: number; centerLine?: boolean };
     // Opt-in background depth cues (grid floor + support pillars + ship blob
     // shadow) so the track's rises and dips read against a fixed-altitude floor.
     // See WorldReference. Only enable on tracks without track-over-track
     // crossovers, or pillars will poke through a lower section.
     depthCues?: boolean;
+    // Opt-in terrain style for the track's surroundings. 'canyon' lines the track
+    // with procedural rock walls over a sandy floor (desert/Sunscorch cup). See
+    // CanyonTerrain. Mutually exclusive with depthCues (which is the space grid).
+    terrain?: 'canyon';
 }
 
 const SCALE = 12.0;
@@ -322,7 +326,54 @@ export const TRACK_5: TrackConfig = {
     ]
 };
 
-export const TRACKS = [TRACK_1, TRACK_2, TRACK_3, TRACK_4, TRACK_5];
+// Track 6: Mesa Run — first of the Sunscorch (desert) cup. Flat canyon floor
+// that snakes through procedural rock walls (see CanyonTerrain). A winding
+// run, NOT an oval: entry straight, a chicane, a tight switchback, a long
+// right sweep, then a return weave. Rockfall hazards hint the gorge-threading.
+export const TRACK_6: TrackConfig = {
+    id: 'track_6',
+    name: 'Mesa Run',
+    description: 'A snaking gorge between towering rock walls. Thread the canyon.',
+    difficulty: 2,
+    surface: { base: 0x5a4a2e, accent: 0xffb347, centerLine: false }, // dark sand road, warm amber rails, no centre stripe
+    terrain: 'canyon',
+    points: [
+        new THREE.Vector3(0, 0, 0),        // start / finish
+        new THREE.Vector3(0, 0, -460),     // entry straight into the gorge
+        new THREE.Vector3(220, 0, -780),   // bend right
+        new THREE.Vector3(180, 0, -1180),  // chicane back
+        new THREE.Vector3(-80, 0, -1460),  // left
+        new THREE.Vector3(-180, 0, -1880), // narrow run
+        new THREE.Vector3(60, 0, -2240),   // kink right
+        new THREE.Vector3(460, 0, -2380),  // open out, deeper
+        new THREE.Vector3(820, 0, -2260),  // sweep out wide
+        new THREE.Vector3(980, 0, -1900),  // wide apex — the extended hairpin
+        new THREE.Vector3(900, 0, -1520),  // long sweep back
+        new THREE.Vector3(560, 0, -1260),  // back inward
+        new THREE.Vector3(560, 0, -820),   // right
+        new THREE.Vector3(420, 0, -360),
+        new THREE.Vector3(160, 0, 140),    // return weave
+        new THREE.Vector3(-220, 0, 260),
+        new THREE.Vector3(-360, 0, 40),
+        new THREE.Vector3(-120, 0, 120),   // arc back to the line
+    ].map(p => p.multiplyScalar(SCALE * 2)),
+    pads: [
+        // Off-centre, alternating sides — steer to grab the boost.
+        { trackProgress: 0.10, lateralPosition: -30, width: 40, length: 0.02 },
+        { trackProgress: 0.42, lateralPosition: 30, width: 36, length: 0.02 },
+        { trackProgress: 0.70, lateralPosition: -30, width: 40, length: 0.03 },
+    ],
+    hazards: [
+        // Rockfall along the gorge. Slicks are wide enough to catch the centre
+        // line (steer to the open side to dodge); blocks stay tight.
+        { type: 'slick', trackProgress: 0.20, lateralPosition: -22, width: 60, length: 0.03 },
+        { type: 'block', trackProgress: 0.50, lateralPosition: 18, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.50, lateralPosition: 36, width: 16, length: 0.015 },
+        { type: 'slick', trackProgress: 0.78, lateralPosition: 22, width: 60, length: 0.03 },
+    ],
+};
+
+export const TRACKS = [TRACK_1, TRACK_2, TRACK_3, TRACK_4, TRACK_5, TRACK_6];
 
 // Minimal, gentle loop used by the interactive tutorial. Flat, wide, sweeping
 // bends, one laterally-offset boost pad. NOT part of TRACKS (not selectable).

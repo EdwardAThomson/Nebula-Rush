@@ -16,6 +16,11 @@ export interface Cup {
     // Sketched track names for cups that aren't authored yet — shown on the
     // "Coming soon" card so the full arc is visible in the menu.
     plannedTracks?: string[];
+    // Force the cup to stay locked ("COMING SOON" / unselectable) in the New Game
+    // cup screen even if some of its tracks are built. Lets a built track be
+    // grouped under its cup on the Track Select screen (via resolveCupTracks)
+    // without making the half-finished cup playable as a campaign.
+    comingSoon?: boolean;
     // Theme overlay on each race's randomized environment (e.g. deep-space
     // dressing). Partial — only the fields a cup wants to pin.
     envBias?: Partial<EnvironmentConfig>;
@@ -38,7 +43,10 @@ export const CUPS: Cup[] = [
         theme: 'Desert Canyons',
         description: 'Threading rock spires and gorges through blinding dust storms.',
         accent: 0xff8c1a,
-        trackIds: [],
+        // Mesa Run is built — grouped under Sunscorch on Track Select — but the
+        // cup stays locked in New Game until the rest of the desert arc is built.
+        trackIds: ['track_6'],
+        comingSoon: true,
         plannedTracks: ['Dune Sprint', 'Mesa Run', "Beggar's Gorge", 'Sandstorm Pass', 'Solstice Classic'],
     },
     {
@@ -77,9 +85,10 @@ export function resolveCupTracks(cup: Cup): TrackConfig[] {
         .filter((t): t is TrackConfig => !!t);
 }
 
-// A cup is playable once every declared track exists in the pool.
+// A cup is playable once every declared track exists in the pool — and it isn't
+// explicitly held back as `comingSoon` (a partially-built cup like Sunscorch).
 export function isCupReady(cup: Cup): boolean {
-    return cup.trackIds.length > 0 && resolveCupTracks(cup).length === cup.trackIds.length;
+    return !cup.comingSoon && cup.trackIds.length > 0 && resolveCupTracks(cup).length === cup.trackIds.length;
 }
 
 // Which cup a track belongs to (first match). Lets single-race apply the same

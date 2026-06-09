@@ -82,7 +82,8 @@ export class Ship {
         onLapComplete?: (msg: any) => void,
         raceStarted: boolean = true,
         gameTime: number = 0,  // Game time in ms (pauses when tab inactive)
-        hazards: Hazard[] = []
+        hazards: Hazard[] = [],
+        lateralLimit?: (t: number) => [number, number] // canyon wall clamp (optional)
     ) {
         // Update Physics
         // For AI, we would pass a Mock InputManager or different logic
@@ -126,7 +127,7 @@ export class Ship {
             }
 
             if (onLapComplete) onLapComplete(msg);
-        }, raceStarted, hazards);
+        }, raceStarted, hazards, lateralLimit);
 
         // Visual Updates — a steady "circle of light" at each engine, a gently
         // flickering saturated cyan flame, and a hot near-white inner core.
@@ -187,8 +188,8 @@ export class Ship {
         return this.mesh.position;
     }
 
-    public updateMesh(trackCurve: THREE.Curve<THREE.Vector3>) {
-        const { position: trackPos, normal, binormal: trackBinormal, rotationMatrix: frameRot } = getTrackFrame(trackCurve, this.state.trackProgress);
+    public updateMesh(trackCurve: THREE.Curve<THREE.Vector3>, bank: boolean = true) {
+        const { position: trackPos, normal, binormal: trackBinormal, rotationMatrix: frameRot } = getTrackFrame(trackCurve, this.state.trackProgress, bank);
 
         this.mesh.position.copy(trackPos);
         this.mesh.position.add(trackBinormal.clone().multiplyScalar(this.state.lateralPosition));

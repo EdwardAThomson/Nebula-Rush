@@ -19,7 +19,13 @@ export class InputManager implements InputSource {
     };
 
     public isKeyPressed(key: string): boolean {
-        return !!this.keys[key];
+        // Case-insensitive for single-letter keys so Caps Lock (or a held Shift)
+        // doesn't break movement: callers ask for lower-case letters ('w','a',…)
+        // and exact named keys ('ArrowUp', ' '). Letters match either stored case.
+        if (this.keys[key]) return true;
+        return key.length === 1
+            ? !!this.keys[key.toLowerCase()] || !!this.keys[key.toUpperCase()]
+            : false;
     }
 
     public cleanup() {
