@@ -560,11 +560,17 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           // Fly Away Animation
           const light = trafficLightRef.current;
           if (light) {
+            // Fly the light up out of frame by a fixed RISE from wherever it
+            // started — not to an absolute y of 100. On flat canyon tracks the
+            // light already sits at y≈100 (level frame → normal straight up), so the
+            // old `y < 100` check fired instantly and hid the light before the GREEN
+            // ever rendered (no go-flash). Relative rise shows green on every track.
+            const targetY = light.position.y + 100;
             const flyAway = () => {
               if (!mountRef.current) return;
               light.position.y += 0.5;
               light.position.z -= 1.0;
-              if (light.position.y < 100) {
+              if (light.position.y < targetY) {
                 requestAnimationFrame(flyAway);
               } else {
                 light.visible = false;
