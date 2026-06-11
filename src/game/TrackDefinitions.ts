@@ -46,7 +46,60 @@ export interface TrackConfig {
     // with procedural rock walls over a sandy floor (desert/Sunscorch cup). See
     // CanyonTerrain. Mutually exclusive with depthCues (which is the space grid).
     terrain?: 'canyon';
+    // Per-t half-width control points (canyon tracks only). When present, the road
+    // bed, the rock walls, and the collision clamp all narrow/widen together via a
+    // periodic linear interpolation of these points (see widthAt). Absent → the
+    // constant default half-width (60). t wraps on the closed loop.
+    widthProfile?: { t: number; half: number }[];
+    // Roofed sections (canyon tracks only): t-ranges that get a rock ceiling +
+    // glowing strip lights, so you race through a tunnel. Cosmetic — the lateral
+    // wall clamp already contains you. Ranges must not wrap past 1.0.
+    tunnels?: { start: number; end: number }[];
+    // Canyon wall styling (canyon tracks only). Default mode is 'full' (the tall
+    // gorge — what tracks with no `canyon` field get). Use 'berm' for low rocky
+    // banks (open desert), and per-t `zones` to override stretches: 'full' canyon
+    // rock (zone `height` = rim height ABOVE THE DESERT SURFACE — the road should
+    // run at/below grade there so the canyon reads as cut into the plain), or a
+    // 'viaduct' (parapet + deck + pillars) where the loop crosses over itself.
+    // Collision is unaffected — the lateral clamp is independent of wall
+    // height/style. Zone edges are blended over a short margin.
+    canyon?: {
+        wall?: { mode: 'full' | 'berm'; height?: number };
+        zones?: { start: number; end: number; mode: 'full' | 'berm' | 'viaduct'; height?: number }[];
+    };
 }
+
+// Default canyon road half-width (world units) when a track has no widthProfile.
+// Matches the legacy flatBottomWidth/2 so existing canyon tracks are unchanged.
+export const CANYON_DEFAULT_HALF = 60;
+
+// Periodic linear interpolation of a track's half-width profile at t∈[0,1).
+// Control points are sorted by t and wrap around the closed loop, so the gorge
+// width is continuous across the start/finish seam. Single source of truth for
+// the road mesh, the canyon walls, and the collision clamp.
+export const widthAt = (profile: { t: number; half: number }[] | undefined, t: number): number => {
+    if (!profile || profile.length === 0) return CANYON_DEFAULT_HALF;
+    if (profile.length === 1) return profile[0].half;
+    const pts = [...profile].sort((a, b) => a.t - b.t);
+    const tt = ((t % 1) + 1) % 1;
+    // Find the bracketing pair, wrapping the last→first across the seam.
+    for (let i = 0; i < pts.length; i++) {
+        const a = pts[i];
+        const b = pts[(i + 1) % pts.length];
+        const aT = a.t;
+        const bT = i + 1 < pts.length ? b.t : b.t + 1; // wrap span crosses 1.0
+        if (tt >= aT && tt <= bT) {
+            const f = bT === aT ? 0 : (tt - aT) / (bT - aT);
+            return a.half + (b.half - a.half) * f;
+        }
+        // Also test the wrapped region before the first point (tt < pts[0].t).
+        if (i === pts.length - 1) {
+            const f = (tt + 1 - aT) / (bT - aT);
+            return a.half + (b.half - a.half) * f;
+        }
+    }
+    return pts[0].half;
+};
 
 const SCALE = 12.0;
 
@@ -370,6 +423,95 @@ export const TRACK_6: TrackConfig = {
         { type: 'block', trackProgress: 0.50, lateralPosition: 18, width: 16, length: 0.015 },
         { type: 'block', trackProgress: 0.50, lateralPosition: 36, width: 16, length: 0.015 },
         { type: 'slick', trackProgress: 0.78, lateralPosition: 22, width: 60, length: 0.03 },
+    ],
+};
+
+// Track 7: Beggar's Gorge — second of the Sunscorch (desert) cup, a notch
+// harder than Mesa Run. A faster gorge that pinches into a roofed tunnel on a
+// short descending dive, opens into a boulder gauntlet, sweeps wide, then climbs
+// back out. New canyon features: a narrowing width profile, a tunnel section,
+// and modest elevation (the walls follow the road up/down).
+//
+// NOTE: deliberately NOT in TRACKS yet — prototyped in the gorge sandbox first,
+// then wired into TRACKS + the Sunscorch cup once confirmed.
+export const TRACK_7: TrackConfig = {
+    id: 'track_7',
+    name: "Beggar's Gorge",
+    description: 'A pinched tunnel, a boulder gauntlet, and a long climbing sweep through the rock.',
+    difficulty: 3,
+    surface: { base: 0x5a4a2e, accent: 0xff9a3c, centerLine: false }, // dark sand road, hot-amber rails
+    terrain: 'canyon',
+    // An alpha-loop SUNK INTO the desert. The flat plain is the one honest
+    // height reference, so the road lives relative to IT: at grade on open
+    // desert, modestly raised only on the entry bridge over the crossing, and
+    // BELOW grade through the gorge — a slot canyon cut down into the plain,
+    // with the tunnel bored underground. (Single clean self-crossing at
+    // t≈0.07/0.79 — see analyze-tracks.) Bridge → back to grade → sink into
+    // the canyon → underground tunnel → climb out through the boulder
+    // gauntlet → wide sweep at grade → under the bridge → behind the grid.
+    points: [
+        new THREE.Vector3(0, 0, 0),          // 0 start line (grade)
+        new THREE.Vector3(0, 9, -300),       // 1 climbing onto the bridge
+        new THREE.Vector3(0, 10, -620),      // 2 bridge apex (deck over the crossing)
+        new THREE.Vector3(-80, 4, -940),     // 3 descending back toward grade
+        new THREE.Vector3(-260, -8, -1300),  // 4 sinking below the plain — gorge begins
+        new THREE.Vector3(-300, -24, -1680), // 5 tunnel dive
+        new THREE.Vector3(-160, -30, -2020), // 6 lowest point (underground)
+        new THREE.Vector3(140, -18, -2200),  // 7 climbing out, swinging right
+        new THREE.Vector3(520, -8, -2180),   // 8 boulder gauntlet, still in the canyon
+        new THREE.Vector3(800, -2, -1900),   // 9 emerging to grade
+        new THREE.Vector3(860, 1, -1520),    // 10 crest
+        new THREE.Vector3(740, 0, -1160),    // 11 sweep back, at grade
+        new THREE.Vector3(520, 0, -900),     // 12
+        new THREE.Vector3(360, 0, -680),     // 13 return leg, +x side, low
+        new THREE.Vector3(180, 0, -540),     // 14 approaching the crossing from +x
+        new THREE.Vector3(0, 0, -420),       // 15 UNDER the bridge (crossing point)
+        new THREE.Vector3(-220, 0, -260),    // 16 exit to -x
+        new THREE.Vector3(-260, 0, 100),     // 17 swing behind the line (+z)
+        new THREE.Vector3(-60, 0, 220),      // 18 behind the grid → clean run to the line
+    ].map(p => p.multiplyScalar(SCALE * 2)),
+    // Gorge pinches from ~56 down to ~38 through the tunnel dive, then opens wide
+    // (~78) across the climbing sweep before easing back. t wraps on the loop.
+    widthProfile: [
+        { t: 0.00, half: 58 },
+        { t: 0.10, half: 56 }, // bridge
+        { t: 0.18, half: 46 }, // pinch begins
+        { t: 0.26, half: 38 }, // tightest — mid tunnel
+        { t: 0.34, half: 48 }, // tunnel exit
+        { t: 0.42, half: 66 },
+        { t: 0.50, half: 78 }, // wide apex
+        { t: 0.58, half: 72 },
+        { t: 0.68, half: 60 },
+    ],
+    // Roofed tunnel over the pinched dive.
+    tunnels: [{ start: 0.20, end: 0.34 }],
+    // Mostly low berms (open desert); the gorge walls are the sides of a canyon
+    // sunk below the plain (full-zone `height` = rim height ABOVE THE DESERT
+    // SURFACE — the rim stays put while the road dives), and a viaduct (deck +
+    // pillars) where the entry bridge spans the crossing.
+    canyon: {
+        wall: { mode: 'berm', height: 14 }, // low, broken rock lip — open desert, not walled-in
+        zones: [
+            { start: 0.02, end: 0.15, mode: 'viaduct' },          // entry bridge over the crossing
+            { start: 0.16, end: 0.46, mode: 'full', height: 80 }, // sunken canyon; rim ~80 above the surface
+        ],
+    },
+    pads: [
+        { trackProgress: 0.12, lateralPosition: 30, width: 36, length: 0.02 },  // off the bridge
+        { trackProgress: 0.37, lateralPosition: 30, width: 36, length: 0.02 },  // tunnel-exit reward
+        { trackProgress: 0.50, lateralPosition: 0, width: 44, length: 0.03 },   // wide apex sprint
+        { trackProgress: 0.86, lateralPosition: -20, width: 40, length: 0.02 }, // run to the line
+    ],
+    hazards: [
+        // Sand slick in the dark tunnel — slightly offset so there's a sliver to thread.
+        { type: 'slick', trackProgress: 0.27, lateralPosition: -8, width: 44, length: 0.025 },
+        // Boulder gauntlet just past the tunnel (open lane on the right, then left).
+        { type: 'block', trackProgress: 0.41, lateralPosition: -34, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.41, lateralPosition: -10, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.46, lateralPosition: 34, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.46, lateralPosition: 10, width: 16, length: 0.015 },
+        // Slick on the descending sweep, clear of the t=0.50 boost pad — clear lane left.
+        { type: 'slick', trackProgress: 0.60, lateralPosition: 22, width: 56, length: 0.03 },
     ],
 };
 
