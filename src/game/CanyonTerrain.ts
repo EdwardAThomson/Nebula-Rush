@@ -51,17 +51,37 @@ const wallOffsetAt = (curve: THREE.Curve<THREE.Vector3>, t: number, side: number
     return Math.max(8, off);
 };
 
+// Look-ahead window (facets) and edge margin for the wall clamp. The per-t
+// PERPENDICULAR offset alone lets the hull graze rock facets that jut in on
+// bends (an old soft-wall bug — visible on Mesa Run's tighter kinks): the clamp
+// thinks the wall is straight out at distance `wallOffset(t)`, but a neighbouring
+// facet sits closer. Taking the MIN offset over ±WINDOW facets pulls the clamp in
+// where a facet protrudes, and EDGE_MARGIN covers convex-corner chords the
+// perpendicular min can't see. Verified to remove all soft spots via
+// scripts/canyon-collision-check.ts.
+const WALL_CLAMP_WINDOW = 6;
+const WALL_EDGE_MARGIN = 3;
+
 // Per-t lateral clamp [min, max] for the physics engine, inset by the ship
-// half-width. Side mapping matches lateralPosition: wall(+1) bounds the negative
-// side, wall(−1) the positive side. Used for both the player and the AI.
+// half-width (+ margin). Side mapping matches lateralPosition: wall(+1) bounds the
+// negative side, wall(−1) the positive side. Used for both the player and the AI.
 export const createCanyonWallLimit = (curve: THREE.Curve<THREE.Vector3>, trackId: string): ((t: number) => [number, number]) => {
     const seed = hashString(trackId);
     const trackLength = (curve as THREE.CatmullRomCurve3).getLength?.() ?? 30000;
     const N = Math.max(240, Math.min(900, Math.floor(trackLength / 70)));
     const segLen = trackLength / N;
+    const inset = CANYON_SHIP_HALF + WALL_EDGE_MARGIN;
+    // Minimum wall offset over a small window of facets on `side`.
+    const clampOffset = (t: number, side: number): number => {
+        let m = Infinity;
+        for (let k = -WALL_CLAMP_WINDOW; k <= WALL_CLAMP_WINDOW; k++) {
+            m = Math.min(m, wallOffsetAt(curve, ((t + k / N) % 1 + 1) % 1, side, seed, N, segLen));
+        }
+        return m;
+    };
     return (t: number): [number, number] => [
-        -(wallOffsetAt(curve, t, 1, seed, N, segLen) - CANYON_SHIP_HALF),
-        wallOffsetAt(curve, t, -1, seed, N, segLen) - CANYON_SHIP_HALF,
+        -(clampOffset(t, 1) - inset),
+        clampOffset(t, -1) - inset,
     ];
 };
 
