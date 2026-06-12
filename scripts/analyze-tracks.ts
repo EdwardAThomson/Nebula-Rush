@@ -147,6 +147,55 @@ const TRACKS = [
             new THREE.Vector3(-400, 0, 700),
             new THREE.Vector3(0, 0, 800),
         ].map(p => p.multiplyScalar(SCALE * 2)),
+    },
+    {
+        id: 'track_6',
+        name: 'Mesa Run',
+        points: [
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, 0, -460),
+            new THREE.Vector3(220, 0, -780),
+            new THREE.Vector3(180, 0, -1180),
+            new THREE.Vector3(-80, 0, -1460),
+            new THREE.Vector3(-180, 0, -1880),
+            new THREE.Vector3(60, 0, -2240),
+            new THREE.Vector3(460, 0, -2380),
+            new THREE.Vector3(820, 0, -2260),
+            new THREE.Vector3(980, 0, -1900),
+            new THREE.Vector3(900, 0, -1520),
+            new THREE.Vector3(560, 0, -1260),
+            new THREE.Vector3(560, 0, -820),
+            new THREE.Vector3(420, 0, -360),
+            new THREE.Vector3(160, 0, 140),
+            new THREE.Vector3(-220, 0, 260),
+            new THREE.Vector3(-360, 0, 40),
+            new THREE.Vector3(-120, 0, 120),
+        ].map(p => p.multiplyScalar(SCALE * 2)),
+    },
+    {
+        id: 'track_7',
+        name: "Beggar's Gorge",
+        points: [
+            new THREE.Vector3(0, 0, 0),       // 0 start line (grade)
+            new THREE.Vector3(0, 9, -300),    // 1 climbing onto the bridge
+            new THREE.Vector3(0, 10, -620),   // 2 bridge apex (upper deck over the crossing)
+            new THREE.Vector3(-80, 4, -940),  // 3 descending back toward grade
+            new THREE.Vector3(-260, -8, -1300),// 4 sinking below the plain — gorge begins
+            new THREE.Vector3(-300, -24, -1680),// 5 tunnel dive
+            new THREE.Vector3(-160, -30, -2020),// 6 lowest point (underground)
+            new THREE.Vector3(140, -18, -2200),// 7 climbing, swinging right
+            new THREE.Vector3(520, -8, -2180),// 8 gauntlet, still in the canyon
+            new THREE.Vector3(800, -2, -1900),// 9 emerging to grade
+            new THREE.Vector3(860, 1, -1520), // 10 crest
+            new THREE.Vector3(740, 0, -1160), // 11 sweeping back, at grade
+            new THREE.Vector3(520, 0, -900),  // 12
+            new THREE.Vector3(360, 0, -680),  // 13 return leg, +x side, low
+            new THREE.Vector3(180, 0, -540),  // 14 approaching the crossing from +x
+            new THREE.Vector3(0, 0, -420),    // 15 UNDER the bridge (crossing point)
+            new THREE.Vector3(-220, 0, -260), // 16 exit to -x
+            new THREE.Vector3(-260, 0, 100),  // 17 swing behind the line (+z)
+            new THREE.Vector3(-60, 0, 220),   // 18 directly behind the grid → clean run to the line
+        ].map(p => p.multiplyScalar(SCALE * 2)),
     }
 ];
 
@@ -196,7 +245,7 @@ function getTrackFrame(trackCurve: THREE.Curve<THREE.Vector3>, t: number) {
     bankAngle = Math.max(-maxBank, Math.min(maxBank, bankAngle));
 
     const up = new THREE.Vector3(0, 1, 0);
-    let binormal = new THREE.Vector3().crossVectors(tangent, up).normalize();
+    const binormal = new THREE.Vector3().crossVectors(tangent, up).normalize();
     if (binormal.length() < 0.01) binormal.set(1, 0, 0);
     binormal.applyAxisAngle(tangent, bankAngle);
     const normal = new THREE.Vector3().crossVectors(binormal, tangent).normalize();
@@ -373,16 +422,39 @@ const HAZARDS: Record<string, Hz[]> = {
         { type: 'slick', t: 0.55, lat: 22, w: 32 },
         { type: 'block', t: 0.75, lat: -36, w: 16 }, { type: 'block', t: 0.75, lat: -18, w: 16 }, { type: 'block', t: 0.75, lat: 0, w: 16 },
     ],
+    // Desert / Sunscorch tracks. NOTE: the gap math below assumes ROAD_WIDTH=120;
+    // track_7's tunnel pinch (local half ~38) makes its tunnel slick MORE walling
+    // than this model credits — see WIDTH_HALF below.
+    track_6: [
+        { type: 'slick', t: 0.20, lat: -22, w: 60 },
+        { type: 'block', t: 0.50, lat: 18, w: 16 }, { type: 'block', t: 0.50, lat: 36, w: 16 },
+        { type: 'slick', t: 0.78, lat: 22, w: 60 },
+    ],
+    track_7: [
+        { type: 'slick', t: 0.27, lat: -8, w: 44 },
+        { type: 'block', t: 0.41, lat: -34, w: 16 }, { type: 'block', t: 0.41, lat: -10, w: 16 },
+        { type: 'block', t: 0.46, lat: 34, w: 16 }, { type: 'block', t: 0.46, lat: 10, w: 16 },
+        { type: 'slick', t: 0.60, lat: 22, w: 56 },
+    ],
 };
-const PADS: Record<string, number> = { track_1: 4, track_2: 3, track_3: 4, track_4: 4, track_5: 5 };
+const PADS: Record<string, number> = { track_1: 4, track_2: 3, track_3: 4, track_4: 4, track_5: 5, track_6: 3, track_7: 4 };
 // 1.0 = clear visibility. Future fog/spray/dust would drop this for affected
 // tracks, multiplying hazard threat by (2 − visibility).
-const VISIBILITY: Record<string, number> = { track_1: 1, track_2: 1, track_3: 1, track_4: 1, track_5: 1 };
+const VISIBILITY: Record<string, number> = { track_1: 1, track_2: 1, track_3: 1, track_4: 1, track_5: 1, track_6: 1, track_7: 1 };
+
+// Per-hazard LOCAL road half-width (overrides the global ROAD_HALF in the gap
+// math) for tracks whose width varies along the lap. Lets a hazard in a pinched
+// section read as more walling. Keyed by track → hazard t. Absent → ROAD_HALF.
+const WIDTH_HALF: Record<string, Record<number, number>> = {
+    // Beggar's Gorge pinches into the tunnel (~38) and opens on the sweep (~78).
+    track_7: { 0.27: 38, 0.41: 66, 0.46: 76, 0.60: 72 },
+};
 
 // Cup membership — mirror of src/game/CupDefinitions.ts. Only cups whose tracks
 // exist are scored.
 const CUPS: { name: string; trackIds: string[] }[] = [
     { name: 'Nebula Cup', trackIds: ['track_1', 'track_2', 'track_3', 'track_4', 'track_5'] },
+    { name: 'Sunscorch Cup', trackIds: ['track_6', 'track_7'] },
 ];
 
 // Hand-tunable weights, applied to each metric normalized 0..1 across the tracks.
@@ -397,9 +469,10 @@ const WEIGHTS = {
 };
 
 // Widest clear lateral lane (world units) a cluster of hazards leaves open.
-function clearGap(group: Hz[]): number {
+// `half` is the LOCAL road half-width at the cluster (defaults to ROAD_HALF).
+function clearGap(group: Hz[], half: number = ROAD_HALF): number {
     const iv = group
-        .map(h => [Math.max(-ROAD_HALF, h.lat - h.w / 2), Math.min(ROAD_HALF, h.lat + h.w / 2)] as [number, number])
+        .map(h => [Math.max(-half, h.lat - h.w / 2), Math.min(half, h.lat + h.w / 2)] as [number, number])
         .sort((a, b) => a[0] - b[0]);
     const merged: [number, number][] = [];
     for (const seg of iv) {
@@ -408,12 +481,12 @@ function clearGap(group: Hz[]): number {
         else merged.push([seg[0], seg[1]]);
     }
     let maxGap = 0;
-    let cursor = -ROAD_HALF;
+    let cursor = -half;
     for (const [s, e] of merged) {
         maxGap = Math.max(maxGap, s - cursor);
         cursor = Math.max(cursor, e);
     }
-    return Math.max(maxGap, ROAD_HALF - cursor);
+    return Math.max(maxGap, half - cursor);
 }
 
 // Local turn rate (0..1) over a short window around t — proxy for reaction time.
@@ -438,10 +511,13 @@ function hazardDifficulty(track: typeof TRACKS[0]): number {
         else groups.push([h]);
     }
     const vis = VISIBILITY[track.id] ?? 1;
+    const widthMap = WIDTH_HALF[track.id];
     let total = 0;
     for (const g of groups) {
-        const gap = clearGap(g);
-        const avoid = 1 - Math.min(gap, ROAD_WIDTH) / ROAD_WIDTH;   // 0 open … 1 walled off
+        const half = widthMap?.[g[0].t] ?? ROAD_HALF;               // local road half-width
+        const localWidth = half * 2;
+        const gap = clearGap(g, half);
+        const avoid = 1 - Math.min(gap, localWidth) / localWidth;   // 0 open … 1 walled off
         const typeW = Math.max(...g.map(h => TYPE_WEIGHT[h.type]));
         const react = 1 + REACT_K * localTurnNorm(curve, g[0].t);
         const tooTight = gap < SHIP_WIDTH ? 1.3 : 1;                // can't fit → extra spike
@@ -525,6 +601,82 @@ for (const cup of CUPS) {
         const flag = authoredIdx === i ? '' : `   ← authored #${authoredIdx + 1}`;
         console.log(`    ${i + 1}. ${m.track.name.padEnd(20)} ${m.score}${flag}`);
     });
+}
+
+// ===========================================================================
+// SELF-CROSSOVER DETECTION
+//
+// Finds where a track's curve crosses its own footprint (two parameter values
+// t_a, t_b land on ~the same x,z but aren't t-neighbours). The canyon collision
+// is analytic per-t, so a crossover is purely a wall-geometry problem — but the
+// two passes need (a) enough VERTICAL clearance (so one bridges over the other)
+// and (b) a decent crossing ANGLE (so the strands cross like an X, not run
+// parallel/overlap). This validator reports both so a crossover curve can be
+// tuned numerically, and flags space-track flyovers as a sanity check.
+//
+// Thresholds in WORLD units (points are pre-scaled ×24/×30/×36 in the data).
+// ===========================================================================
+const XO_NEAR = 150;        // horizontal sep below this = overlapping footprint
+const XO_T_MIN = 0.05;      // ignore pairs closer than this in t (mere neighbours)
+const XO_MIN_CLEAR = 150;   // required vertical gap for a clean bridge
+const XO_GOOD_ANGLE = 35;   // crossing angle (deg) below this reads as parallel
+
+function detectCrossovers(track: typeof TRACKS[0]) {
+    const curve = createTrackCurve(track.points);
+    const N = 1000;
+    const P: { t: number; p: THREE.Vector3 }[] = [];
+    for (let i = 0; i < N; i++) { const t = i / N; P.push({ t, p: curve.getPoint(t) }); }
+    // Collect candidate near pairs (horizontal), excluding t-neighbours.
+    type Cand = { i: number; j: number; d: number; dy: number };
+    const cands: Cand[] = [];
+    for (let i = 0; i < N; i++) {
+        for (let j = i + 1; j < N; j++) {
+            const dt = Math.min(Math.abs(P[i].t - P[j].t), 1 - Math.abs(P[i].t - P[j].t));
+            if (dt < XO_T_MIN) continue;
+            const dx = P[i].p.x - P[j].p.x, dz = P[i].p.z - P[j].p.z;
+            const d = Math.hypot(dx, dz);
+            if (d < XO_NEAR) cands.push({ i, j, d, dy: Math.abs(P[i].p.y - P[j].p.y) });
+        }
+    }
+    // Greedily reduce candidate blobs to distinct crossing events (best = min d).
+    cands.sort((a, b) => a.d - b.d);
+    const used = new Array(N).fill(false);
+    const events: Cand[] = [];
+    const WIN = Math.ceil(0.03 * N);
+    for (const c of cands) {
+        if (used[c.i] || used[c.j]) continue;
+        events.push(c);
+        for (let k = -WIN; k <= WIN; k++) { used[(c.i + k + N) % N] = true; used[(c.j + k + N) % N] = true; }
+    }
+    // Crossing angle from the horizontal tangents at each strand.
+    return events.map((e) => {
+        const ta = curve.getTangent(P[e.i].t), tb = curve.getTangent(P[e.j].t);
+        const a = Math.atan2(ta.z, ta.x), b = Math.atan2(tb.z, tb.x);
+        let ang = Math.abs((a - b) * 180 / Math.PI) % 360;
+        if (ang > 180) ang = 360 - ang;
+        if (ang > 90) ang = 180 - ang;          // treat anti-parallel as 0° (overlap)
+        return { ta: P[e.i].t, tb: P[e.j].t, sep: e.d, clear: e.dy, angle: ang, pos: P[e.i].p };
+    });
+}
+
+console.log(`\n${'='.repeat(80)}`);
+console.log('SELF-CROSSOVER DETECTION');
+console.log('='.repeat(80));
+console.log(`thresholds: near<${XO_NEAR}u  Δt>${XO_T_MIN}  clearance≥${XO_MIN_CLEAR}u  angle≥${XO_GOOD_ANGLE}°\n`);
+for (const track of TRACKS) {
+    const xos = detectCrossovers(track);
+    if (xos.length === 0) { console.log(`  ${track.name.padEnd(20)} no self-crossings`); continue; }
+    console.log(`  ${track.name}  (${xos.length} crossing${xos.length > 1 ? 's' : ''}):`);
+    for (const x of xos) {
+        const clearOk = x.clear >= XO_MIN_CLEAR;
+        const angOk = x.angle >= XO_GOOD_ANGLE;
+        const flag = clearOk && angOk ? 'OK' : [!clearOk ? 'LOW CLEARANCE' : '', !angOk ? 'SHALLOW ANGLE' : ''].filter(Boolean).join(' + ');
+        console.log(
+            `    t=${(x.ta * 100).toFixed(1)}%/${(x.tb * 100).toFixed(1)}%  ` +
+            `sep ${x.sep.toFixed(0)}u  clear ${x.clear.toFixed(0)}u  angle ${x.angle.toFixed(0)}°  ` +
+            `@(${x.pos.x.toFixed(0)},${x.pos.z.toFixed(0)})  → ${flag}`
+        );
+    }
 }
 
 console.log(`\n${'='.repeat(80)}`);

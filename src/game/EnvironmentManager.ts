@@ -14,6 +14,10 @@ export interface EnvironmentConfig {
     // Open desert canyon: skip the distance fog and the glowglobes (which sit out
     // in the rock walls and tank perf at night). Set from TrackConfig.terrain.
     terrain?: 'canyon';
+    // Faint linear horizon haze for canyon tracks with distant scenery (zoned
+    // sunken-canyon tracks): fades the buttes out before the camera far plane
+    // (6000) clips them, so they never pop in. Mesa-style tracks stay fog-free.
+    desertHaze?: boolean;
 }
 
 export interface EnvironmentState {
@@ -351,10 +355,18 @@ export class EnvironmentManager {
             );
             this.scene.fog = new THREE.FogExp2(0x070912, 0.00012);
         } else if (config.terrain === 'canyon') {
-            // Open desert: keep the time's sky colour, but no distance fog — the
-            // time fog (evening especially) murks the gorge out. Dust supplies haze.
+            // Open desert: keep the time's sky colour, but no exponential
+            // distance fog — the time fog (evening especially) murks the gorge
+            // out. Dust supplies near haze. Tracks with distant scenery instead
+            // get a faint LINEAR horizon haze ending at the camera far plane
+            // (6000), so the buttes fade out rather than pop out.
             this.scene.background = new THREE.Color(timeSettings.skyColor);
-            this.scene.fog = null;
+            if (config.desertHaze) {
+                const HAZE: Record<TimeOfDay, number> = { morning: 0xe6cfae, day: 0xbfdbe8, evening: 0xd99c6a, night: 0x0e1320 };
+                this.scene.fog = new THREE.Fog(HAZE[config.timeOfDay], 3200, 6000);
+            } else {
+                this.scene.fog = null;
+            }
         } else {
             this.scene.background = new THREE.Color(timeSettings.skyColor);
             // Use exponential fog for distance fading. Some times of day (night) override the fog

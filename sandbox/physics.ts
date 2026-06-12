@@ -1,6 +1,6 @@
-// Sandbox-FORKED physics — a verbatim copy of src/game/PhysicsEngine.ts's
-// updatePhysics, with ONE change: checkCollision no longer applies the fake
-// ±60 lateral "wall" (the soft-repel + hard-clamp block). Lateral motion is now
+// Sandbox-FORKED physics — a copy of src/game/PhysicsEngine.ts's updatePhysics
+// with TWO changes: (1) checkCollision no longer applies the fake ±60 lateral
+// "wall" (the soft-repel + hard-clamp block); (2) a BRAKE key (B). Lateral motion is now
 // left entirely to the real-geometry BVH wall collision done in mesa.ts. The
 // ground-floor (vertical) clamp is kept. Everything else — throttle, steering,
 // strafe, boost pads, hazards, lap counting, hover — is identical to the live
@@ -22,7 +22,7 @@ export const updatePhysics = (
     trackLength: number,
     pads: BoostPad[],
     dt: number = 1.0,
-    onLapComplete?: (msg: any) => void,
+    onLapComplete?: (msg: number | string) => void,
     raceStarted: boolean = true,
     hazards: Hazard[] = []
 ) => {
@@ -34,6 +34,12 @@ export const updatePhysics = (
         state.throttle = Math.min(state.throttle + throttleRate * dt, 1.0);
     } else {
         state.throttle = Math.max(state.throttle - decayRate * dt, 0);
+    }
+
+    // Brake (B, sandbox-only for now): dump throttle and bleed speed hard.
+    if (raceStarted && inputManager.isKeyPressed('b')) {
+        state.throttle = Math.max(state.throttle - throttleRate * 3 * dt, 0);
+        state.velocity.y *= Math.pow(0.95, dt);
     }
 
     const STEER_GAIN = 3.0;

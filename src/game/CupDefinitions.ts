@@ -43,9 +43,10 @@ export const CUPS: Cup[] = [
         theme: 'Desert Canyons',
         description: 'Threading rock spires and gorges through blinding dust storms.',
         accent: 0xff8c1a,
-        // Mesa Run is built — grouped under Sunscorch on Track Select — but the
-        // cup stays locked in New Game until the rest of the desert arc is built.
-        trackIds: ['track_6'],
+        // Mesa Run + Beggar's Gorge are built — grouped under Sunscorch on Track
+        // Select — but the cup stays locked in New Game until the rest of the
+        // desert arc is built.
+        trackIds: ['track_6', 'track_7'],
         comingSoon: true,
         plannedTracks: ['Dune Sprint', 'Mesa Run', "Beggar's Gorge", 'Sandstorm Pass', 'Solstice Classic'],
     },

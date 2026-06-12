@@ -33,9 +33,9 @@ const TRACKS = [
     {
         id: 'track_7', name: "Beggar's Gorge",
         points: [
-            [0, 0, 0], [0, 12, -300], [0, 20, -620], [-80, 16, -940], [-260, 0, -1300],
-            [-300, -22, -1680], [-160, -30, -2020], [140, -18, -2200], [520, -2, -2180], [800, 4, -1900],
-            [860, 6, -1520], [740, 4, -1160], [520, 2, -900], [360, 0, -680], [180, 0, -540],
+            [0, 0, 0], [0, 9, -300], [0, 10, -620], [-80, 4, -940], [-260, -8, -1300],
+            [-300, -24, -1680], [-160, -30, -2020], [140, -18, -2200], [520, -8, -2180], [800, -2, -1900],
+            [860, 1, -1520], [740, 0, -1160], [520, 0, -900], [360, 0, -680], [180, 0, -540],
             [0, 0, -420], [-220, 0, -260], [-260, 0, 100], [-60, 0, 220],
         ],
     },
@@ -135,7 +135,7 @@ for (const track of TRACKS) {
     // Walk the clamp boundary densely; for each ship-centre boundary point find the
     // true nearest distance to that side's wall polyline. Penetration = HALF − dist.
     const STEPS = 4000;
-    let worst: { t: number; side: number; pen: number; x: number; z: number }[] = [];
+    const worst: { t: number; side: number; pen: number; x: number; z: number }[] = [];
     for (let s = 0; s < STEPS; s++) {
         const t = s / STEPS;
         const p = curve.getPoint(t);
