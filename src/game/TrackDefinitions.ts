@@ -426,7 +426,7 @@ export const TRACK_6: TrackConfig = {
     ],
 };
 
-// Track 7: Beggar's Gorge — second of the Sunscorch (desert) cup, a notch
+// Track 7: Sand Hollow — second of the Sunscorch (desert) cup, a notch
 // harder than Mesa Run. New canyon features (all driven by the optional
 // TrackConfig fields below): a narrowing width profile, a self-crossing with a
 // viaduct bridge, real elevation over a static desert, a sunken slot canyon,
@@ -434,8 +434,8 @@ export const TRACK_6: TrackConfig = {
 // CanyonTerrain's zoned build.
 export const TRACK_7: TrackConfig = {
     id: 'track_7',
-    name: "Beggar's Gorge",
-    description: 'A pinched tunnel, a boulder gauntlet, and a long climbing sweep through the rock.',
+    name: "Sand Hollow",
+    description: 'Drop below the desert: a sunken canyon, an underground tunnel, and a boulder gauntlet.',
     difficulty: 3,
     surface: { base: 0x5a4a2e, accent: 0xff9a3c, centerLine: false }, // dark sand road, hot-amber rails
     terrain: 'canyon',

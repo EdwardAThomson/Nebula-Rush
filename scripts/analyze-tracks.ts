@@ -174,7 +174,7 @@ const TRACKS = [
     },
     {
         id: 'track_7',
-        name: "Beggar's Gorge",
+        name: "Sand Hollow",
         points: [
             new THREE.Vector3(0, 0, 0),       // 0 start line (grade)
             new THREE.Vector3(0, 9, -300),    // 1 climbing onto the bridge
@@ -446,7 +446,7 @@ const VISIBILITY: Record<string, number> = { track_1: 1, track_2: 1, track_3: 1,
 // math) for tracks whose width varies along the lap. Lets a hazard in a pinched
 // section read as more walling. Keyed by track → hazard t. Absent → ROAD_HALF.
 const WIDTH_HALF: Record<string, Record<number, number>> = {
-    // Beggar's Gorge pinches into the tunnel (~38) and opens on the sweep (~78).
+    // Sand Hollow pinches into the tunnel (~38) and opens on the sweep (~78).
     track_7: { 0.27: 38, 0.41: 66, 0.46: 76, 0.60: 72 },
 };
 

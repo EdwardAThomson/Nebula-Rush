@@ -31,7 +31,7 @@ const TRACKS = [
         ],
     },
     {
-        id: 'track_7', name: "Beggar's Gorge",
+        id: 'track_7', name: "Sand Hollow",
         points: [
             [0, 0, 0], [0, 9, -300], [0, 10, -620], [-80, 4, -940], [-260, -8, -1300],
             [-300, -24, -1680], [-160, -30, -2020], [140, -18, -2200], [520, -8, -2180], [800, -2, -1900],
@@ -41,7 +41,7 @@ const TRACKS = [
     },
 ];
 
-// Per-track width profile (half-width). Beggar's Gorge varies; Mesa is constant 60.
+// Per-track width profile (half-width). Sand Hollow varies; Mesa is constant 60.
 const WIDTH: Record<string, { t: number; half: number }[]> = {
     track_7: [
         { t: 0.00, half: 58 }, { t: 0.10, half: 56 }, { t: 0.18, half: 46 }, { t: 0.26, half: 38 },
@@ -73,7 +73,7 @@ const pnoise = (t: number, seed: number): number =>
     Math.sin(t * TAU * 3 + seed * 6.28) * 0.5 + Math.sin(t * TAU * 7 + seed * 14.1) * 0.3 + Math.sin(t * TAU * 13 + seed * 4.7) * 0.2;
 
 // Mesa-style fixed offset (matches shipped CanyonTerrain: base 66 ± 3, capped on
-// inside of bends). Beggar's uses the width profile + shoulder; both share the cap.
+// inside of bends). Sand Hollow uses the width profile + shoulder; both share the cap.
 const SHOULDER = 6, OFF_VAR = 3, SHIP_HALF = 8;
 function makeWallOffset(curve: THREE.CatmullRomCurve3, id: string, N: number, segLen: number) {
     const seed = hashString(id);
