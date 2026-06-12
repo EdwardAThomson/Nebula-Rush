@@ -427,13 +427,11 @@ export const TRACK_6: TrackConfig = {
 };
 
 // Track 7: Beggar's Gorge — second of the Sunscorch (desert) cup, a notch
-// harder than Mesa Run. A faster gorge that pinches into a roofed tunnel on a
-// short descending dive, opens into a boulder gauntlet, sweeps wide, then climbs
-// back out. New canyon features: a narrowing width profile, a tunnel section,
-// and modest elevation (the walls follow the road up/down).
-//
-// NOTE: deliberately NOT in TRACKS yet — prototyped in the gorge sandbox first,
-// then wired into TRACKS + the Sunscorch cup once confirmed.
+// harder than Mesa Run. New canyon features (all driven by the optional
+// TrackConfig fields below): a narrowing width profile, a self-crossing with a
+// viaduct bridge, real elevation over a static desert, a sunken slot canyon,
+// and an underground tunnel. Prototyped in sandbox/gorge.html, then ported to
+// CanyonTerrain's zoned build.
 export const TRACK_7: TrackConfig = {
     id: 'track_7',
     name: "Beggar's Gorge",
@@ -515,7 +513,7 @@ export const TRACK_7: TrackConfig = {
     ],
 };
 
-export const TRACKS = [TRACK_1, TRACK_2, TRACK_3, TRACK_4, TRACK_5, TRACK_6];
+export const TRACKS = [TRACK_1, TRACK_2, TRACK_3, TRACK_4, TRACK_5, TRACK_6, TRACK_7];
 
 // Minimal, gentle loop used by the interactive tutorial. Flat, wide, sweeping
 // bends, one laterally-offset boost pad. NOT part of TRACKS (not selectable).
