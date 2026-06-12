@@ -305,9 +305,9 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     const bankTrack = currentTrack.terrain !== 'canyon';
     // Per-t hard-wall lateral clamp for canyon tracks (player + AI share it).
     const wallLimit = currentTrack.terrain === 'canyon'
-      ? createCanyonWallLimit(trackCurve, currentTrack.id)
+      ? createCanyonWallLimit(trackCurve, currentTrack.id, currentTrack.widthProfile)
       : undefined;
-    const trackMesh = createTrackMesh(trackCurve, currentTrack.surface, bankTrack, currentTrack.terrain);
+    const trackMesh = createTrackMesh(trackCurve, currentTrack.surface, bankTrack, currentTrack.terrain, currentTrack.widthProfile);
     scene.add(trackMesh);
 
     // Environment Setup (Must be after trackCurve creation to place glowglobes)
@@ -317,7 +317,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     // reads consistently — over the player's chosen env in single race, or over
     // a random per-track env in campaign (each track keeps its lighting variety).
     const baseEnv = forcedEnvironment || EnvironmentManager.generateRandomConfig();
-    const envConfig = { ...baseEnv, ...envBias, terrain: currentTrack.terrain };
+    const envConfig = { ...baseEnv, ...envBias, terrain: currentTrack.terrain, desertHaze: !!currentTrack.canyon };
     envManager.setup(envConfig, trackCurve, currentTrack.id);
     // Time-of-day tone-mapping exposure (space tracks dim at night / brighten by
     // day; 1.0 otherwise). EnvironmentManager computes it during setup.
@@ -328,7 +328,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     // track's rises/dips read. Opt-in per track (see TrackConfig.depthCues).
     if (currentTrack.terrain === 'canyon') {
       const canyon = new CanyonTerrain(scene);
-      canyon.setup(trackCurve, currentTrack.id);
+      canyon.setup(trackCurve, currentTrack.id, currentTrack);
       canyonTerrainRef.current = canyon;
       worldReferenceRef.current = null;
     } else if (currentTrack.depthCues) {

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { BoostPad, Hazard } from './TrackDefinitions';
-import { HAZARD_BLOCK_DEPTH } from './TrackDefinitions';
+import { HAZARD_BLOCK_DEPTH, widthAt } from './TrackDefinitions';
 
 // Create track path using curve
 export const createTrackCurve = (points: THREE.Vector3[]): THREE.CatmullRomCurve3 => {
@@ -467,11 +467,10 @@ const createRoadGrainNormal = (): THREE.Texture => {
     return tex;
 };
 
-export const createTrackMesh = (trackCurve: THREE.CatmullRomCurve3, surface?: { base: number; accent: number; centerLine?: boolean }, bank: boolean = true, terrain?: 'canyon'): THREE.Mesh => {
+export const createTrackMesh = (trackCurve: THREE.CatmullRomCurve3, surface?: { base: number; accent: number; centerLine?: boolean }, bank: boolean = true, terrain?: 'canyon', widthProfile?: { t: number; half: number }[]): THREE.Mesh => {
     const trackSegments = 1600; // Optimized resolution (was 2400)
     // const trackWidth = 20;
     const trackDepth = 10; // Deeper walls for wider track
-    const flatBottomWidth = 120; // Double track width (was 60)
 
     const geometry = new THREE.BufferGeometry();
     const vertices: number[] = [];
@@ -483,13 +482,18 @@ export const createTrackMesh = (trackCurve: THREE.CatmullRomCurve3, surface?: { 
         // Use the consistent frame generator
         const { position: point, normal, binormal } = getTrackFrame(trackCurve, t, bank);
 
+        // Local road half-width: per-t when the track declares a widthProfile
+        // (pinches/widenings), otherwise the default 60 (= legacy 120 full
+        // width — identical for every existing track).
+        const halfW = widthAt(widthProfile, t);
+
         // Create flat-bottomed U-shaped cross-section like \___/
         const crossSectionPoints = [];
 
         // Left wall (angled up from bottom)
         const wallPoints = 10;
         for (let j = 0; j <= wallPoints; j++) {
-            const x = -flatBottomWidth / 2 - (wallPoints - j) * (trackDepth / wallPoints);
+            const x = -halfW - (wallPoints - j) * (trackDepth / wallPoints);
             const y = (wallPoints - j) * (trackDepth / wallPoints);
             crossSectionPoints.push({ x, y });
         }
@@ -497,13 +501,13 @@ export const createTrackMesh = (trackCurve: THREE.CatmullRomCurve3, surface?: { 
         // Flat bottom (left to right)
         const bottomPoints = 8;
         for (let j = 1; j < bottomPoints; j++) {
-            const x = -flatBottomWidth / 2 + (j / bottomPoints) * flatBottomWidth;
+            const x = -halfW + (j / bottomPoints) * halfW * 2;
             crossSectionPoints.push({ x, y: 0 });
         }
 
         // Right wall (angled up from bottom)
         for (let j = 0; j <= wallPoints; j++) {
-            const x = flatBottomWidth / 2 + j * (trackDepth / wallPoints);
+            const x = halfW + j * (trackDepth / wallPoints);
             const y = j * (trackDepth / wallPoints);
             crossSectionPoints.push({ x, y });
         }
