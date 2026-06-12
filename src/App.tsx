@@ -717,6 +717,7 @@ function App() {
                     <span className="text-white font-mono">W&nbsp;/&nbsp;↑</span><span>Accelerate</span>
                     <span className="text-white font-mono">Q&nbsp;/&nbsp;E&nbsp;·&nbsp;←&nbsp;/&nbsp;→</span><span>Steer left / right</span>
                     <span className="text-white font-mono">A&nbsp;/&nbsp;D</span><span>Strafe (side thrust)</span>
+                    <span className="text-white font-mono">B</span><span>Brake</span>
                     <span className="text-white font-mono">P</span><span>Screenshot</span>
                     <span className="text-white font-mono">H</span><span>Toggle HUD</span>
                   </div>

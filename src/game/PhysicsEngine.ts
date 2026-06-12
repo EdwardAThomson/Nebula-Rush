@@ -23,6 +23,7 @@ export interface GameState {
     turnSpeed: number;
     strafeSpeed: number; // New: Side thruster power
     cameraLateral: number; // Visual-only laggy camera position
+    wallContact?: number; // set by checkCollision: −1/+1 = pressed against that wall, 0 = free
     boostTimer: number; // Time remaining for speed boost
     lastBoostPadIndex: number; // Track which pad was last hit (for sound effects)
     hazardCooldown: number; // Seconds of immunity after a block hit (stops cluster re-trigger / vibration)
@@ -53,6 +54,7 @@ export const INITIAL_GAME_STATE: GameState = {
     turnSpeed: 0.001,  // turn speed 0.02 was too fast
     strafeSpeed: 0.01, // 0.01 best
     cameraLateral: 0, // Visual-only laggy camera position
+    wallContact: 0,
     boostTimer: 0,
     lastBoostPadIndex: -1,
     hazardCooldown: 0,
@@ -89,6 +91,13 @@ export const updatePhysics = (
         state.throttle = Math.max(state.throttle - decayRate * dt, 0);
     }
 
+    // Brake (B): dump throttle and bleed longitudinal speed hard while held.
+    // Player-only in practice (the AI never presses it).
+    if (raceStarted && inputManager.isKeyPressed('b')) {
+        state.throttle = Math.max(state.throttle - throttleRate * 3 * dt, 0);
+        state.velocity.y *= Math.pow(0.95, dt);
+    }
+
     // 2. Steering (Yaw) — player-only (the AI steers via strafe). Stronger yaw
     // authority + a visible bank so Q/E reads as real steering that arcs your
     // line, not a nose twitch. Still on-rails; changing this can't affect the AI.
@@ -96,11 +105,16 @@ export const updatePhysics = (
     const STEER_GAIN = 3.0;   // amplify yaw build-up for a meatier arc
     const STEER_BANK = 0.35;  // roll/lean into the turn (matches strafe's feel)
     const MAX_YAW = 0.4;      // clamp so the nose can't crab to extremes
+    // While pressed against a wall, the nose swings 3x faster: at the normal
+    // slew rate, traversing yaw from into-the-wall to away takes 2-4 SECONDS —
+    // which read as the ship being stuck on an invisible rail. Mid-track
+    // steering (small yaw moves around centre) is unaffected.
+    const steerSlew = state.turnSpeed * STEER_GAIN * (state.wallContact ? 3.0 : 1.0);
     if (inputManager.isKeyPressed('q')) {
-        state.yaw += state.turnSpeed * STEER_GAIN * dt;
+        state.yaw += steerSlew * dt;
         state.targetRotation = -STEER_BANK; // lean left into the turn
     } else if (inputManager.isKeyPressed('e')) {
-        state.yaw -= state.turnSpeed * STEER_GAIN * dt;
+        state.yaw -= steerSlew * dt;
         state.targetRotation = STEER_BANK;  // lean right into the turn
     } else {
         state.yaw *= Math.pow(0.98, dt); // Self-align
@@ -131,6 +145,22 @@ export const updatePhysics = (
     if (inputManager.isKeyPressed('ArrowLeft') || inputManager.isKeyPressed('a')) { // Left Strafe
         state.velocity.x -= state.strafeSpeed * dt;
         state.targetRotation = -0.4;
+    }
+
+    // Wall PUSH-OFF: while pressed against a wall (flag set by checkCollision
+    // last frame), steering AWAY converts directly into departure speed — the
+    // nose biting away peels the craft off, the way wheels would. Contact
+    // zeroes lateral momentum (a hard wall should), so without this only yaw's
+    // tiny lateral thrust component remains and escape reads as an invisible
+    // rail. Active only during contact; mid-track handling is untouched.
+    if (state.wallContact) {
+        const away = -state.wallContact; // lateral direction off the wall
+        const steeringAway = away < 0
+            ? (inputManager.isKeyPressed('a') || inputManager.isKeyPressed('ArrowLeft') || inputManager.isKeyPressed('q') || state.yaw > 0.05)
+            : (inputManager.isKeyPressed('d') || inputManager.isKeyPressed('ArrowRight') || inputManager.isKeyPressed('e') || state.yaw < -0.05);
+        // Sized off thrust (not strafe): ~half of full-yaw lateral authority,
+        // so the peel-off starts immediately while the nose comes around.
+        if (steeringAway) state.velocity.x += away * state.accelFactor * 0.18 * dt;
     }
 
     // 5. Friction / Drag
@@ -309,12 +339,16 @@ export const updatePhysics = (
     // --- CAMERA LAG ---
     // Smoothly interpolate camera lateral position towards ship lateral position
     // A lower factor (0.05) creates more "weight" and delay
-    state.cameraLateral += (state.lateralPosition - state.cameraLateral) * 0.05 * dt;
+    // 0.05 → 0.12: the old ease took ~1s to catch a big lateral move, so a wall
+    // escape happened physically but didn't READ — the world stayed glued to
+    // the wall line while the ship slid in-frame.
+    state.cameraLateral += (state.lateralPosition - state.cameraLateral) * 0.12 * dt;
 
     return state.trackProgress === 0 && progressChange > 0; // Return true if lap completed (rough check)
 };
 
 const checkCollision = (state: GameState, lateralLimit?: (t: number) => [number, number]) => {
+    state.wallContact = 0; // re-detected every frame below
     if (lateralLimit) {
         // Canyon: clamp to the real rock walls (per-t), killing into-wall slide so
         // you rest on the rock instead of grinding. Replaces the ±60 box wall.
@@ -322,31 +356,57 @@ const checkCollision = (state: GameState, lateralLimit?: (t: number) => [number,
         if (state.lateralPosition < minL) {
             state.lateralPosition = minL;
             if (state.velocity.x < 0) state.velocity.x = 0;
+            state.wallContact = -1;
         } else if (state.lateralPosition > maxL) {
             state.lateralPosition = maxL;
             if (state.velocity.x > 0) state.velocity.x = 0;
+            state.wallContact = 1;
         }
     } else {
         // Default tracks: the fixed ±60 box wall (soft repel + hard clamp).
         const visualWallLimit = 60.0; // Exact edge of flat track
         const softWallLimit = visualWallLimit - 5.0; // Start pushing back earlier (55.0)
         const wallForceStrength = 2.0; // Stronger than engine (beats boost of ~1.35)
+        const WALL_EXIT_NUDGE = 0.4;   // max outward speed the wall itself imparts
 
         if (Math.abs(state.lateralPosition) > softWallLimit) {
             const penetration = Math.abs(state.lateralPosition) - softWallLimit;
             const sign = Math.sign(state.lateralPosition);
-            state.velocity.x -= sign * penetration * wallForceStrength;
+            state.wallContact = sign;
             if (sign * state.velocity.x > 0) {
-                if (Math.abs(state.lateralPosition) > visualWallLimit - 1.0) {
-                    state.velocity.x *= -0.4; // Hard bounce
-                } else {
-                    state.velocity.x *= 0.95; // Soft drag
+                // Moving INTO the wall: decelerate hard — but ABSORB, don't
+                // spring. The raw pen*strength impulse could reverse the ship
+                // at up to ~2x its approach speed; clamp it so the wall stops
+                // you dead with at most a small outward nudge.
+                const decel = Math.min(penetration * wallForceStrength, sign * state.velocity.x + WALL_EXIT_NUDGE);
+                state.velocity.x -= sign * decel;
+                if (sign * state.velocity.x > 0) {
+                    if (Math.abs(state.lateralPosition) > visualWallLimit - 1.0) {
+                        state.velocity.x *= -0.4; // Hard bounce
+                    } else {
+                        state.velocity.x *= 0.95; // Soft drag
+                    }
                 }
+            } else {
+                // Already moving away: gentle ease-off only. (The repel used to
+                // keep compounding on the way OUT of the soft zone too, so every
+                // wall touch became a multi-unit-per-frame bounce.)
+                state.velocity.x -= sign * Math.min(penetration, 1.0) * 0.3;
             }
         }
         if (Math.abs(state.lateralPosition) > visualWallLimit) {
-            state.lateralPosition = Math.sign(state.lateralPosition) * (visualWallLimit - 0.1);
-            state.velocity.x *= -0.2;
+            const sign = Math.sign(state.lateralPosition);
+            state.lateralPosition = sign * (visualWallLimit - 0.1);
+            // Reflect ONLY velocity still moving into the wall. The soft repel
+            // above usually reversed it already — flipping that escape velocity
+            // back inward created a stable limit cycle that pinned the ship to
+            // the wall ("locked on a rail") until a big impulse broke it.
+            if (sign * state.velocity.x > 0) state.velocity.x *= -0.2;
+            // ...and cap the outward rebound LOW: the wall should absorb the
+            // impact and let you peel away under your own steering, not bounce
+            // you back across the track.
+            const outward = -sign * state.velocity.x;
+            if (outward > 1.0) state.velocity.x = -sign * 1.0;
         }
     }
 
