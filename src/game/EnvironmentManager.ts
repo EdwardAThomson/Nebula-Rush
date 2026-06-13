@@ -18,6 +18,9 @@ export interface EnvironmentConfig {
     // sunken-canyon tracks): fades the buttes out before the camera far plane
     // (6000) clips them, so they never pop in. Mesa-style tracks stay fog-free.
     desertHaze?: boolean;
+    // Permanent sandstorm (Sandstorm Pass): a denser, dustier haze that Game.tsx
+    // breathes per frame with the wind. Overrides desertHaze when set.
+    storm?: boolean;
 }
 
 export interface EnvironmentState {
@@ -361,7 +364,13 @@ export class EnvironmentManager {
             // get a faint LINEAR horizon haze ending at the camera far plane
             // (6000), so the buttes fade out rather than pop out.
             this.scene.background = new THREE.Color(timeSettings.skyColor);
-            if (config.desertHaze) {
+            if (config.storm) {
+                // Permanent sandstorm: a darker, dustier haze that sits much
+                // closer than the clear-day version. Game.tsx then BREATHES the
+                // near/far each frame with local wind exposure × gust.
+                const STORM: Record<TimeOfDay, number> = { morning: 0xcba47a, day: 0xc2a87c, evening: 0xb97f52, night: 0x141008 };
+                this.scene.fog = new THREE.Fog(STORM[config.timeOfDay], 2600, 6000);
+            } else if (config.desertHaze) {
                 const HAZE: Record<TimeOfDay, number> = { morning: 0xe6cfae, day: 0xbfdbe8, evening: 0xd99c6a, night: 0x0e1320 };
                 this.scene.fog = new THREE.Fog(HAZE[config.timeOfDay], 3200, 6000);
             } else {

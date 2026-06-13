@@ -65,8 +65,18 @@ export interface TrackConfig {
     // height/style. Zone edges are blended over a short margin.
     canyon?: {
         wall?: { mode: 'full' | 'berm'; height?: number };
-        zones?: { start: number; end: number; mode: 'full' | 'berm' | 'viaduct'; height?: number }[];
+        // Zone modes: 'full' sunken-canyon rock, 'berm' low lips, 'viaduct'
+        // (deck + pillars at a crossover), 'ridge' (road on an exposed crest —
+        // terrain falls away on BOTH sides; the inverse of 'full'), 'crag'
+        // (short road-relative rock towers, e.g. a summit notch).
+        zones?: { start: number; end: number; mode: 'full' | 'berm' | 'viaduct' | 'ridge' | 'crag'; height?: number }[];
     };
+    // Steady lateral WIND (canyon/storm tracks): dir is a world-XZ direction the
+    // wind blows TOWARD; strength is lateral velocity injected per frame at full
+    // exposure and full gust. The per-t exposure profile (interpolated like
+    // widthProfile) maps shelter: 0 = becalmed lee, 1 = fully exposed crest.
+    // Gusting over time is applied by the engine on top.
+    wind?: { dir: [number, number]; strength: number; exposure: { t: number; e: number }[] };
 }
 
 // Default canyon road half-width (world units) when a track has no widthProfile.
@@ -426,7 +436,7 @@ export const TRACK_6: TrackConfig = {
     ],
 };
 
-// Track 7: Beggar's Gorge — second of the Sunscorch (desert) cup, a notch
+// Track 7: Sand Hollow — second of the Sunscorch (desert) cup, a notch
 // harder than Mesa Run. New canyon features (all driven by the optional
 // TrackConfig fields below): a narrowing width profile, a self-crossing with a
 // viaduct bridge, real elevation over a static desert, a sunken slot canyon,
@@ -434,8 +444,8 @@ export const TRACK_6: TrackConfig = {
 // CanyonTerrain's zoned build.
 export const TRACK_7: TrackConfig = {
     id: 'track_7',
-    name: "Beggar's Gorge",
-    description: 'A pinched tunnel, a boulder gauntlet, and a long climbing sweep through the rock.',
+    name: "Sand Hollow",
+    description: 'Drop below the desert: a sunken canyon, an underground tunnel, and a boulder gauntlet.',
     difficulty: 3,
     surface: { base: 0x5a4a2e, accent: 0xff9a3c, centerLine: false }, // dark sand road, hot-amber rails
     terrain: 'canyon',
@@ -513,7 +523,111 @@ export const TRACK_7: TrackConfig = {
     ],
 };
 
-export const TRACKS = [TRACK_1, TRACK_2, TRACK_3, TRACK_4, TRACK_5, TRACK_6, TRACK_7];
+// Track 8: Sandstorm Pass — third of the Sunscorch cup, the storm track. Where
+// Sand Hollow goes UNDER the desert, the Pass goes OVER it: a figure-8 draped
+// across a ridge. Plain dogleg under your own bridge → switchback ladder up the
+// west face → exposed spine → the Notch (summit pinch between crags) → storm
+// descent crossing OVER the approach on a high viaduct → rockslide gauntlet →
+// the sheltered lee home. A permanent sandstorm + per-t lateral wind (see
+// `wind`) are the antagonists; shelter is read from the terrain.
+// With 25 control points each sits at exactly i/25 = i*0.04 in t.
+export const TRACK_8: TrackConfig = {
+    id: 'track_8',
+    name: 'Sandstorm Pass',
+    description: 'Climb the switchbacks into a howling sandstorm, thread the Notch, and dive for shelter.',
+    difficulty: 4,
+    surface: { base: 0x6a5538, accent: 0xffb347, centerLine: false }, // wind-scoured sand, storm-lantern amber rails
+    terrain: 'canyon',
+    points: [
+        new THREE.Vector3(0, 0, 0),        // 0  t=0.00 start line (plain, grade)
+        new THREE.Vector3(60, 0, -300),    // 1  t=0.04 plain straight
+        new THREE.Vector3(180, 1, -560),   // 2  t=0.08 dogleg right
+        new THREE.Vector3(80, 1, -850),    // 3  t=0.12 UNDER the descent bridge
+        new THREE.Vector3(-140, 4, -1000), // 4  t=0.16 foothills, climb begins
+        new THREE.Vector3(-380, 7, -1080), // 5  t=0.20 rung 1, heading W
+        new THREE.Vector3(-620, 9, -1110), // 6  t=0.24 hairpin A entry
+        new THREE.Vector3(-700, 11, -1190),// 7  t=0.28 hairpin A apex (west end)
+        new THREE.Vector3(-620, 13, -1270),// 8  t=0.32 hairpin A exit
+        new THREE.Vector3(-260, 15, -1310),// 9  t=0.36 rung 2, heading E (long)
+        new THREE.Vector3(-150, 17, -1360),// 10 t=0.40 hairpin B entry
+        new THREE.Vector3(-70, 19, -1450), // 11 t=0.44 hairpin B apex (east end)
+        new THREE.Vector3(-150, 21, -1540),// 12 t=0.48 hairpin B exit
+        new THREE.Vector3(-480, 22, -1590),// 13 t=0.52 rung 3, heading W (long)
+        new THREE.Vector3(-620, 24, -1740),// 14 t=0.56 turning N up the spine
+        new THREE.Vector3(-520, 25, -1950),// 15 t=0.60 the Notch (summit pinch)
+        new THREE.Vector3(-260, 23, -2090),// 16 t=0.64 crest, turning E
+        new THREE.Vector3(40, 18, -2010),  // 17 t=0.68 saddle, descent begins SE
+        new THREE.Vector3(230, 13, -1760), // 18 t=0.72 descending sweep S
+        new THREE.Vector3(260, 10, -1430), // 19 t=0.76 east face, S
+        new THREE.Vector3(90, 9, -870),    // 20 t=0.80 BRIDGE over the approach (pt 3)
+        new THREE.Vector3(30, 4, -560),    // 21 t=0.84 down to the flat — gauntlet
+        new THREE.Vector3(-180, 1, -280),  // 22 t=0.88 lee curve W
+        new THREE.Vector3(-220, 0, 40),    // 23 t=0.92 behind the grid
+        new THREE.Vector3(-70, 0, 200),    // 24 t=0.96 final approach → line
+    ].map(p => p.multiplyScalar(SCALE * 2)),
+    // Wide on the plain, narrowing up the ladder, pinched hard at the Notch,
+    // narrow again on the bridge deck, wide open through the gauntlet.
+    widthProfile: [
+        { t: 0.00, half: 60 },
+        { t: 0.12, half: 56 }, // underpass
+        { t: 0.20, half: 50 }, // ladder
+        { t: 0.44, half: 48 },
+        { t: 0.56, half: 44 }, // spine
+        { t: 0.60, half: 36 }, // the Notch — tightest
+        { t: 0.64, half: 46 },
+        { t: 0.70, half: 56 }, // descent
+        { t: 0.80, half: 46 }, // bridge deck
+        { t: 0.84, half: 70 }, // gauntlet, wide open
+        { t: 0.92, half: 62 },
+    ],
+    canyon: {
+        wall: { mode: 'berm', height: 14 }, // open desert: low broken lips
+        zones: [
+            { start: 0.16, end: 0.575, mode: 'ridge', height: 10 },  // ladder + spine: exposed crest
+            { start: 0.575, end: 0.625, mode: 'crag', height: 90 },  // the Notch: rock towers flanking the pinch
+            { start: 0.625, end: 0.78, mode: 'ridge', height: 10 },  // crest + storm descent
+            { start: 0.785, end: 0.815, mode: 'viaduct' },           // the bridge over the approach
+        ],
+    },
+    // Wind blows W→E (+x with a touch of +z). Exposure: building up the ladder,
+    // full on the spine/Notch/bridge, fading on the descent, becalmed in the lee.
+    // FORCE BUDGET: strength x max exposure (1.1) must stay BELOW the weakest
+    // ship's strafeSpeed (0.009), or the downwind wall becomes a trap that
+    // strafing (the AI's only steering) can never escape. Wind bends your line
+    // over seconds; it must never out-muscle the controls per frame.
+    wind: {
+        dir: [1, 0.15],
+        strength: 0.0055, // transient gust peaks may graze the budget — events are short, so nothing stays pinned
+
+        exposure: [
+            { t: 0.00, e: 0.45 }, { t: 0.12, e: 0.35 }, // plain; bridge overhead gives partial cover
+            { t: 0.16, e: 0.55 }, { t: 0.28, e: 0.75 }, // climbing the ladder
+            { t: 0.44, e: 0.85 }, { t: 0.56, e: 1.0 },  // upper rungs → spine
+            { t: 0.60, e: 1.1 },                        // the Notch: venturi squeeze
+            { t: 0.68, e: 0.95 }, { t: 0.76, e: 0.7 },  // saddle + descent
+            { t: 0.80, e: 1.05 },                       // the exposed bridge deck
+            { t: 0.84, e: 0.35 },                       // dropping into the gauntlet
+            { t: 0.88, e: 0.05 }, { t: 0.92, e: 0.1 },  // the lee — becalmed
+            { t: 0.96, e: 0.3 },
+        ],
+    },
+    pads: [
+        { trackProgress: 0.14, lateralPosition: -20, width: 36, length: 0.02 }, // out of the underpass
+        { trackProgress: 0.365, lateralPosition: -18, width: 36, length: 0.02 },// rung 2 reward — past the slick (0.34, ends 0.35), opposite side
+        { trackProgress: 0.66, lateralPosition: 0, width: 40, length: 0.025 },  // crest exit sprint
+        { trackProgress: 0.90, lateralPosition: 10, width: 40, length: 0.02 },  // lee run home
+    ],
+    hazards: [
+        { type: 'slick', trackProgress: 0.34, lateralPosition: 14, width: 40, length: 0.02 },   // wet rung 2
+        { type: 'slick', trackProgress: 0.73, lateralPosition: 20, width: 56, length: 0.025 },  // storm descent
+        { type: 'block', trackProgress: 0.83, lateralPosition: -30, width: 16, length: 0.015 }, // rockslide, first wave
+        { type: 'block', trackProgress: 0.83, lateralPosition: -6, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.865, lateralPosition: 28, width: 16, length: 0.015 }, // second wave, opposite side
+        { type: 'block', trackProgress: 0.865, lateralPosition: 6, width: 16, length: 0.015 },
+    ],
+};
+
+export const TRACKS = [TRACK_1, TRACK_2, TRACK_3, TRACK_4, TRACK_5, TRACK_6, TRACK_7, TRACK_8];
 
 // Minimal, gentle loop used by the interactive tutorial. Flat, wide, sweeping
 // bends, one laterally-offset boost pad. NOT part of TRACKS (not selectable).

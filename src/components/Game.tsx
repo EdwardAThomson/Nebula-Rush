@@ -9,6 +9,7 @@ import { OpponentManager, type OpponentConfig } from '../game/OpponentManager';
 import { EnvironmentManager, type EnvironmentConfig } from '../game/EnvironmentManager';
 import { WorldReference } from '../game/WorldReference';
 import { CanyonTerrain, createCanyonWallLimit } from '../game/CanyonTerrain';
+import { createWind } from '../game/WindSystem';
 import { Leaderboard, type RaceResult } from './Leaderboard';
 import { TRACKS, type TrackConfig } from '../game/TrackDefinitions';
 import TutorialOverlay from './TutorialOverlay';
@@ -38,6 +39,13 @@ interface GameProps {
 }
 
 const POINTS_TABLE = [100, 93, 87, 82, 78, 75, 72, 69, 66, 63, 60, 58, 56, 54, 52, 50, 48, 46, 44, 42];
+
+// FNV-1a → uint32, for seeding deterministic per-track scatter (storm streaks).
+const hashStr = (s: string): number => {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+};
 
 type RaceState = 'intro' | 'racing' | 'finished' | 'results';
 
@@ -307,6 +315,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     const wallLimit = currentTrack.terrain === 'canyon'
       ? createCanyonWallLimit(trackCurve, currentTrack.id, currentTrack.widthProfile)
       : undefined;
+    // Storm wind (Sandstorm Pass). enabled=false (no `wind` config) → all no-ops.
+    const wind = createWind(trackCurve, currentTrack);
     const trackMesh = createTrackMesh(trackCurve, currentTrack.surface, bankTrack, currentTrack.terrain, currentTrack.widthProfile);
     scene.add(trackMesh);
 
@@ -317,7 +327,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     // reads consistently — over the player's chosen env in single race, or over
     // a random per-track env in campaign (each track keeps its lighting variety).
     const baseEnv = forcedEnvironment || EnvironmentManager.generateRandomConfig();
-    const envConfig = { ...baseEnv, ...envBias, terrain: currentTrack.terrain, desertHaze: !!currentTrack.canyon };
+    const envConfig = { ...baseEnv, ...envBias, terrain: currentTrack.terrain, desertHaze: !!currentTrack.canyon, storm: wind.enabled };
     envManager.setup(envConfig, trackCurve, currentTrack.id);
     // Time-of-day tone-mapping exposure (space tracks dim at night / brighten by
     // day; 1.0 otherwise). EnvironmentManager computes it during setup.
@@ -339,6 +349,33 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     } else {
       worldReferenceRef.current = null;
       canyonTerrainRef.current = null;
+    }
+
+    // Storm dust STREAKS: instanced slashes riding the wind around the player,
+    // their length/opacity/drift following the gust so an event is unmistakable.
+    // Built once here; updated each frame in the render loop. (null when no wind.)
+    let streaks: THREE.InstancedMesh | null = null;
+    const streakSeed = new Float32Array(420 * 4);
+    const streakQuat = new THREE.Quaternion();
+    const streakM = new THREE.Matrix4(), streakP = new THREE.Vector3(), streakS = new THREE.Vector3();
+    let driftPhase = 0;
+    if (wind.enabled) {
+      const STREAKS = 420;
+      const geo = new THREE.BoxGeometry(1, 0.8, 0.8); // unit length along +x, scaled per frame
+      const mat = new THREE.MeshBasicMaterial({ color: 0xf4e0b8, transparent: true, opacity: 0.4, depthWrite: false });
+      streaks = new THREE.InstancedMesh(geo, mat, STREAKS);
+      streaks.frustumCulled = false;
+      scene.add(streaks);
+      streakQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.atan2(-wind.dir.y, wind.dir.x));
+      // Deterministic per-track scatter (no Math.random → fixed once and for all).
+      let rs = (hashStr(currentTrack.id) ^ 0x51bdc) >>> 0;
+      const rnd = () => { rs = (Math.imul(rs ^ (rs >>> 15), 1 | rs) + 1) >>> 0; return rs / 4294967296; };
+      for (let i = 0; i < STREAKS; i++) {
+        streakSeed[i * 4] = (rnd() * 2 - 1) * 600;
+        streakSeed[i * 4 + 1] = 2 + rnd() * 95;
+        streakSeed[i * 4 + 2] = (rnd() * 2 - 1) * 600;
+        streakSeed[i * 4 + 3] = 0.7 + rnd() * 1.1;
+      }
     }
 
     // Create Boost Pads
@@ -416,6 +453,24 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       }
       minimapCtx.stroke();
 
+      // Overlay tunnel stretches in amber (canyon tracks with roofed sections).
+      if (currentTrack.tunnels?.length) {
+        minimapCtx.strokeStyle = '#ffd9a0';
+        minimapCtx.lineWidth = 3;
+        for (const tn of currentTrack.tunnels) {
+          const i0 = Math.floor(tn.start * 200), i1 = Math.ceil(tn.end * 200);
+          minimapCtx.beginPath();
+          for (let i = i0; i <= i1; i++) {
+            const point = trackCurve.getPoint((i / 200) % 1);
+            const x = 100 + (point.x - (minX + maxX) / 2) * scale;
+            const z = 100 + (point.z - (minZ + maxZ) / 2) * scale;
+            if (i === i0) minimapCtx.moveTo(x, z);
+            else minimapCtx.lineTo(x, z);
+          }
+          minimapCtx.stroke();
+        }
+      }
+
       // Draw start line
       const startPoint = trackCurve.getPoint(0);
       const startX = 100 + (startPoint.x - (minX + maxX) / 2) * scale;
@@ -442,7 +497,22 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       // Redraw minimap
       drawMinimap();
 
-      // Draw ship position
+      const cx = (minimapBounds.minX + minimapBounds.maxX) / 2;
+      const cz = (minimapBounds.minZ + minimapBounds.maxZ) / 2;
+
+      // Draw opponent positions (cyan dots), under the player marker.
+      if (opponentManager.current) {
+        minimapCtx.fillStyle = '#66ccff';
+        for (const opp of opponentManager.current.opponents) {
+          const ox = 100 + (opp.mesh.position.x - cx) * minimapBounds.scale;
+          const oz = 100 + (opp.mesh.position.z - cz) * minimapBounds.scale;
+          minimapCtx.beginPath();
+          minimapCtx.arc(ox, oz, 2, 0, Math.PI * 2);
+          minimapCtx.fill();
+        }
+      }
+
+      // Draw ship position (magenta), on top
       minimapCtx.fillStyle = '#ff00ff';
       minimapCtx.beginPath();
       minimapCtx.arc(x, z, 4, 0, Math.PI * 2);
@@ -456,7 +526,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
     // Opponent Manager
     // Always create a new manager because 'scene' is new on every mount/effect run.
-    opponentManager.current = new OpponentManager(scene, trackCurve, roster, bankTrack, wallLimit);
+    opponentManager.current = new OpponentManager(scene, trackCurve, roster, bankTrack, wallLimit, wind.enabled ? wind.lateralForce : undefined);
 
 
 
@@ -582,6 +652,10 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       }
 
       // --- PLAYER UPDATE ---
+      // The storm shoves the player before physics integrates this frame.
+      if (wind.enabled && raceStartedRef.current) {
+        playerShip.current.state.velocity.x += wind.lateralForce(playerShip.current.state.trackProgress, gameTimeRef.current) * dt;
+      }
       // If player finished, they can still move? Or auto-pilot?
       // For now, let them drive but ignoring laps.
       playerShip.current.update(dt, inputManager, trackLength, currentTrack.pads, (msg: any) => {
@@ -715,6 +789,11 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       const { position: trackPos, tangent, normal, binormal: trackBinormal } = getTrackFrame(trackCurve, currentState.trackProgress, bankTrack);
 
       playerShip.current.updateMesh(trackCurve, bankTrack);
+      // Visual wind lean: the ship rolls against the local shove (subtle on the
+      // exposed baseline, ~12° at a full gust). Mesh dressing only, no physics.
+      if (wind.enabled) {
+        playerShip.current.mesh.rotateZ(wind.lateralForce(currentState.trackProgress, gameTimeRef.current) * 26);
+      }
 
       // --- Camera Update ---
       const cameraFollowRatio = 0.0;
@@ -746,6 +825,13 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         const lookAtTarget = playerShip.current.mesh.position.clone().add(cameraForward.clone().multiplyScalar(20));
         camera.lookAt(lookAtTarget);
         camera.up.copy(normal);
+        // Gust BUFFET: small camera shake scaled by local exposure × gust — the
+        // strongest "the wind is physical" cue. Zero in the lee / between gusts.
+        if (wind.enabled) {
+          const buffet = Math.min(1, wind.exposure(currentState.trackProgress)) * Math.max(0, wind.gust(gameTimeRef.current) - 0.28);
+          camera.position.x += (Math.sin(now * 0.031) + Math.sin(now * 0.017 + 1.3)) * 0.55 * buffet;
+          camera.position.y += Math.sin(now * 0.023 + 2.1) * 0.45 * buffet;
+        }
       } else {
         camera.position.copy(trackPos.clone().add(normal.multiplyScalar(5)));
       }
@@ -769,6 +855,36 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       envManager.update(dt, playerShip.current.mesh.position);
       worldReferenceRef.current?.update(playerShip.current.mesh.position);
       canyonTerrainRef.current?.update(playerShip.current.mesh.position);
+
+      // --- STORM: drive the dust streaks + breathe the fog with the wind ---
+      if (streaks && wind.enabled) {
+        const ms = gameTimeRef.current;
+        const gust = wind.gust(ms);
+        const expo = wind.exposure(currentState.trackProgress);
+        driftPhase += deltaMs * (0.2 + 1.3 * gust);
+        const p0 = playerShip.current.mesh.position;
+        const f01 = Math.min(1, expo) * Math.max(0, gust);
+        const len = 14 + 80 * Math.max(0, gust - 0.12) * Math.max(0.25, Math.min(1, expo));
+        for (let i = 0; i < 420; i++) {
+          const spd = streakSeed[i * 4 + 3];
+          const drift = (driftPhase * spd) % 1200;
+          let sx = streakSeed[i * 4] + wind.dir.x * drift;
+          let sz = streakSeed[i * 4 + 2] + wind.dir.y * drift;
+          sx = ((sx + 600) % 1200 + 1200) % 1200 - 600;
+          sz = ((sz + 600) % 1200 + 1200) % 1200 - 600;
+          streakP.set(p0.x + sx, p0.y - 14 + streakSeed[i * 4 + 1], p0.z + sz);
+          streakS.set(Math.max(4, len * (0.5 + 0.5 * (spd - 0.7))), 0.8, 0.8);
+          streakM.compose(streakP, streakQuat, streakS);
+          streaks.setMatrixAt(i, streakM);
+        }
+        streaks.instanceMatrix.needsUpdate = true;
+        (streaks.material as THREE.MeshBasicMaterial).opacity = 0.24 + 0.5 * f01;
+        const fog = scene.fog as THREE.Fog | null;
+        if (fog) {
+          fog.near += ((2900 - 2100 * f01) - fog.near) * 0.09;
+          fog.far += ((6000 - 2500 * f01) - fog.far) * 0.09;
+        }
+      }
 
       updateMinimapShip();
       renderer.render(scene, camera);

@@ -31,7 +31,7 @@ const TRACKS = [
         ],
     },
     {
-        id: 'track_7', name: "Beggar's Gorge",
+        id: 'track_7', name: "Sand Hollow",
         points: [
             [0, 0, 0], [0, 9, -300], [0, 10, -620], [-80, 4, -940], [-260, -8, -1300],
             [-300, -24, -1680], [-160, -30, -2020], [140, -18, -2200], [520, -8, -2180], [800, -2, -1900],
@@ -39,13 +39,29 @@ const TRACKS = [
             [0, 0, -420], [-220, 0, -260], [-260, 0, 100], [-60, 0, 220],
         ],
     },
+
+    {
+        id: 'track_8', name: 'Sandstorm Pass',
+        points: [
+            [0, 0, 0], [60, 0, -300], [180, 1, -560], [80, 1, -850], [-140, 4, -1000],
+            [-380, 7, -1080], [-620, 9, -1110], [-700, 11, -1190], [-620, 13, -1270], [-260, 15, -1310],
+            [-150, 17, -1360], [-70, 19, -1450], [-150, 21, -1540], [-480, 22, -1590], [-620, 24, -1740],
+            [-520, 25, -1950], [-260, 23, -2090], [40, 18, -2010], [230, 13, -1760], [260, 10, -1430],
+            [90, 9, -870], [30, 4, -560], [-180, 1, -280], [-220, 0, 40], [-70, 0, 200],
+        ],
+    },
 ];
 
-// Per-track width profile (half-width). Beggar's Gorge varies; Mesa is constant 60.
+// Per-track width profile (half-width). Sand Hollow varies; Mesa is constant 60.
 const WIDTH: Record<string, { t: number; half: number }[]> = {
     track_7: [
         { t: 0.00, half: 58 }, { t: 0.10, half: 56 }, { t: 0.18, half: 46 }, { t: 0.26, half: 38 },
         { t: 0.34, half: 48 }, { t: 0.42, half: 66 }, { t: 0.50, half: 78 }, { t: 0.58, half: 72 }, { t: 0.68, half: 60 },
+    ],
+    track_8: [
+        { t: 0.00, half: 60 }, { t: 0.12, half: 56 }, { t: 0.20, half: 50 }, { t: 0.44, half: 48 },
+        { t: 0.56, half: 44 }, { t: 0.60, half: 36 }, { t: 0.64, half: 46 }, { t: 0.70, half: 56 },
+        { t: 0.80, half: 46 }, { t: 0.84, half: 70 }, { t: 0.92, half: 62 },
     ],
 };
 const CANYON_DEFAULT_HALF = 60;
@@ -73,7 +89,7 @@ const pnoise = (t: number, seed: number): number =>
     Math.sin(t * TAU * 3 + seed * 6.28) * 0.5 + Math.sin(t * TAU * 7 + seed * 14.1) * 0.3 + Math.sin(t * TAU * 13 + seed * 4.7) * 0.2;
 
 // Mesa-style fixed offset (matches shipped CanyonTerrain: base 66 ± 3, capped on
-// inside of bends). Beggar's uses the width profile + shoulder; both share the cap.
+// inside of bends). Sand Hollow uses the width profile + shoulder; both share the cap.
 const SHOULDER = 6, OFF_VAR = 3, SHIP_HALF = 8;
 function makeWallOffset(curve: THREE.CatmullRomCurve3, id: string, N: number, segLen: number) {
     const seed = hashString(id);

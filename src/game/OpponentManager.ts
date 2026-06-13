@@ -64,18 +64,21 @@ export class OpponentManager {
     private trackCurve: THREE.Curve<THREE.Vector3>;
     private bank: boolean;
     private wallLimit?: (t: number) => [number, number];
+    private windForce?: (t: number, ms: number) => number;
 
     constructor(
         scene: THREE.Scene,
         trackCurve: THREE.Curve<THREE.Vector3>,
         roster: OpponentConfig[],
         bank: boolean = true,
-        wallLimit?: (t: number) => [number, number]
+        wallLimit?: (t: number) => [number, number],
+        windForce?: (t: number, ms: number) => number
     ) {
         this.scene = scene;
         this.trackCurve = trackCurve;
         this.bank = bank;
         this.wallLimit = wallLimit;
+        this.windForce = windForce;
         this.spawnOpponents(roster);
     }
 
@@ -165,14 +168,23 @@ export class OpponentManager {
             }
             controller.update(opponent.state);
 
+            // 1b. The storm shoves the AI too (same wind as the player). Below
+            // the weakest strafe, so a wall-blown AI can always steer back off.
+            if (this.windForce && raceStarted) {
+                opponent.state.velocity.x += this.windForce(opponent.state.trackProgress, gameTime) * dt;
+            }
+
             // 2. Update Physics (same wall clamp as the player → solid walls for AI)
             opponent.update(dt, controller, trackLength, pads, (_msg) => {
                 // Handle lap complete if needed (e.g. AI lap counter)
                 // For now, ignore
             }, raceStarted, gameTime, hazards, this.wallLimit);
 
-            // 3. Update Mesh
+            // 3. Update Mesh (+ visual wind lean: roll against the local shove)
             opponent.updateMesh(this.trackCurve, this.bank);
+            if (this.windForce) {
+                opponent.mesh.rotateZ(this.windForce(opponent.state.trackProgress, gameTime) * 26);
+            }
         }
     }
 }
