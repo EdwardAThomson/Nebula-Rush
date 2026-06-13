@@ -221,7 +221,9 @@ const createSandNormalTexture = (seed: number): THREE.CanvasTexture => {
 // (low broken berm lips), below grade through 'full' zones (slot canyon +
 // tunnel bored underground), above it only on a 'viaduct'. Prototyped and
 // user-approved in sandbox/gorge.ts.
-type CanyonWallMode = 'full' | 'berm' | 'viaduct';
+// 'ridge' and 'crag' (Sandstorm Pass) currently fall through to the berm
+// branch in setupZoned — their real treatments arrive with the track_8 port.
+type CanyonWallMode = 'full' | 'berm' | 'viaduct' | 'ridge' | 'crag';
 const GROUND_DROP = 26;     // open-desert plateau sits this far below the road
 const SHOULDER_DROP = 8;    // narrow gutter strip just outside the road edge
 const DECK_THK = 14;        // viaduct deck slab thickness
@@ -432,24 +434,29 @@ export class CanyonTerrain {
         const frameAt = (t: number) => getTrackFrame(trackCurve, ((t % 1) + 1) % 1, false); // flat frame
         const roadYAt = (t: number) => frameAt(t).position.y;
 
-        // The desert surface: GROUND_DROP below the track's DOMINANT (median)
-        // road height — "grade". Sunken stretches dip under it; viaduct pillar
-        // feet and the far field live on it.
-        const ys: number[] = [];
-        for (let i = 0; i < 200; i++) ys.push(roadYAt(i / 200));
-        ys.sort((a, b) => a - b);
-        const surfaceY = ys[100] - GROUND_DROP;
-        this.floorY = surfaceY;
-
         // Per-t wall-mode config.
         const zones = track.canyon?.zones ?? [];
+
+        // The desert surface: GROUND_DROP below "grade". Grade is the median road
+        // height over the OPEN-DESERT (berm) sections only — on a mountain track
+        // most of the lap is elevated, so a whole-lap median would put the desert
+        // surface up the hillside and sink the real plain "underground". Tracks
+        // with no berm sections (all-canyon) fall back to the whole-lap median.
+        const inNonBerm = (t: number) => zones.some((z) => t >= z.start && t <= z.end && z.mode !== 'berm');
+        const ys: number[] = [];
+        for (let i = 0; i < 200; i++) { const t = i / 200; if (!inNonBerm(t)) ys.push(roadYAt(t)); }
+        if (ys.length === 0) for (let i = 0; i < 200; i++) ys.push(roadYAt(i / 200));
+        ys.sort((a, b) => a - b);
+        const surfaceY = ys[Math.floor(ys.length / 2)] - GROUND_DROP;
+        this.floorY = surfaceY;
+
         const defMode: CanyonWallMode = track.canyon?.wall?.mode ?? 'berm';
         const defHeight = track.canyon?.wall?.height ?? 14;
         const zoneAt = (t: number) => zones.find((z) => t >= z.start && t <= z.end);
         const modeAt = (t: number): CanyonWallMode => zoneAt(t)?.mode ?? defMode;
         const heightOf = (t: number): number => {
             const z = zoneAt(t);
-            if (z) return z.height ?? (z.mode === 'berm' ? defHeight : z.mode === 'viaduct' ? PARAPET : 80);
+            if (z) return z.height ?? (z.mode === 'berm' ? defHeight : z.mode === 'viaduct' ? PARAPET : z.mode === 'ridge' ? 10 : z.mode === 'crag' ? 90 : 80);
             return defHeight;
         };
 
@@ -499,7 +506,17 @@ export class CanyonTerrain {
                 topT[i] = ry + heightOf(t);
                 leanT[i] = 2;
                 cragT[i] = 0;
-            } else { // berm: low broken lip (35%..100% of h) — open desert
+            } else if (mode === 'crag') {
+                // Summit notch: ROAD-RELATIVE rock towers flanking the pinch (the
+                // crags sit ON the ridge, unlike 'full' whose rim is surface-fixed).
+                const z = zoneAt(t)!;
+                const d = Math.min(1, Math.max(0, Math.min(t - z.start, z.end - t) / 0.006));
+                const ss = d * d * (3 - 2 * d);
+                baseT[i] = ry - GROUND_DROP - 60;
+                topT[i] = ry + 10 + (heightOf(t) - 10) * ss;
+                leanT[i] = 6 + (ZONED_LEAN - 6) * ss;
+                cragT[i] = ss;
+            } else { // berm or ridge: low broken lip (35%..100% of h) — open desert / crest
                 const h = heightOf(t);
                 baseT[i] = ry - GROUND_DROP - 20;
                 topT[i] = ry + h * (0.35 + 0.65 * Math.abs(pnoise(t, seed + 0.77)));
@@ -581,6 +598,11 @@ export class CanyonTerrain {
             } else if (mode === 'full') {
                 const gut = ry - SHOULDER_DROP, rim = topS[i];
                 hs = [gut, gut, rim, rim + (S - rim) * 0.45, rim + (S - rim) * 0.85, S];
+            } else if (mode === 'ridge' || mode === 'crag') {
+                // Exposed crest: the ground drops away steeply on BOTH sides — the
+                // road rides a mountain spine, not a causeway plateau.
+                const gut = ry - SHOULDER_DROP, plat = ry - GROUND_DROP;
+                hs = [gut, gut, plat, plat + (S - plat) * 0.62, plat + (S - plat) * 0.93, S];
             } else {
                 const gut = ry - SHOULDER_DROP, plat = ry - GROUND_DROP;
                 hs = [gut, gut, plat, plat + (S - plat) * 0.5, plat + (S - plat) * 0.9, S];
