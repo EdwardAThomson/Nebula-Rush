@@ -870,7 +870,8 @@ export class CanyonTerrain {
             scene.add(rockMesh);
         }
 
-        // --- Background buttes + hills: a band 2200–5000 off the corridor, --
+        // --- Desert landforms: mesas / buttes / hills scattered across the open
+        // floor, from the mid-field (≈900u off the corridor) out to the horizon,
         // clear of every track leg, sparse around full zones (you can't see out
         // of the canyon). Tall enough to clear the horizon from ROAD level.
         {
@@ -881,17 +882,22 @@ export class CanyonTerrain {
             const placed: { x: number; z: number; r: number }[] = [];
             const br = makeRng(seed + 2.7);
             let attempts = 0;
-            while (placed.length < 52 && attempts++ < 4000) {
+            while (placed.length < 110 && attempts++ < 9000) {
                 const t = br();
                 if (zoneAt(t)?.mode === 'full' && br() < 0.8) continue; // sparse where unseen
                 const f = frameAt(t);
                 const side = br() < 0.5 ? -1 : 1;
-                const dist = 2200 + br() * 2800;
+                const r = 320 + br() * 560;
+                // Reach in from the far horizon (≈5200) to the MID-FIELD: nearest
+                // edge stays ≥ 900u off the corridor edge so a landform never
+                // crowds the road, but they now populate the empty middle desert.
+                const dist = (r + 900) + br() * (5200 - (r + 900));
                 const x = f.position.x + f.binormal.x * side * dist;
                 const z = f.position.z + f.binormal.z * side * dist;
-                const r = 380 + br() * 520;
-                if (lineSamples.some((sm) => Math.hypot(sm.x - x, sm.z - z) < r + 1500)) continue;
-                if (placed.some((b) => Math.hypot(b.x - x, b.z - z) < (b.r + r) * 0.65)) continue;
+                // Clear of EVERY leg (figure-8 has a far leg too): center must sit
+                // at least the object radius + 700 off any sampled track point.
+                if (lineSamples.some((sm) => Math.hypot(sm.x - x, sm.z - z) < r + 700)) continue;
+                if (placed.some((b) => Math.hypot(b.x - x, b.z - z) < (b.r + r) * 0.6)) continue;
                 placed.push({ x, z, r });
 
                 const mat = mats[(br() * mats.length) | 0];

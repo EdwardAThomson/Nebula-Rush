@@ -453,6 +453,24 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       }
       minimapCtx.stroke();
 
+      // Overlay tunnel stretches in amber (canyon tracks with roofed sections).
+      if (currentTrack.tunnels?.length) {
+        minimapCtx.strokeStyle = '#ffd9a0';
+        minimapCtx.lineWidth = 3;
+        for (const tn of currentTrack.tunnels) {
+          const i0 = Math.floor(tn.start * 200), i1 = Math.ceil(tn.end * 200);
+          minimapCtx.beginPath();
+          for (let i = i0; i <= i1; i++) {
+            const point = trackCurve.getPoint((i / 200) % 1);
+            const x = 100 + (point.x - (minX + maxX) / 2) * scale;
+            const z = 100 + (point.z - (minZ + maxZ) / 2) * scale;
+            if (i === i0) minimapCtx.moveTo(x, z);
+            else minimapCtx.lineTo(x, z);
+          }
+          minimapCtx.stroke();
+        }
+      }
+
       // Draw start line
       const startPoint = trackCurve.getPoint(0);
       const startX = 100 + (startPoint.x - (minX + maxX) / 2) * scale;
@@ -479,7 +497,22 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       // Redraw minimap
       drawMinimap();
 
-      // Draw ship position
+      const cx = (minimapBounds.minX + minimapBounds.maxX) / 2;
+      const cz = (minimapBounds.minZ + minimapBounds.maxZ) / 2;
+
+      // Draw opponent positions (cyan dots), under the player marker.
+      if (opponentManager.current) {
+        minimapCtx.fillStyle = '#66ccff';
+        for (const opp of opponentManager.current.opponents) {
+          const ox = 100 + (opp.mesh.position.x - cx) * minimapBounds.scale;
+          const oz = 100 + (opp.mesh.position.z - cz) * minimapBounds.scale;
+          minimapCtx.beginPath();
+          minimapCtx.arc(ox, oz, 2, 0, Math.PI * 2);
+          minimapCtx.fill();
+        }
+      }
+
+      // Draw ship position (magenta), on top
       minimapCtx.fillStyle = '#ff00ff';
       minimapCtx.beginPath();
       minimapCtx.arc(x, z, 4, 0, Math.PI * 2);
