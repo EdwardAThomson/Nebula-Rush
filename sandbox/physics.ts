@@ -1,6 +1,8 @@
 // Sandbox-FORKED physics — a copy of src/game/PhysicsEngine.ts's updatePhysics
-// with TWO changes: (1) checkCollision no longer applies the fake ±60 lateral
-// "wall" (the soft-repel + hard-clamp block); (2) a BRAKE key (B). Lateral motion is now
+// with these changes: (1) checkCollision no longer applies the fake ±60
+// lateral "wall" (real geometry owns the lateral limit, set by each sandbox's
+// clampLateral, which also sets state.wallContact); (2) a BRAKE key (B);
+// (3) wall push-off + wall yaw boost, in parity with src PhysicsEngine. Lateral motion is now
 // left entirely to the real-geometry BVH wall collision done in mesa.ts. The
 // ground-floor (vertical) clamp is kept. Everything else — throttle, steering,
 // strafe, boost pads, hazards, lap counting, hover — is identical to the live
@@ -45,11 +47,14 @@ export const updatePhysics = (
     const STEER_GAIN = 3.0;
     const STEER_BANK = 0.35;
     const MAX_YAW = 0.4;
+    // Wall yaw boost (parity with src PhysicsEngine): nose swings 3x faster
+    // while pressed against a wall, so escape doesn't take seconds.
+    const steerSlew = state.turnSpeed * STEER_GAIN * (state.wallContact ? 3.0 : 1.0);
     if (inputManager.isKeyPressed('q')) {
-        state.yaw += state.turnSpeed * STEER_GAIN * dt;
+        state.yaw += steerSlew * dt;
         state.targetRotation = -STEER_BANK;
     } else if (inputManager.isKeyPressed('e')) {
-        state.yaw -= state.turnSpeed * STEER_GAIN * dt;
+        state.yaw -= steerSlew * dt;
         state.targetRotation = STEER_BANK;
     } else {
         state.yaw *= Math.pow(0.98, dt);
@@ -73,6 +78,17 @@ export const updatePhysics = (
     if (inputManager.isKeyPressed('ArrowLeft') || inputManager.isKeyPressed('a')) {
         state.velocity.x -= state.strafeSpeed * dt;
         state.targetRotation = -0.4;
+    }
+
+    // Wall PUSH-OFF (parity with src PhysicsEngine): while pressed against a
+    // wall (flag set by the sandbox's clampLateral), steering away injects
+    // real departure velocity. Sized off thrust, not strafe.
+    if (state.wallContact) {
+        const away = -state.wallContact;
+        const steeringAway = away < 0
+            ? (inputManager.isKeyPressed('a') || inputManager.isKeyPressed('ArrowLeft') || inputManager.isKeyPressed('q') || state.yaw > 0.05)
+            : (inputManager.isKeyPressed('d') || inputManager.isKeyPressed('ArrowRight') || inputManager.isKeyPressed('e') || state.yaw < -0.05);
+        if (steeringAway) state.velocity.x += away * state.accelFactor * 0.18 * dt;
     }
 
     state.velocity.y *= Math.pow(state.friction, dt);

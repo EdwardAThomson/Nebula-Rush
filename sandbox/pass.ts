@@ -1,25 +1,24 @@
-// Beggar's Gorge sandbox — prototyping track_7's NEW canyon features before the
-// port to src:
-//   1. Variable gorge width — the road bed, the rock walls, and the collision
-//      clamp all narrow/widen together from a per-track widthProfile (TRACK_7).
-//   2. A roofed TUNNEL section (rock vault + portal headwalls + a rock lid up at
-//      the gorge rim, sparse marker lamps) over the pinched dive (TRACK_7.tunnels).
-//   3. REAL ELEVATION over real ground — a static terrain apron carries the
-//      road's relief (causeway shoulders, mesa massif around the tunnel, true
-//      surface under the viaduct); the desert never moves with the player.
+// Sandstorm Pass sandbox — prototyping track_8's NEW features before the port:
+//   1. WIND as a physics force: per-t exposure (TRACK_8.wind) x time-varying
+//      gusts -> lateral velocity injected on player AND AI. Shelter is read
+//      from the terrain (becalmed in the lee, hammered on the crest/bridge).
+//   2. A permanent SANDSTORM: fog density + tint driven by local exposure and
+//      the gust cycle, plus wind-aligned dust streaks that telegraph the force.
+//   3. RIDGE terrain ('ridge' zones): the road rides an exposed crest and the
+//      ground falls away on BOTH sides — the inverse of Sand Hollow's canyon —
+//      plus 'crag' zones (road-relative rock towers at the summit Notch).
 //
-// Built on the confirmed Mesa Run flat-frame canyon: physics from the sandbox
-// ./physics fork, the analytic lateral clamp at the real rock offset (no BVH),
-// 19 AI sharing that clamp. Nothing in src/ is mutated (TRACK_7 is imported
-// data; the geometry features are reproduced locally here, then ported).
+// Forked from sandbox/gorge.ts (the proven sunken-canyon prototype). Nothing
+// in src/ is mutated (TRACK_8 is imported data; new geometry/physics features
+// are local here, then ported).
 //
-// Run: with `npm run dev`, open http://localhost:5173/sandbox/gorge.html
+// Run: with `npm run dev`, open http://localhost:5173/sandbox/pass.html
 // Controls: W/↑ thrust, B brake, A/D strafe, Q/E steer, Space/S hop, R reset, 1-4 time.
 
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
-import { TRACK_7, HAZARD_BLOCK_DEPTH, widthAt } from '../src/game/TrackDefinitions';
+import { TRACK_8, HAZARD_BLOCK_DEPTH, widthAt } from '../src/game/TrackDefinitions';
 import type { BoostPad, Hazard } from '../src/game/TrackDefinitions';
 import { createTrackCurve, getTrackFrame } from '../src/game/TrackFactory';
 import { Ship } from '../src/game/Ship';
@@ -28,7 +27,7 @@ import { EnvironmentManager, type TimeOfDay } from '../src/game/EnvironmentManag
 import { SHIP_STATS } from '../src/game/ShipFactory';
 import { updatePhysics } from './physics';
 
-const TRACK = TRACK_7;
+const TRACK = TRACK_8;
 const hud = document.getElementById('hud')!;
 
 // --- Renderer / scene / camera (mirrors Game.tsx) -------------------------
@@ -119,7 +118,7 @@ function flatFrame(curve: THREE.Curve<THREE.Vector3>, t: number) {
 }
 
 // --- Environment + dust (CanyonTerrain used ONLY for the drifting dust) ----
-const TIME_KEY = 'gorgeSandboxTime';
+const TIME_KEY = 'passSandboxTime';
 const TIMES: TimeOfDay[] = ['morning', 'day', 'evening', 'night'];
 const stored = localStorage.getItem(TIME_KEY) as TimeOfDay | null;
 const timeOfDay: TimeOfDay = stored && TIMES.includes(stored) ? stored : 'day';
@@ -136,8 +135,12 @@ renderer.toneMappingExposure = envManager.exposure;
 // Faint desert haze instead of the time-based fog: adds horizon depth and fades
 // the distant buttes out before the camera far plane (6000) clips them — no
 // pop-in. Near geometry is essentially unaffected (fog starts past the canyon).
-const HAZE: Record<TimeOfDay, number> = { morning: 0xe6cfae, day: 0xbfdbe8, evening: 0xd99c6a, night: 0x0e1320 };
-scene.fog = new THREE.Fog(HAZE[timeOfDay], 3200, 6000);
+// Storm haze: a darker, duster palette than Sand Hollow's clear-day haze. The
+// fog near/far planes BREATHE with local wind exposure x the gust cycle (set
+// per frame in the loop): hammered on the crest, opening up in the lee.
+const HAZE: Record<TimeOfDay, number> = { morning: 0xcbA47a, day: 0xc2a87c, evening: 0xb97f52, night: 0x141008 };
+const stormFog = new THREE.Fog(HAZE[timeOfDay], 2600, 6000);
+scene.fog = stormFog;
 
 // CanyonTerrain builds floor + walls + rocks + dust. We want only its dust here
 // (we build our own variable-width walls + rich floor + rocks), so hide every
@@ -161,8 +164,15 @@ const SHOULDER_DROP = 8;    // narrow gutter just outside the road edge
 const roadYAt = (t: number) => flatFrame(trackCurve, t).position.y;
 // True surface level — the desert under the crossing, the foot of the viaduct
 // pillars, and the far field everywhere.
-let _underSum = 0; for (let i = 0; i <= 40; i++) _underSum += roadYAt(0.70 + (i / 40) * 0.2);
-const SURFACE_Y = _underSum / 41 - GROUND_DROP;
+// Grade is defined by the OPEN-DESERT (berm) sections only: on a mountain
+// track most of the lap is elevated, so a global median would put the desert
+// surface up the hillside and sink the actual plain "underground".
+const _zones = TRACK.canyon?.zones ?? [];
+const _inNonBerm = (t: number) => _zones.some((z) => t >= z.start && t <= z.end && z.mode !== 'berm');
+const _ys: number[] = [];
+for (let i = 0; i < 200; i++) { const t = i / 200; if (!_inNonBerm(t)) _ys.push(roadYAt(t)); }
+_ys.sort((a, b) => a - b);
+const SURFACE_Y = _ys[Math.floor(_ys.length / 2)] - GROUND_DROP; // median of at-grade road
 
 function createRichSandAlbedo(): THREE.Texture {
     const S = 256;
@@ -330,7 +340,7 @@ function createSandstoneTexture(): THREE.CanvasTexture {
 // Wall styling is per-t: `full` (tall craggy gorge), `berm` (low rocky bank, open
 // desert), or `viaduct` (low parapet + deck + pillars at a crossover). Resolved
 // from TRACK.canyon; collision (the lateral clamp) is unaffected by any of this.
-type WallMode = 'full' | 'berm' | 'viaduct' | 'ridge' | 'crag'; // ridge/crag unused here (Sandstorm Pass)
+type WallMode = 'full' | 'berm' | 'viaduct' | 'ridge' | 'crag';
 const H_VAR = 70, CRAG = 50, LEAN = 45;
 // Parapet kept below the chase camera (road + 5) so you can see over the edge —
 // containment is the analytic clamp, the lip is just a visual edge marker.
@@ -343,7 +353,7 @@ const zoneAt = (t: number) => wallZones.find((z) => t >= z.start && t <= z.end);
 const modeAt = (t: number): WallMode => (zoneAt(t)?.mode ?? defMode);
 const heightOf = (t: number): number => {
     const z = zoneAt(t);
-    if (z) return z.height ?? (z.mode === 'berm' ? 30 : z.mode === 'viaduct' ? PARAPET : 300);
+    if (z) return z.height ?? (z.mode === 'berm' ? 30 : z.mode === 'viaduct' ? PARAPET : z.mode === 'ridge' ? 10 : z.mode === 'crag' ? 90 : 300);
     return defHeight;
 };
 
@@ -468,7 +478,17 @@ function buildWalls(): void {
             topT[i] = ry + h;
             leanT[i] = 2;
             cragT[i] = 0;
-        } else { // berm
+        } else if (mode === 'crag') {
+            // Summit Notch: ROAD-RELATIVE rock towers flanking the pinch (the
+            // crags sit ON the ridge, unlike 'full' whose rim is surface-fixed).
+            const z = zoneAt(t)!;
+            const d = Math.min(1, Math.max(0, Math.min(t - z.start, z.end - t) / 0.006));
+            const ss = d * d * (3 - 2 * d);
+            baseT[i] = ry - GROUND_DROP - 60;
+            topT[i] = ry + 10 + (h - 10) * ss;
+            leanT[i] = 6 + (LEAN - 6) * ss;
+            cragT[i] = ss;
+        } else { // berm or ridge: low broken lip
             baseT[i] = ry - GROUND_DROP - 20;
             // Broken, dune-like lip: height undulates 35%..100% of h so long
             // stretches sit nearly flush with the road — open desert, not a wall.
@@ -556,6 +576,11 @@ function buildWalls(): void {
         } else if (mode === 'full') {
             const gut = ry - SHOULDER_DROP, rim = topS[i];
             hs = [gut, gut, rim, rim + (S - rim) * 0.45, rim + (S - rim) * 0.85, S];
+        } else if (mode === 'ridge' || mode === 'crag') {
+            // Exposed crest: the ground drops away steeply on BOTH sides — the
+            // road rides a mountain spine, not a causeway plateau.
+            const gut = ry - SHOULDER_DROP, plat = ry - GROUND_DROP;
+            hs = [gut, gut, plat, plat + (S - plat) * 0.62, plat + (S - plat) * 0.93, S];
         } else {
             const gut = ry - SHOULDER_DROP, plat = ry - GROUND_DROP;
             hs = [gut, gut, plat, plat + (S - plat) * 0.5, plat + (S - plat) * 0.9, S];
@@ -604,12 +629,12 @@ function buildWalls(): void {
 buildWalls();
 
 // --- Viaduct decks + pillars (bridge spans where the loop crosses itself) ----
-// Sample the lower lane (the return strand near the crossing) so pillars keep a
-// CLEAR SPAN over it — no columns dropped onto the road passing underneath.
-const lowerLanePts: THREE.Vector3[] = [];
-for (let i = 0; i <= 80; i++) lowerLanePts.push(trackCurve.getPoint(0.70 + (i / 80) * 0.20));
-const nearLowerLane = (x: number, z: number, r: number): boolean =>
-    lowerLanePts.some((p) => Math.hypot(p.x - x, p.z - z) < r);
+// Clear span: any sampled track point materially below a deck blocks pillars
+// near it — no columns dropped onto a road passing underneath.
+const roadPts: THREE.Vector3[] = [];
+for (let i = 0; i < 400; i++) roadPts.push(trackCurve.getPoint(i / 400));
+const nearLowerLane = (x: number, z: number, deckY: number): boolean =>
+    roadPts.some((p) => p.y < deckY - 40 && Math.hypot(p.x - x, p.z - z) < 160);
 
 function buildViaduct(start: number, end: number): void {
     const SEG = Math.max(24, Math.ceil((end - start) * 1000));
@@ -643,7 +668,7 @@ function buildViaduct(start: number, end: number): void {
         if (colH < 30) continue;
         for (const s of [-0.6, 0.6]) {
             const c = f.position.clone().add(f.binormal.clone().multiplyScalar(s * half));
-            if (nearLowerLane(c.x, c.z, 160)) continue;
+            if (nearLowerLane(c.x, c.z, yTop)) continue;
             const col = new THREE.Mesh(new THREE.BoxGeometry(16, colH, 16), deckMat);
             col.position.set(c.x, SURFACE_Y + colH / 2, c.z);
             scene.add(col);
@@ -970,6 +995,85 @@ function buildButtes(): void {
 }
 buildButtes();
 
+// --- WIND: per-t exposure x time-varying gusts -> lateral force --------------
+// dir = world-XZ direction the wind blows TOWARD; the force on a ship is its
+// projection onto the local binormal (pure lateral — answer to "force, not
+// drift"). Applied to the player AND every AI, every frame. Shelter comes from
+// the exposure profile (authored against the terrain: lee = ~0, crest = 1+).
+const windCfg = TRACK.wind;
+const WIND_DIR = windCfg ? new THREE.Vector2(windCfg.dir[0], windCfg.dir[1]).normalize() : new THREE.Vector2(1, 0);
+const WIND_STRENGTH = windCfg?.strength ?? 0;
+const windExposure = (t: number): number => {
+    const prof = windCfg?.exposure;
+    if (!prof || prof.length === 0) return 0;
+    const pts = [...prof].sort((a, b) => a.t - b.t);
+    const tt = ((t % 1) + 1) % 1;
+    for (let i = 0; i < pts.length; i++) {
+        const a = pts[i], b = pts[(i + 1) % pts.length];
+        const aT = a.t, bT = i + 1 < pts.length ? b.t : b.t + 1;
+        const x = tt >= aT ? tt : tt + 1;
+        if (x >= aT && x <= bT) return a.e + (b.e - a.e) * ((x - aT) / (bT - aT));
+    }
+    return pts[0].e;
+};
+// SPORADIC gusts: a low baseline breeze, punctuated every ~4-9s by a distinct
+// gust EVENT — fast ramp in, brief hold, slower die-off. Event timing/length/
+// peak are hashed from the time window (deterministic, no Math.random). Peaks
+// are capped so strength x exposure x peak stays inside the force budget
+// (below the weakest ship's strafe).
+const hash01 = (n: number): number => {
+    let x = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b);
+    x ^= x >>> 13; x = Math.imul(x, 0xc2b2ae35); x ^= x >>> 16;
+    return (x >>> 0) / 4294967296;
+};
+const GUST_PERIOD = 5200;
+const gustAt = (ms: number): number => {
+    let g = 0.3; // baseline breeze — always pushing, always visible
+    for (const k of [0, -1]) { // current + previous window (events may straddle)
+        const n = Math.floor(ms / GUST_PERIOD) + k;
+        const start = n * GUST_PERIOD + hash01(n * 3 + 1) * GUST_PERIOD * 0.55;
+        const dur = 1400 + hash01(n * 3 + 2) * 1900;     // 1.4-3.3s event
+        const peak = 0.4 + hash01(n * 3 + 3) * 1.0;      // 0.4-1.4 (peaks graze the budget — transient)
+        const x = (ms - start) / dur;
+        if (x > 0 && x < 1) {
+            const env = Math.min(x / 0.22, (1 - x) / 0.35, 1); // fast in, slower out
+            const sm = env * env * (3 - 2 * env);
+            g = Math.max(g, 0.3 + peak * sm);
+        }
+    }
+    return g;
+};
+// Lateral wind force (velocity.x units/frame) on a ship at t.
+const windLat = (t: number, ms: number): number => {
+    if (!windCfg) return 0;
+    const f = flatFrame(trackCurve, t);
+    const lat = WIND_DIR.x * f.binormal.x + WIND_DIR.y * f.binormal.z;
+    return lat * WIND_STRENGTH * windExposure(t) * gustAt(ms);
+};
+
+// Wind STREAKS: chunky instanced dust slashes riding the wind around the
+// player (1px LineSegments were invisible against the sand). Length, opacity
+// and drift speed all follow the gust so an event is unmistakable on screen.
+const STREAKS = 420;
+const streakGeo = new THREE.BoxGeometry(1, 0.8, 0.8); // unit length along +x, scaled per frame
+const streakMat = new THREE.MeshBasicMaterial({ color: 0xf4e0b8, transparent: true, opacity: 0.4, depthWrite: false });
+const streaks = new THREE.InstancedMesh(streakGeo, streakMat, STREAKS);
+streaks.frustumCulled = false;
+scene.add(streaks);
+// All slashes share one orientation: box +x aligned to the wind direction.
+const streakQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.atan2(-WIND_DIR.y, WIND_DIR.x));
+const streakM = new THREE.Matrix4(), streakP = new THREE.Vector3(), streakS = new THREE.Vector3();
+const streakSeed = new Float32Array(STREAKS * 4); // x/y/z offset + speed
+{
+    const rs = mulberry32(((SEED * 2 ** 31) | 0) ^ 0x51bdc);
+    for (let i = 0; i < STREAKS; i++) {
+        streakSeed[i * 4] = (rs() * 2 - 1) * 600;
+        streakSeed[i * 4 + 1] = 2 + rs() * 95;
+        streakSeed[i * 4 + 2] = (rs() * 2 - 1) * 600;
+        streakSeed[i * 4 + 3] = 0.7 + rs() * 1.1;
+    }
+}
+
 // --- Player ship -----------------------------------------------------------
 const shipConfig = { ...SHIP_STATS.fighter, color: 0xcc0000, type: 'fighter' as const };
 let player = new Ship(scene, true, shipConfig);
@@ -988,12 +1092,13 @@ addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 'r') reset(); }
 
 // --- Shared hard-wall lateral clamp (player AND AI) ------------------------
 let nearWall = false;
-function clampLateral(state: { trackProgress: number; lateralPosition: number; velocity: THREE.Vector2 }): boolean {
+function clampLateral(state: { trackProgress: number; lateralPosition: number; velocity: THREE.Vector2; wallContact?: number }): boolean {
     const t = state.trackProgress;
     const leftLimit = -(wallOffset(t, 1) - SHIP_RADIUS);
     const rightLimit = wallOffset(t, -1) - SHIP_RADIUS;
-    if (state.lateralPosition < leftLimit) { state.lateralPosition = leftLimit; if (state.velocity.x < 0) state.velocity.x = 0; return true; }
-    if (state.lateralPosition > rightLimit) { state.lateralPosition = rightLimit; if (state.velocity.x > 0) state.velocity.x = 0; return true; }
+    state.wallContact = 0; // feeds the fork's wall push-off + yaw boost
+    if (state.lateralPosition < leftLimit) { state.lateralPosition = leftLimit; if (state.velocity.x < 0) state.velocity.x = 0; state.wallContact = -1; return true; }
+    if (state.lateralPosition > rightLimit) { state.lateralPosition = rightLimit; if (state.velocity.x > 0) state.velocity.x = 0; state.wallContact = 1; return true; }
     return false;
 }
 function placeFlat(ship: Ship): void {
@@ -1004,6 +1109,12 @@ function placeFlat(ship: Ship): void {
     ship.mesh.quaternion.setFromRotationMatrix(f.rotationMatrix);
     ship.mesh.rotateZ(-ship.state.rotation);
     ship.mesh.rotateY(ship.state.yaw);
+}
+
+// Visual wind BRACE: ships roll against the local shove (subtle lean on the
+// exposed baseline, ~12 deg at a full gust). Pure mesh dressing, no physics.
+function windLean(ship: Ship, ms: number): void {
+    ship.mesh.rotateZ(windLat(ship.state.trackProgress, ms) * 26);
 }
 
 // --- AI opponents (flat frame + shared clamp + gorge-aware target lane) -----
@@ -1021,7 +1132,7 @@ for (let i = 0; i < 19; i++) {
     const keys: Record<string, boolean> = {};
     aiCars.push({ ship, keys, controller: { isKeyPressed: (k) => !!keys[k] }, baseLane: (Math.random() - 0.5) * 60 });
 }
-function updateAI(dt: number): void {
+function updateAI(dt: number, nowMs: number): void {
     for (const car of aiCars) {
         const t = car.ship.state.trackProgress;
         const leftLim = -(wallOffset(t, 1) - SHIP_RADIUS - 4);
@@ -1033,8 +1144,10 @@ function updateAI(dt: number): void {
         k['w'] = true;
         if (err > 1) k['a'] = true; else if (err < -1) k['d'] = true;
         updatePhysics(car.ship.state, car.controller, trackLength, PADS, dt, undefined, true, HAZARDS);
+        car.ship.state.velocity.x += windLat(car.ship.state.trackProgress, nowMs) * dt; // the storm shoves the AI too
         clampLateral(car.ship.state);
         placeFlat(car.ship);
+        windLean(car.ship, nowMs);
     }
 }
 aiCars.forEach((c) => placeFlat(c.ship));
@@ -1084,6 +1197,7 @@ function drawMinimap(): void {
 
 // --- Main loop -------------------------------------------------------------
 let lastTime = performance.now();
+let driftPhase = 0; // integrated streak travel (speeds up during gusts)
 renderer.setAnimationLoop(() => {
     const now = performance.now();
     const deltaMs = now - lastTime;
@@ -1091,10 +1205,41 @@ renderer.setAnimationLoop(() => {
     const dt = Math.min(deltaMs / 16.67, 1.0);
 
     const state = player.state;
+    // The storm shoves the player BEFORE physics integrates the frame.
+    state.velocity.x += windLat(state.trackProgress, now) * dt;
     updatePhysics(state, input, trackLength, PADS, dt, undefined, true, HAZARDS);
     nearWall = clampLateral(state);
     placeFlat(player);
-    updateAI(dt);
+    windLean(player, now);
+    updateAI(dt, now);
+
+    // Storm dressing: streaks ride the wind around the player — and ACCELERATE
+    // during a gust (drift phase integrates gust speed); fog clamps down with
+    // exposure x gust and opens up in the lee.
+    const gust = gustAt(now);
+    const expo = windExposure(state.trackProgress);
+    driftPhase += deltaMs * (0.2 + 1.3 * gust);
+    {
+        const p0 = player.mesh.position;
+        const f01 = Math.min(1, expo) * Math.max(0, gust);
+        const len = 14 + 80 * Math.max(0, gust - 0.12) * Math.max(0.25, Math.min(1, expo));
+        for (let i = 0; i < STREAKS; i++) {
+            const spd = streakSeed[i * 4 + 3];
+            const drift = (driftPhase * spd) % 1200;
+            let sx = streakSeed[i * 4] + WIND_DIR.x * drift;
+            let sz = streakSeed[i * 4 + 2] + WIND_DIR.y * drift;
+            sx = ((sx + 600) % 1200 + 1200) % 1200 - 600;
+            sz = ((sz + 600) % 1200 + 1200) % 1200 - 600;
+            streakP.set(p0.x + sx, p0.y - 14 + streakSeed[i * 4 + 1], p0.z + sz);
+            streakS.set(Math.max(4, len * (0.5 + 0.5 * (spd - 0.7))), 0.8, 0.8);
+            streakM.compose(streakP, streakQuat, streakS);
+            streaks.setMatrixAt(i, streakM);
+        }
+        streaks.instanceMatrix.needsUpdate = true;
+        streakMat.opacity = 0.24 + 0.5 * f01;
+        stormFog.near += ((2900 - 2100 * f01) - stormFog.near) * 0.09;
+        stormFog.far += ((6000 - 2500 * f01) - stormFog.far) * 0.09;
+    }
 
     // Chase camera (flat frame → level horizon).
     const { position: trackPos, tangent, normal, binormal: trackBinormal } = flatFrame(trackCurve, state.trackProgress);
@@ -1109,6 +1254,11 @@ renderer.setAnimationLoop(() => {
         camera.position.copy(targetCameraPos);
         camera.lookAt(player.mesh.position.clone().add(cameraForward.clone().multiplyScalar(20)));
         camera.up.copy(normal);
+        // Gust BUFFET: small camera shake scaled by local exposure x gust —
+        // the strongest "the wind is real" cue there is.
+        const buffet = Math.min(1, expo) * Math.max(0, gust - 0.28);
+        camera.position.x += (Math.sin(now * 0.031) + Math.sin(now * 0.017 + 1.3)) * 0.55 * buffet;
+        camera.position.y += Math.sin(now * 0.023 + 2.1) * 0.45 * buffet;
     }
 
     envManager.update(dt, player.mesh.position);
@@ -1117,10 +1267,11 @@ renderer.setAnimationLoop(() => {
     const p = player.mesh.position;
     const t = state.trackProgress;
     hud.innerHTML =
-        `<b>Beggar's Gorge sandbox</b>  (track_7)\n` +
+        `<b>Sandstorm Pass sandbox</b>  (track_8)\n` +
         `speed    ${Math.round(state.velocity.y * 10)} km/h\n` +
         `progress ${(t * 100).toFixed(1)}%\n` +
         `pos      x ${p.x.toFixed(0)}  y ${p.y.toFixed(0)}  z ${p.z.toFixed(0)}\n` +
+        `wind     exp ${expo.toFixed(2)}  gust ${Math.max(0, gust).toFixed(2)}  push ${(windLat(t, now) >= 0 ? '+' : '')}${windLat(t, now).toFixed(3)}${gust > 0.6 ? '   <b>◀◀ GUST</b>' : ''}\n` +
         `lateral  ${state.lateralPosition.toFixed(1)}\n` +
         `half-w   ${halfWidthAt(t).toFixed(1)}   walls L/R ${(-wallOffset(t, 1)).toFixed(0)}/${wallOffset(t, -1).toFixed(0)}\n` +
         `wall     ${nearWall ? 'CONTACT' : '—'}\n` +

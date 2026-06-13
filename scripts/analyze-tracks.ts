@@ -12,7 +12,7 @@ import * as THREE from 'three';
 // Re-implement track definitions inline (can't import from src due to module issues)
 const SCALE = 12.0;
 
-const TRACKS = [
+export const TRACKS = [
     {
         id: 'track_1',
         name: 'The Awakening',
@@ -195,6 +195,41 @@ const TRACKS = [
             new THREE.Vector3(-220, 0, -260), // 16 exit to -x
             new THREE.Vector3(-260, 0, 100),  // 17 swing behind the line (+z)
             new THREE.Vector3(-60, 0, 220),   // 18 directly behind the grid → clean run to the line
+        ].map(p => p.multiplyScalar(SCALE * 2)),
+    },
+    {
+        id: 'track_8',
+        name: 'Sandstorm Pass',
+        // Figure-8 draped over a RIDGE (the inverse of Sand Hollow's dive): a
+        // plain dogleg, a switchback ladder up the west face, an exposed spine
+        // to the Notch, then a storm descent that crosses OVER the approach
+        // leg on a high bridge before the sheltered lee + gauntlet run home.
+        points: [
+            new THREE.Vector3(0, 0, 0),        // 0 start line (plain, grade)
+            new THREE.Vector3(60, 0, -300),    // 1 plain straight
+            new THREE.Vector3(180, 1, -560),   // 2 dogleg right
+            new THREE.Vector3(80, 1, -850),    // 3 back left — UNDER the descent bridge
+            new THREE.Vector3(-140, 4, -1000), // 4 foothills, climb begins
+            new THREE.Vector3(-380, 7, -1080), // 5 rung 1, heading W
+            new THREE.Vector3(-620, 9, -1110), // 6 hairpin A entry
+            new THREE.Vector3(-700, 11, -1190),// 7 hairpin A apex (west end)
+            new THREE.Vector3(-620, 13, -1270),// 8 hairpin A exit
+            new THREE.Vector3(-260, 15, -1310),// 9 rung 2, heading E (long)
+            new THREE.Vector3(-150, 17, -1360),// 10 hairpin B entry
+            new THREE.Vector3(-70, 19, -1450), // 11 hairpin B apex (east end)
+            new THREE.Vector3(-150, 21, -1540),// 12 hairpin B exit
+            new THREE.Vector3(-480, 22, -1590),// 13 rung 3, heading W (long)
+            new THREE.Vector3(-620, 24, -1740),// 14 turning N up the spine
+            new THREE.Vector3(-520, 25, -1950),// 15 the Notch (summit pinch)
+            new THREE.Vector3(-260, 23, -2090),// 16 crest, turning E
+            new THREE.Vector3(40, 18, -2010),  // 17 saddle, descent begins SE
+            new THREE.Vector3(230, 13, -1760), // 18 descending sweep S
+            new THREE.Vector3(260, 10, -1430), // 19 east face, S
+            new THREE.Vector3(90, 9, -870),    // 20 BRIDGE over the approach leg (pt 3)
+            new THREE.Vector3(30, 4, -560),    // 21 down to the flat — gauntlet
+            new THREE.Vector3(-180, 1, -280),  // 22 lee curve W
+            new THREE.Vector3(-220, 0, 40),    // 23 behind the grid
+            new THREE.Vector3(-70, 0, 200),    // 24 final approach → line
         ].map(p => p.multiplyScalar(SCALE * 2)),
     }
 ];
@@ -436,11 +471,17 @@ const HAZARDS: Record<string, Hz[]> = {
         { type: 'block', t: 0.46, lat: 34, w: 16 }, { type: 'block', t: 0.46, lat: 10, w: 16 },
         { type: 'slick', t: 0.60, lat: 22, w: 56 },
     ],
+    track_8: [
+        { type: 'slick', t: 0.34, lat: 14, w: 40 },                                              // wet rung 2 on the ladder
+        { type: 'slick', t: 0.73, lat: 20, w: 56 },                                              // storm descent, on the racing line
+        { type: 'block', t: 0.83, lat: -30, w: 16 }, { type: 'block', t: 0.83, lat: -6, w: 16 },  // rockslide gauntlet, first wave
+        { type: 'block', t: 0.865, lat: 28, w: 16 }, { type: 'block', t: 0.865, lat: 6, w: 16 },  // second wave, opposite side
+    ],
 };
-const PADS: Record<string, number> = { track_1: 4, track_2: 3, track_3: 4, track_4: 4, track_5: 5, track_6: 3, track_7: 4 };
-// 1.0 = clear visibility. Future fog/spray/dust would drop this for affected
-// tracks, multiplying hazard threat by (2 − visibility).
-const VISIBILITY: Record<string, number> = { track_1: 1, track_2: 1, track_3: 1, track_4: 1, track_5: 1, track_6: 1, track_7: 1 };
+const PADS: Record<string, number> = { track_1: 4, track_2: 3, track_3: 4, track_4: 4, track_5: 5, track_6: 3, track_7: 4, track_8: 4 };
+// 1.0 = clear visibility. Fog/spray/dust drops this for affected tracks,
+// multiplying hazard threat by (2 − visibility).
+const VISIBILITY: Record<string, number> = { track_1: 1, track_2: 1, track_3: 1, track_4: 1, track_5: 1, track_6: 1, track_7: 1, track_8: 0.6 }; // 0.6: permanent sandstorm
 
 // Per-hazard LOCAL road half-width (overrides the global ROAD_HALF in the gap
 // math) for tracks whose width varies along the lap. Lets a hazard in a pinched
@@ -448,13 +489,15 @@ const VISIBILITY: Record<string, number> = { track_1: 1, track_2: 1, track_3: 1,
 const WIDTH_HALF: Record<string, Record<number, number>> = {
     // Sand Hollow pinches into the tunnel (~38) and opens on the sweep (~78).
     track_7: { 0.27: 38, 0.41: 66, 0.46: 76, 0.60: 72 },
+    // Sandstorm Pass: ladder ~50, storm descent ~58, open gauntlet ~70.
+    track_8: { 0.34: 50, 0.73: 56, 0.83: 70, 0.865: 70 },
 };
 
 // Cup membership — mirror of src/game/CupDefinitions.ts. Only cups whose tracks
 // exist are scored.
 const CUPS: { name: string; trackIds: string[] }[] = [
     { name: 'Nebula Cup', trackIds: ['track_1', 'track_2', 'track_3', 'track_4', 'track_5'] },
-    { name: 'Sunscorch Cup', trackIds: ['track_6', 'track_7'] },
+    { name: 'Sunscorch Cup', trackIds: ['track_6', 'track_7', 'track_8'] },
 ];
 
 // Hand-tunable weights, applied to each metric normalized 0..1 across the tracks.
