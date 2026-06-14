@@ -231,6 +231,31 @@ export const TRACKS = [
             new THREE.Vector3(-220, 0, 40),    // 23 behind the grid
             new THREE.Vector3(-70, 0, 200),    // 24 final approach → line
         ].map(p => p.multiplyScalar(SCALE * 2)),
+    },
+    {
+        id: 'track_9',
+        name: 'Dune Sprint',
+        // The Sunscorch opener: fast, wide, OPEN. A big rounded triangle — three
+        // long straights (boost chains) joined by sweeping vertices — over
+        // gently rolling dunes. No hairpins, tunnel, or crossover; low walls.
+        points: [
+            new THREE.Vector3(0, 0, 0),         // 0 start, bottom edge heading +x
+            new THREE.Vector3(600, 2, 60),      // 1 bottom straight
+            new THREE.Vector3(1200, 5, 120),    // 2
+            new THREE.Vector3(1620, 7, 0),      // 3 bottom-right sweeper in
+            new THREE.Vector3(1770, 9, -390),   // 4 vertex apex
+            new THREE.Vector3(1620, 7, -840),   // 5 onto the right edge (up -z)
+            new THREE.Vector3(1230, 5, -1380),  // 6 right edge, dune crest
+            new THREE.Vector3(840, 8, -1860),   // 7
+            new THREE.Vector3(540, 10, -2250),  // 8 top sweeper in
+            new THREE.Vector3(180, 11, -2490),  // 9 top vertex apex
+            new THREE.Vector3(-270, 9, -2340),  // 10 onto the left edge (down +z)
+            new THREE.Vector3(-540, 6, -1920),  // 11 left edge
+            new THREE.Vector3(-570, 4, -1380),  // 12 dune crest
+            new THREE.Vector3(-450, 3, -840),   // 13
+            new THREE.Vector3(-270, 1, -360),   // 14 bottom-left sweeper
+            new THREE.Vector3(-150, 0, -60),    // 15 back onto the bottom edge → line
+        ].map(p => p.multiplyScalar(SCALE * 2)),
     }
 ];
 
@@ -477,11 +502,17 @@ const HAZARDS: Record<string, Hz[]> = {
         { type: 'block', t: 0.83, lat: -30, w: 16 }, { type: 'block', t: 0.83, lat: -6, w: 16 },  // rockslide gauntlet, first wave
         { type: 'block', t: 0.865, lat: 28, w: 16 }, { type: 'block', t: 0.865, lat: 6, w: 16 },  // second wave, opposite side
     ],
+    track_9: [
+        // Opener: forgiving. Two wide sand slicks on long straights, each well
+        // off-centre so there's an easy clear lane — speed bumps, not gates.
+        { type: 'slick', t: 0.05, lat: -28, w: 44 },
+        { type: 'slick', t: 0.55, lat: 26, w: 44 },
+    ],
 };
-const PADS: Record<string, number> = { track_1: 4, track_2: 3, track_3: 4, track_4: 4, track_5: 5, track_6: 3, track_7: 4, track_8: 4 };
+const PADS: Record<string, number> = { track_1: 4, track_2: 3, track_3: 4, track_4: 4, track_5: 5, track_6: 3, track_7: 4, track_8: 4, track_9: 6 };
 // 1.0 = clear visibility. Fog/spray/dust drops this for affected tracks,
 // multiplying hazard threat by (2 − visibility).
-const VISIBILITY: Record<string, number> = { track_1: 1, track_2: 1, track_3: 1, track_4: 1, track_5: 1, track_6: 1, track_7: 1, track_8: 0.6 }; // 0.6: permanent sandstorm
+const VISIBILITY: Record<string, number> = { track_1: 1, track_2: 1, track_3: 1, track_4: 1, track_5: 1, track_6: 1, track_7: 1, track_8: 0.6, track_9: 1 };
 
 // Per-hazard LOCAL road half-width (overrides the global ROAD_HALF in the gap
 // math) for tracks whose width varies along the lap. Lets a hazard in a pinched
@@ -491,13 +522,15 @@ const WIDTH_HALF: Record<string, Record<number, number>> = {
     track_7: { 0.27: 38, 0.41: 66, 0.46: 76, 0.60: 72 },
     // Sandstorm Pass: ladder ~50, storm descent ~58, open gauntlet ~70.
     track_8: { 0.34: 50, 0.73: 56, 0.83: 70, 0.865: 70 },
+    // Dune Sprint: wide and open throughout (~80).
+    track_9: { 0.05: 80, 0.55: 80 },
 };
 
 // Cup membership — mirror of src/game/CupDefinitions.ts. Only cups whose tracks
 // exist are scored.
 const CUPS: { name: string; trackIds: string[] }[] = [
     { name: 'Nebula Cup', trackIds: ['track_1', 'track_2', 'track_3', 'track_4', 'track_5'] },
-    { name: 'Sunscorch Cup', trackIds: ['track_6', 'track_7', 'track_8'] },
+    { name: 'Sunscorch Cup', trackIds: ['track_9', 'track_6', 'track_7', 'track_8'] },
 ];
 
 // Hand-tunable weights, applied to each metric normalized 0..1 across the tracks.

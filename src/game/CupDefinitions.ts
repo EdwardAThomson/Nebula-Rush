@@ -43,10 +43,10 @@ export const CUPS: Cup[] = [
         theme: 'Desert Canyons',
         description: 'Threading rock spires and gorges through blinding dust storms.',
         accent: 0xff8c1a,
-        // Mesa Run + Sand Hollow + Sandstorm Pass are built — grouped under
-        // Sunscorch on Track Select — but the cup stays locked in New Game until
-        // the rest of the desert arc is built.
-        trackIds: ['track_6', 'track_7', 'track_8'],
+        // Four of five built (race order = difficulty ramp: Dune Sprint opener →
+        // Mesa → Sand Hollow → Sandstorm Pass). Grouped under Sunscorch on Track
+        // Select; the cup stays locked in New Game until Solstice Classic lands.
+        trackIds: ['track_9', 'track_6', 'track_7', 'track_8'],
         comingSoon: true,
         plannedTracks: ['Dune Sprint', 'Mesa Run', "Sand Hollow", 'Sandstorm Pass', 'Solstice Classic'],
     },

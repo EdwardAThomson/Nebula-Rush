@@ -437,17 +437,21 @@ export class CanyonTerrain {
         // Per-t wall-mode config.
         const zones = track.canyon?.zones ?? [];
 
-        // The desert surface: GROUND_DROP below "grade". Grade is the median road
-        // height over the OPEN-DESERT (berm) sections only — on a mountain track
-        // most of the lap is elevated, so a whole-lap median would put the desert
-        // surface up the hillside and sink the real plain "underground". Tracks
-        // with no berm sections (all-canyon) fall back to the whole-lap median.
-        const inNonBerm = (t: number) => zones.some((z) => t >= z.start && t <= z.end && z.mode !== 'berm');
-        const ys: number[] = [];
-        for (let i = 0; i < 200; i++) { const t = i / 200; if (!inNonBerm(t)) ys.push(roadYAt(t)); }
-        if (ys.length === 0) for (let i = 0; i < 200; i++) ys.push(roadYAt(i / 200));
-        ys.sort((a, b) => a - b);
-        const surfaceY = ys[Math.floor(ys.length / 2)] - GROUND_DROP;
+        // The desert surface sits GROUND_DROP below the LOWEST road height of any
+        // section that ISN'T a sunken 'full' canyon (those get holes cut, below).
+        // Anchoring to the minimum guarantees no at-grade or rolling-dune road
+        // ever pokes under the flat plane (the "underground start" bug); 'full'
+        // zones are excluded so a deep canyon doesn't drag the whole desert down.
+        const inFullZone = (t: number) => zones.some((z) => t >= z.start && t <= z.end && z.mode === 'full');
+        let minRoadY = Infinity, anyNonFull = false;
+        for (let i = 0; i < 200; i++) {
+            const t = i / 200;
+            if (inFullZone(t)) continue;
+            anyNonFull = true;
+            minRoadY = Math.min(minRoadY, roadYAt(t));
+        }
+        if (!anyNonFull) for (let i = 0; i < 200; i++) minRoadY = Math.min(minRoadY, roadYAt(i / 200));
+        const surfaceY = minRoadY - GROUND_DROP;
         this.floorY = surfaceY;
 
         const defMode: CanyonWallMode = track.canyon?.wall?.mode ?? 'berm';
@@ -881,8 +885,11 @@ export class CanyonTerrain {
             const mats = shades.map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1.0, metalness: 0.0, flatShading: true }));
             const placed: { x: number; z: number; r: number }[] = [];
             const br = makeRng(seed + 2.7);
+            // Count scales with corridor length so density is consistent across
+            // tracks (a longer lap → more landforms, not a sparser desert).
+            const landformTarget = Math.max(90, Math.min(260, Math.round(trackLength / 850)));
             let attempts = 0;
-            while (placed.length < 110 && attempts++ < 9000) {
+            while (placed.length < landformTarget && attempts++ < landformTarget * 90) {
                 const t = br();
                 if (zoneAt(t)?.mode === 'full' && br() < 0.8) continue; // sparse where unseen
                 const f = frameAt(t);

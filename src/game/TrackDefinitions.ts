@@ -627,7 +627,70 @@ export const TRACK_8: TrackConfig = {
     ],
 };
 
-export const TRACKS = [TRACK_1, TRACK_2, TRACK_3, TRACK_4, TRACK_5, TRACK_6, TRACK_7, TRACK_8];
+// Track 9: Dune Sprint — the Sunscorch OPENER. Where Mesa Run feels tight and
+// the later desert tracks pile on hazards/weather, this one sells SPEED and
+// openness: a big rounded triangle (three long straights joined by sweeping
+// vertices) over gently rolling dunes, wide road, low broken berm lips, boost
+// chains, and only a pair of forgiving sand slicks. No tunnel, crossover, or
+// hairpins — pure flow. Uses only existing zoned-canyon features (data only).
+// 16 control points → point i sits at t = i/16 = i*0.0625.
+export const TRACK_9: TrackConfig = {
+    id: 'track_9',
+    name: 'Dune Sprint',
+    description: 'Wide-open rolling dunes and long sweeps — the desert flat-out. A gentle warm-up.',
+    difficulty: 1,
+    surface: { base: 0x6e5a38, accent: 0xffcf6b, centerLine: false }, // pale sand road, warm-gold rails
+    terrain: 'canyon',
+    // Footprint scaled 1.5× vs the first draft (longer lap); elevation kept, so
+    // the dunes stretch into longer, gentler rolls. t-based pads/widths unchanged.
+    points: [
+        new THREE.Vector3(0, 0, 0),         // 0 start, bottom edge heading +x
+        new THREE.Vector3(600, 2, 60),      // 1 bottom straight
+        new THREE.Vector3(1200, 5, 120),    // 2
+        new THREE.Vector3(1620, 7, 0),      // 3 bottom-right sweeper in
+        new THREE.Vector3(1770, 9, -390),   // 4 vertex apex
+        new THREE.Vector3(1620, 7, -840),   // 5 onto the right edge (up -z)
+        new THREE.Vector3(1230, 5, -1380),  // 6 right edge, dune crest
+        new THREE.Vector3(840, 8, -1860),   // 7
+        new THREE.Vector3(540, 10, -2250),  // 8 top sweeper in
+        new THREE.Vector3(180, 11, -2490),  // 9 top vertex apex
+        new THREE.Vector3(-270, 9, -2340),  // 10 onto the left edge (down +z)
+        new THREE.Vector3(-540, 6, -1920),  // 11 left edge
+        new THREE.Vector3(-570, 4, -1380),  // 12 dune crest
+        new THREE.Vector3(-450, 3, -840),   // 13
+        new THREE.Vector3(-270, 1, -360),   // 14 bottom-left sweeper
+        new THREE.Vector3(-150, 0, -60),    // 15 back onto the bottom edge → line
+    ].map(p => p.multiplyScalar(SCALE * 2)),
+    // Generously wide throughout (a forgiving opener), easing only slightly
+    // through the vertex sweepers for a touch of shape.
+    widthProfile: [
+        { t: 0.00, half: 82 },
+        { t: 0.25, half: 74 }, // bottom-right vertex
+        { t: 0.40, half: 84 },
+        { t: 0.56, half: 72 }, // top vertex
+        { t: 0.72, half: 84 },
+        { t: 0.90, half: 78 },
+    ],
+    // Open desert: low broken berm lips, no zones (no canyon/ridge/tunnel).
+    canyon: { wall: { mode: 'berm', height: 12 } },
+    // Boost chains down the three long straights.
+    pads: [
+        { trackProgress: 0.02, lateralPosition: 18, width: 40, length: 0.02 }, // bottom straight (clear of the slick)
+        { trackProgress: 0.10, lateralPosition: 0, width: 44, length: 0.025 },
+        { trackProgress: 0.36, lateralPosition: 0, width: 44, length: 0.025 }, // right edge
+        { trackProgress: 0.42, lateralPosition: 0, width: 44, length: 0.025 },
+        { trackProgress: 0.74, lateralPosition: 0, width: 44, length: 0.025 }, // left edge
+        { trackProgress: 0.80, lateralPosition: 0, width: 44, length: 0.025 },
+    ],
+    hazards: [
+        // Two wide sand slicks, each well off-centre so there's an easy clear
+        // lane — speed bumps to read, not gates to thread.
+        { type: 'slick', trackProgress: 0.06, lateralPosition: -30, width: 44, length: 0.025 },
+        { type: 'slick', trackProgress: 0.55, lateralPosition: 28, width: 44, length: 0.03 },
+    ],
+};
+
+export const TRACKS = [TRACK_1, TRACK_2, TRACK_3, TRACK_4, TRACK_5, TRACK_6, TRACK_7, TRACK_8, TRACK_9];
 
 // Minimal, gentle loop used by the interactive tutorial. Flat, wide, sweeping
 // bends, one laterally-offset boost pad. NOT part of TRACKS (not selectable).
