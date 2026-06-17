@@ -21,6 +21,11 @@ export interface EnvironmentConfig {
     // Permanent sandstorm (Sandstorm Pass): a denser, dustier haze that Game.tsx
     // breathes per frame with the wind. Overrides desertHaze when set.
     storm?: boolean;
+    // Directional sun glare (Solstice Classic): forces a low golden-sunset look
+    // (sky, light, fog); Game.tsx adds the heading-aligned white-out. sunDir is
+    // the world-XZ direction toward the sun.
+    sunGlare?: boolean;
+    sunDir?: [number, number];
 }
 
 export interface EnvironmentState {
@@ -363,8 +368,12 @@ export class EnvironmentManager {
             // out. Dust supplies near haze. Tracks with distant scenery instead
             // get a faint LINEAR horizon haze ending at the camera far plane
             // (6000), so the buttes fade out rather than pop out.
-            this.scene.background = new THREE.Color(timeSettings.skyColor);
-            if (config.storm) {
+            this.scene.background = new THREE.Color(config.sunGlare ? 0xe9a866 : timeSettings.skyColor);
+            if (config.sunGlare) {
+                // Golden sunset: warm hazy sky, a low gold fog that Game.tsx pulls
+                // in toward a white-out as you head into the sun.
+                this.scene.fog = new THREE.Fog(0xf0b878, 3200, 6000);
+            } else if (config.storm) {
                 // Permanent sandstorm: a darker, dustier haze that sits much
                 // closer than the clear-day version. Game.tsx then BREATHES the
                 // near/far each frame with local wind exposure × gust.
@@ -400,8 +409,17 @@ export class EnvironmentManager {
         );
         this.scene.add(hemisphereLight);
 
-        const directionalLight = new THREE.DirectionalLight(timeSettings.lightColor, timeSettings.lightIntensity);
-        directionalLight.position.copy(timeSettings.sunPosition);
+        const directionalLight = config.sunGlare
+            ? new THREE.DirectionalLight(0xffcaa0, 1.5) // warm low solstice sun
+            : new THREE.DirectionalLight(timeSettings.lightColor, timeSettings.lightIntensity);
+        if (config.sunGlare && config.sunDir) {
+            // Low on the horizon in the sun direction → long raking shadows.
+            const d = new THREE.Vector2(config.sunDir[0], config.sunDir[1]);
+            const len = d.length() || 1;
+            directionalLight.position.set((d.x / len) * 300, 70, (d.y / len) * 300);
+        } else {
+            directionalLight.position.copy(timeSettings.sunPosition);
+        }
         directionalLight.castShadow = true;
         directionalLight.shadow.mapSize.width = 2048;
         directionalLight.shadow.mapSize.height = 2048;

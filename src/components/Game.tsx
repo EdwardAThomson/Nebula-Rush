@@ -77,6 +77,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const rankRef = useRef<HTMLDivElement>(null);
   const debugTrackProgressRef = useRef<HTMLDivElement>(null);
   const debugPositionRef = useRef<HTMLDivElement>(null);
+  const glareRef = useRef<HTMLDivElement>(null); // sun-glare white-out overlay
 
   const [hudVisible, setHudVisible] = useState(true);
 
@@ -136,6 +137,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const hazardFlashTimer = useRef<number | null>(null);
 
   const handleScreenshot = () => {
+    console.log('[HUDDBG] P pressed → screenshot. hudVisible=', hudVisible, 'raceFinished=', raceFinishedRef.current);
     screenshotRequested.current = true;
   };
 
@@ -221,6 +223,11 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       audioManager.setTrackChangeListener(() => { }); // Clear listener
     };
   }, []);
+
+  // [HUDDBG] Trace any change to the HUD-visibility gate.
+  useEffect(() => {
+    console.log('[HUDDBG] hudVisible →', hudVisible, new Error('hudVisible change stack').stack);
+  }, [hudVisible]);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -327,7 +334,10 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     // reads consistently — over the player's chosen env in single race, or over
     // a random per-track env in campaign (each track keeps its lighting variety).
     const baseEnv = forcedEnvironment || EnvironmentManager.generateRandomConfig();
-    const envConfig = { ...baseEnv, ...envBias, terrain: currentTrack.terrain, desertHaze: !!currentTrack.canyon, storm: wind.enabled };
+    const envConfig = { ...baseEnv, ...envBias, terrain: currentTrack.terrain, desertHaze: !!currentTrack.canyon, storm: wind.enabled, sunGlare: !!currentTrack.sun, sunDir: currentTrack.sun?.dir };
+    // Sun glare: a single white-out keyed to the crest you climb into the sun.
+    const glareZone = currentTrack.sun?.glareZone ?? null;
+    const sunStrength = currentTrack.sun?.strength ?? 1;
     envManager.setup(envConfig, trackCurve, currentTrack.id);
     // Time-of-day tone-mapping exposure (space tracks dim at night / brighten by
     // day; 1.0 otherwise). EnvironmentManager computes it during setup.
@@ -678,6 +688,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
         // Check for Player Finish
         if (!raceFinishedRef.current && playerShip.current?.finished) {
+          console.log('[HUDDBG] raceFinishedRef → true (player finished)');
           raceFinishedRef.current = true;
           setRaceState('finished');
           audioManager.playRaceFinish();
@@ -836,20 +847,48 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         camera.position.copy(trackPos.clone().add(normal.multiplyScalar(5)));
       }
 
+      // --- SUN GLARE: one white-out, keyed to the crest into the sun ---
+      if (glareZone) {
+        // Triangular ramp through the zone: 0 at start → 1 at the crest (peak)
+        // → 0 by end. Smoothstepped so it builds and clears gently. Once a lap.
+        const t = currentState.trackProgress;
+        let g = 0;
+        if (t >= glareZone.start && t <= glareZone.peak) g = (t - glareZone.start) / (glareZone.peak - glareZone.start);
+        else if (t > glareZone.peak && t <= glareZone.end) g = (glareZone.end - t) / (glareZone.end - glareZone.peak);
+        const glare = (g * g * (3 - 2 * g)) * sunStrength; // smoothstep, 0..1
+        // Peak ~0.9 (never a fully opaque pure-white screen — a faint hint of
+        // the world always remains, and the HUD renders above this anyway).
+        if (glareRef.current) glareRef.current.style.opacity = `${Math.min(0.9, glare)}`;
+        // Sight distance collapses at the crest, then opens back up.
+        const fog = scene.fog as THREE.Fog | null;
+        if (fog && fog.isFog) {
+          fog.near += ((3200 - 2800 * glare) - fog.near) * 0.12;
+          fog.far += ((6000 - 4600 * glare) - fog.far) * 0.12;
+        }
+      }
+
       // setSpeed(Math.round(currentState.velocity.y * 10));
       if (speedRef.current) {
         speedRef.current.textContent = `${Math.round(currentState.velocity.y * 10)} km/h`;
       }
 
       if (debugTrackProgressRef.current) {
-        const progress = (lap === 0 && currentState.trackProgress > 50)
-          ? (currentState.trackProgress - 100)
-          : currentState.trackProgress;
-        debugTrackProgressRef.current.textContent = `Track Progress: ${progress.toFixed(1)}%`;
+        const p = playerShip.current.mesh.position;
+        debugTrackProgressRef.current.textContent =
+          `t ${currentState.trackProgress.toFixed(3)}   world (${p.x.toFixed(0)}, ${p.y.toFixed(0)}, ${p.z.toFixed(0)})`;
       }
 
       if (debugPositionRef.current) {
-        debugPositionRef.current.textContent = `Position: (${currentState.lateralPosition.toFixed(1)}, ${currentState.verticalPosition.toFixed(1)})`;
+        let limTxt = '';
+        if (wallLimit) {
+          const [minL, maxL] = wallLimit(currentState.trackProgress);
+          const lat = currentState.lateralPosition;
+          // Margin to the nearer wall: <0 would mean the ship centre is past the clamp.
+          const margin = Math.min(lat - minL, maxL - lat);
+          limTxt = `   wall[${minL.toFixed(0)}, ${maxL.toFixed(0)}] margin ${margin.toFixed(1)}`;
+        }
+        debugPositionRef.current.textContent =
+          `lat ${currentState.lateralPosition.toFixed(1)}   vert ${currentState.verticalPosition.toFixed(1)}${limTxt}`;
       }
 
       envManager.update(dt, playerShip.current.mesh.position);
@@ -895,6 +934,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         // canvas now but encodes asynchronously, so there's no main-thread PNG
         // hitch mid-race; downloads happen later from the results gallery.
         renderer.domElement.toBlob((blob) => {
+          console.log('[HUDDBG] toBlob done → setPhotos/setPhotoToast re-render. minimap child count=', minimapRef.current?.childElementCount);
           if (!blob) return;
           const entry: Photo = { url: URL.createObjectURL(blob), blob, time: gameTimeRef.current };
           const next = [...photosRef.current, entry];
@@ -994,6 +1034,21 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         />
       )}
 
+      {/* Sun-glare white-out — warm wash brightest toward the horizon, opacity
+          driven each frame by how directly you're heading into the low sun.
+          z-10: below the HUD (z-20) so instruments stay readable through it. */}
+      {currentTrack.sun && (
+        <div
+          ref={glareRef}
+          className="absolute inset-0 z-10 pointer-events-none"
+          style={{
+            opacity: 0,
+            // Mostly pure white with a faint warm fringe — a true sun white-out.
+            background: 'radial-gradient(150% 110% at 50% 40%, rgba(255,255,255,1) 0%, rgba(255,255,252,1) 45%, rgba(255,248,235,0.92) 68%, rgba(255,236,205,0.5) 84%, rgba(255,225,180,0) 100%)',
+          }}
+        />
+      )}
+
       {/* LIGHTING DEBUG OVERLAY */}
       {debugLighting && (
         <DebugLightingPanel envManagerRef={environmentManagerRef} />
@@ -1046,8 +1101,9 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         )}
 
         {/* Countdown Overlay (Only shows if > 0 and not started) */}
+        {/* z-20 keeps the HUD readable ABOVE the sun-glare white-out (z-10). */}
         {!raceFinishedRef.current && hudVisible && (
-          <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute inset-0 z-20 pointer-events-none">
             {/* Top Right: Music Track */}
             {currentMusicTrackName && (
               <div className="absolute top-8 right-8 text-right animate-pulse p-3 rounded-lg" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
@@ -1082,11 +1138,11 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
               <div ref={minimapRef} className="border-2" style={{ borderColor: '#22d3ee' }}></div>
             </div>
 
-            {/* Debug Info (Top Right) - HIDDEN */}
-            {/* <div className="absolute top-8 right-8 text-white font-mono text-xs p-2 rounded z-10" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-              <div ref={debugTrackProgressRef}>Track Progress: 0.0%</div>
-              <div ref={debugPositionRef}>Position: (0.0, 0.0)</div>
-            </div> */}
+            {/* Debug Info (Top Right) — temporary collision-diagnosis overlay (local only, not committed) */}
+            <div className="absolute top-8 right-8 text-white font-mono text-xs p-2 rounded z-10" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+              <div ref={debugTrackProgressRef}>t 0.000   world (0, 0, 0)</div>
+              <div ref={debugPositionRef}>lat 0.0   vert 0.0</div>
+            </div>
 
             {/* Track Info (Top Center) */}
             <div className="absolute top-8 left-1/2 transform -translate-x-1/2 text-white text-lg font-bold italic drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] p-3 rounded-lg text-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
