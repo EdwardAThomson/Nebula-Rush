@@ -75,8 +75,6 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const speedRef = useRef<HTMLDivElement>(null);
   const timeRef = useRef<HTMLDivElement>(null);
   const rankRef = useRef<HTMLDivElement>(null);
-  const debugTrackProgressRef = useRef<HTMLDivElement>(null);
-  const debugPositionRef = useRef<HTMLDivElement>(null);
   const glareRef = useRef<HTMLDivElement>(null); // sun-glare white-out overlay
 
   const [hudVisible, setHudVisible] = useState(true);
@@ -872,25 +870,6 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         speedRef.current.textContent = `${Math.round(currentState.velocity.y * 10)} km/h`;
       }
 
-      if (debugTrackProgressRef.current) {
-        const p = playerShip.current.mesh.position;
-        debugTrackProgressRef.current.textContent =
-          `t ${currentState.trackProgress.toFixed(3)}   world (${p.x.toFixed(0)}, ${p.y.toFixed(0)}, ${p.z.toFixed(0)})`;
-      }
-
-      if (debugPositionRef.current) {
-        let limTxt = '';
-        if (wallLimit) {
-          const [minL, maxL] = wallLimit(currentState.trackProgress);
-          const lat = currentState.lateralPosition;
-          // Margin to the nearer wall: <0 would mean the ship centre is past the clamp.
-          const margin = Math.min(lat - minL, maxL - lat);
-          limTxt = `   wall[${minL.toFixed(0)}, ${maxL.toFixed(0)}] margin ${margin.toFixed(1)}`;
-        }
-        debugPositionRef.current.textContent =
-          `lat ${currentState.lateralPosition.toFixed(1)}   vert ${currentState.verticalPosition.toFixed(1)}${limTxt}`;
-      }
-
       envManager.update(dt, playerShip.current.mesh.position);
       worldReferenceRef.current?.update(playerShip.current.mesh.position);
       canyonTerrainRef.current?.update(playerShip.current.mesh.position);
@@ -1136,12 +1115,6 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
             <div className="absolute bottom-8 right-8 p-2 rounded z-10" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
               <div className="text-white text-xs mb-1">MINIMAP</div>
               <div ref={minimapRef} className="border-2" style={{ borderColor: '#22d3ee' }}></div>
-            </div>
-
-            {/* Debug Info (Top Right) — temporary collision-diagnosis overlay (local only, not committed) */}
-            <div className="absolute top-8 right-8 text-white font-mono text-xs p-2 rounded z-10" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
-              <div ref={debugTrackProgressRef}>t 0.000   world (0, 0, 0)</div>
-              <div ref={debugPositionRef}>lat 0.0   vert 0.0</div>
             </div>
 
             {/* Track Info (Top Center) */}
