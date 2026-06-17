@@ -225,7 +225,6 @@ const createSandNormalTexture = (seed: number): THREE.CanvasTexture => {
 // branch in setupZoned — their real treatments arrive with the track_8 port.
 type CanyonWallMode = 'full' | 'berm' | 'viaduct' | 'ridge' | 'crag';
 const GROUND_DROP = 26;     // open-desert plateau sits this far below the road
-const SHOULDER_DROP = 8;    // narrow gutter strip just outside the road edge
 const DECK_THK = 14;        // viaduct deck slab thickness
 const PARAPET = 4;          // viaduct lip — below the chase camera so you can see over
 const ZONED_H_VAR = 70;     // canyon-rim crag noise amplitudes
@@ -584,70 +583,10 @@ export class CanyonTerrain {
             scene.add(new THREE.Mesh(lg, wallMat));
         }
 
-        // --- Terrain relief APRON: the real, static ground along the corridor.
-        // Stations out from the centreline: gutter / wall band rising to the
-        // rim / flanks falling to the surface. Viaduct sections tuck just under
-        // the plane so the bridge spans a real drop.
-        const ST_LAT = [0, 0, 70, 320, 560, 880];
-        const NST = ST_LAT.length;
-        const H: number[][] = Array.from({ length: NST }, () => []);
-        for (let i = 0; i <= M; i++) {
-            const t = i / M;
-            const ry = roadYArr[i];
-            const mode = modeAt(t);
-            const S = surfaceY;
-            let hs: number[];
-            if (mode === 'viaduct') {
-                hs = [S - 1.2, S - 1.2, S - 1.2, S - 1.2, S - 1.2, S];
-            } else if (mode === 'full') {
-                const gut = ry - SHOULDER_DROP, rim = topS[i];
-                hs = [gut, gut, rim, rim + (S - rim) * 0.45, rim + (S - rim) * 0.85, S];
-            } else if (mode === 'ridge' || mode === 'crag') {
-                // Exposed crest: the ground drops away steeply on BOTH sides — the
-                // road rides a mountain spine, not a causeway plateau.
-                const gut = ry - SHOULDER_DROP, plat = ry - GROUND_DROP;
-                hs = [gut, gut, plat, plat + (S - plat) * 0.62, plat + (S - plat) * 0.93, S];
-            } else {
-                const gut = ry - SHOULDER_DROP, plat = ry - GROUND_DROP;
-                hs = [gut, gut, plat, plat + (S - plat) * 0.5, plat + (S - plat) * 0.9, S];
-            }
-            for (let s = 0; s < NST; s++) H[s][i] = hs[s];
-        }
-        const HS = H.map((arr) => smoothPeriodic(arr, 6));
-        const cols = 2 * NST - 1; // mirrored stations: -5..0..+5
-        const av: number[] = [], auv: number[] = [], aidx: number[] = [];
-        for (let i = 0; i <= M; i++) {
-            const t = i / M;
-            const f = frameAt(t);
-            const tan = f.tangent;
-            const tn = trackCurve.getTangent((t + 1 / M) % 1);
-            const ang = Math.atan2(tan.x * tn.z - tan.z * tn.x, tan.x * tn.x + tan.z * tn.z);
-            const radius = Math.abs(ang) > 1e-4 ? segLen / Math.abs(ang) : 1e9;
-            // Vertices are placed along the BINORMAL, so the inside-bend fold
-            // guard must use the binormal direction too.
-            const bnx = -tan.z, bnz = tan.x;
-            const blen = Math.hypot(bnx, bnz) || 1;
-            const wIn = widthAt(profile, t) + CANYON_SHOULDER + 12;
-            for (let c = 0; c < cols; c++) {
-                const s = Math.abs(c - (NST - 1));
-                const side = Math.sign(c - (NST - 1));
-                let lat = s === 0 ? 0 : wIn + ST_LAT[s];
-                const innerness = (bnx / blen * side) * (tn.x - tan.x) + (bnz / blen * side) * (tn.z - tan.z);
-                if (innerness > 0) lat = Math.min(lat, Math.max(wIn + 20, radius * 0.85));
-                const p = f.position.clone().add(f.binormal.clone().multiplyScalar(side * lat));
-                av.push(p.x, HS[s][i], p.z);
-                auv.push(p.x / TEX_PERIOD, p.z / TEX_PERIOD);
-            }
-            if (i < M) for (let c = 0; c < cols - 1; c++) {
-                const a = i * cols + c, b = a + 1, cc = a + cols, d = cc + 1;
-                aidx.push(a, cc, b, b, cc, d);
-            }
-        }
-        const ag = new THREE.BufferGeometry();
-        ag.setAttribute('position', new THREE.Float32BufferAttribute(av, 3));
-        ag.setAttribute('uv', new THREE.Float32BufferAttribute(auv, 2));
-        ag.setIndex(aidx); ag.computeVertexNormals();
-        scene.add(new THREE.Mesh(ag, groundMat));
+        // NOTE: the per-corridor "relief apron" mesh was removed — its outer
+        // flank stranded over the sunken-canyon void and read as a flat sheet of
+        // sand floating in mid-air (the rogue surface). The static desert plane
+        // below now carries the ground; the canyon walls carry the gorge sides.
 
         // --- Static desert plane with CANYON HOLES (a solid plane would roof
         // any below-grade road — the old drive-through "cream sheet").
@@ -670,17 +609,25 @@ export class CanyonTerrain {
             const bnx = -tan.z, bnz = tan.x;
             const blen = Math.hypot(bnx, bnz) || 1;
             const innerness = (bnx / blen * side) * (tn.x - tan.x) + (bnz / blen * side) * (tn.z - tan.z);
-            let lat = widthAt(profile, t) + CANYON_SHOULDER + 12 + 800; // inside the apron's outer edge
-            if (innerness > 0) lat = Math.min(lat, radius * 0.8);
+            // Hole edge sits just PAST the gorge rim (rim ≈ wIn+70). Cutting the
+            // hole back to the slot lets the plane fill grade right up to the
+            // canyon edge, so the desert reads as solid ground that the gorge is
+            // carved into rather than a sheet hovering over the sunken road.
+            let lat = widthAt(profile, t) + CANYON_SHOULDER + 12 + 100;
+            if (innerness > 0) lat = Math.min(lat, radius * 0.85);
             return lat;
         };
         const grade = surfaceY + GROUND_DROP;
         for (const z of zones.filter((zz) => zz.mode === 'full')) {
-            // Grow the hole past the zone until the road is back above grade.
+            // Grow the hole past the zone until the road is COMFORTABLY back above
+            // grade — not the instant it touches grade (grade + 8), which leaves a
+            // strip of flat plane spanning the canyon mouth right in the exit
+            // sightline. Hold the hole open to grade + 60 and add a fat margin so
+            // that intruding patch is cut away entirely.
             let h0 = z.start, h1 = z.end;
-            while (h0 > 0.02 && roadYAt(h0) < grade + 8) h0 -= 0.005;
-            while (h1 < 0.98 && roadYAt(h1) < grade + 8) h1 += 0.005;
-            h0 -= 0.01; h1 += 0.01;
+            while (h0 > 0.02 && roadYAt(h0) < grade + 60) h0 -= 0.005;
+            while (h1 < 0.98 && roadYAt(h1) < grade + 60) h1 += 0.005;
+            h0 -= 0.03; h1 += 0.03;
             const HOLE_N = 240;
             const pts: THREE.Vector2[] = [];
             for (let i = 0; i <= HOLE_N; i++) {
@@ -710,7 +657,7 @@ export class CanyonTerrain {
             planeGeo.computeVertexNormals();
         }
         const ground = new THREE.Mesh(planeGeo, groundMat);
-        ground.position.set(0, surfaceY - 0.6, 0); // just under the apron's outer edge — no z-fight
+        ground.position.set(0, surfaceY - 0.6, 0); // just under grade — no z-fight
         ground.renderOrder = -2;
         scene.add(ground);
         this.ground = ground;

@@ -77,6 +77,12 @@ export interface TrackConfig {
     // widthProfile) maps shelter: 0 = becalmed lee, 1 = fully exposed crest.
     // Gusting over time is applied by the engine on top.
     wind?: { dir: [number, number]; strength: number; exposure: { t: number; e: number }[] };
+    // Directional SUN GLARE (canyon tracks): a low, world-fixed golden sun. `dir`
+    // is the world-XZ direction TOWARD the sun (sets the golden-sunset lighting).
+    // `glareZone` keys the white-out to ONE spot — a crest you climb into the sun:
+    // glare builds from `start`, peaks at `peak` (the crest), clears by `end`.
+    // Visibility only, never control.
+    sun?: { dir: [number, number]; strength?: number; glareZone?: { start: number; peak: number; end: number } };
 }
 
 // Default canyon road half-width (world units) when a track has no widthProfile.
@@ -478,16 +484,20 @@ export const TRACK_7: TrackConfig = {
         new THREE.Vector3(-260, 0, 100),     // 17 swing behind the line (+z)
         new THREE.Vector3(-60, 0, 220),      // 18 behind the grid → clean run to the line
     ].map(p => p.multiplyScalar(SCALE * 2)),
-    // Gorge pinches from ~56 down to ~38 through the tunnel dive, then opens wide
-    // (~78) across the climbing sweep before easing back. t wraps on the loop.
+    // Gorge holds its width to the tunnel portal, then SNAPS to a genuinely narrow
+    // slot (half 22, ~9 ships) through the dive so it reads as a real squeeze at
+    // road level — collision walls track this, so it confines you and the AI. Snaps
+    // back open past the exit portal, then out to the wide (~78) apex. (Gradual
+    // pinches don't register: even "narrow" 38 was ~15 ships across.) t wraps.
     widthProfile: [
         { t: 0.00, half: 58 },
-        { t: 0.10, half: 56 }, // bridge
-        { t: 0.18, half: 46 }, // pinch begins
-        { t: 0.26, half: 38 }, // tightest — mid tunnel
-        { t: 0.34, half: 48 }, // tunnel exit
+        { t: 0.10, half: 56 },  // bridge
+        { t: 0.175, half: 50 }, // gorge mouth — width held to the portal lip
+        { t: 0.200, half: 22 }, // SNAP to a narrow slot AT the entry portal (~9 ships)
+        { t: 0.340, half: 22 }, // hold the slot through the tunnel to the exit portal
+        { t: 0.365, half: 50 }, // SNAP back to the open gorge past the exit portal
         { t: 0.42, half: 66 },
-        { t: 0.50, half: 78 }, // wide apex
+        { t: 0.50, half: 78 },  // wide apex
         { t: 0.58, half: 72 },
         { t: 0.68, half: 60 },
     ],
@@ -511,8 +521,8 @@ export const TRACK_7: TrackConfig = {
         { trackProgress: 0.86, lateralPosition: -20, width: 40, length: 0.02 }, // run to the line
     ],
     hazards: [
-        // Sand slick in the dark tunnel — slightly offset so there's a sliver to thread.
-        { type: 'slick', trackProgress: 0.27, lateralPosition: -8, width: 44, length: 0.025 },
+        // Sand slick in the dark tunnel — sized for the narrow slot, offset left so there's a clear right lane to thread.
+        { type: 'slick', trackProgress: 0.27, lateralPosition: -7, width: 16, length: 0.025 },
         // Boulder gauntlet just past the tunnel (open lane on the right, then left).
         { type: 'block', trackProgress: 0.41, lateralPosition: -34, width: 16, length: 0.015 },
         { type: 'block', trackProgress: 0.41, lateralPosition: -10, width: 16, length: 0.015 },
@@ -690,7 +700,131 @@ export const TRACK_9: TrackConfig = {
     ],
 };
 
-export const TRACKS = [TRACK_1, TRACK_2, TRACK_3, TRACK_4, TRACK_5, TRACK_6, TRACK_7, TRACK_8, TRACK_9];
+// Track 10: Solstice Classic — the Sunscorch FINALE. A long twisting circuit
+// through the deep desert: a crossover bridge, an eastern hairpin, a climb to a
+// sun-blazed crest (glare white-out), a spiralling carousel, and a dive into a
+// sunken canyon + narrow tunnel before the run home. Elevation, canyon/tunnel
+// zones, sun glare, and open-desert wind all live. 34 control points.
+export const TRACK_10: TrackConfig = {
+    id: 'track_10',
+    name: 'Solstice Classic',
+    description: 'The championship finale — a long twisting circuit through the deep desert.',
+    difficulty: 5,
+    surface: { base: 0x6a5236, accent: 0xffb24a, centerLine: false }, // sunset sand, low-sun amber rails
+    terrain: 'canyon',
+    // ONE carousel + ONE hairpin + ONE crossover. The entry climbs a BRIDGE that
+    // the return passes UNDER (alpha-loop crossover); a hairpin out east; a
+    // through-loop carousel (loop west) that SPIRALS UP to bridge over its own
+    // entry; an extended return tail that swings out past the line. Rolling hills.
+    points: [
+        new THREE.Vector3(0, 0, 0),         // 0 start, heading north (-z)
+        new THREE.Vector3(20, 9, -350),     // 1 climb onto the BRIDGE (crossover deck)
+        new THREE.Vector3(20, 11, -720),    // 2 bridge apex
+        new THREE.Vector3(150, 6, -1080),   // 3 descend off the bridge, bank east
+        new THREE.Vector3(500, 3, -1350),   // 4 out east
+        new THREE.Vector3(950, 3, -1500),   // 5 sweep
+        new THREE.Vector3(1350, 5, -1500),  // 6 HAIRPIN (east) entry
+        new THREE.Vector3(1650, 6, -1400),  // 7
+        new THREE.Vector3(1850, 7, -1600),  // 8 tip
+        new THREE.Vector3(1750, 7, -1900),  // 9
+        new THREE.Vector3(1450, 6, -1950),  // 10
+        new THREE.Vector3(1150, 6, -1850),  // 11 exit (west) — begin the climb
+        new THREE.Vector3(750, 11, -2000),  // 12 climbing the top straight
+        new THREE.Vector3(300, 15, -2150),  // 13 nearing the crest
+        new THREE.Vector3(-200, 16, -2200), // 14 CREST — sun blazes in (glare peak)
+        new THREE.Vector3(-650, 11, -2150), // 15 descending, turning south
+        new THREE.Vector3(-950, 7, -1900),  // 16 heading south into the carousel
+        new THREE.Vector3(-1000, 7, -1500), // 17 CAROUSEL — spiral up, loop west
+        new THREE.Vector3(-1300, 9, -1250), // 18
+        new THREE.Vector3(-1700, 11, -1350),// 19
+        new THREE.Vector3(-1800, 13, -1750),// 20
+        new THREE.Vector3(-1500, 15, -2000),// 21
+        new THREE.Vector3(-1100, 16, -1900),// 22 exit BRIDGES over the entry
+        new THREE.Vector3(-950, 12, -1500), // 23 exit south, diving for the canyon
+        new THREE.Vector3(-700, -6, -1100), // 24 sinking below grade
+        new THREE.Vector3(-400, -18, -750), // 25 TUNNEL dive (lowest, underground)
+        new THREE.Vector3(-150, -14, -500), // 26 still deep in the canyon
+        new THREE.Vector3(20, -9, -450),    // 27 UNDER the entry bridge — still below grade
+        new THREE.Vector3(200, -3, -50),    // 28 climbing out, return tail
+        new THREE.Vector3(320, 0, 450),     // 29 reaches grade, swings out past the line
+        new THREE.Vector3(80, 0, 800),      // 30
+        new THREE.Vector3(-350, 0, 720),    // 31
+        new THREE.Vector3(-560, 0, 320),    // 32
+        new THREE.Vector3(-320, 0, -40),    // 33 curve back to the start line
+    ].map(p => p.multiplyScalar(SCALE * 2)),
+    // The solstice sun sits low to the WEST, where the top straight points. You
+    // climb that straight and crest straight into it — one blinding white-out per
+    // lap (glareZone), then it clears as you drop toward the carousel.
+    sun: { dir: [-1, -0.15], strength: 1.0, glareZone: { start: 0.30, peak: 0.41, end: 0.50 } },
+    // A low, open desert wind that bites on the exposed legs (the eastern sweeps
+    // and the crest top-straight) and dies away in the gorge/tunnel lee. Gentler
+    // than Sandstorm Pass — the white-out crest is this track's headline; wind is
+    // the spice. Budget: strength × maxExposure (1.05) × peak gust (~1.7) ≈
+    // 0.0089, just under the weakest ship's 0.009 strafe, so it never pins.
+    wind: {
+        dir: [0.6, 0.8],
+        strength: 0.005,
+        exposure: [
+            { t: 0.00, e: 0.40 }, { t: 0.05, e: 0.35 }, // start onto the crossover bridge
+            { t: 0.10, e: 0.65 }, { t: 0.22, e: 0.85 }, // off the bridge, long eastern sweep — open
+            { t: 0.30, e: 0.55 },                        // hairpin — berms give partial cover
+            { t: 0.40, e: 1.05 },                        // the CREST top-straight — highest, into the sun
+            { t: 0.50, e: 0.85 }, { t: 0.58, e: 0.45 },  // descending toward the carousel
+            { t: 0.66, e: 0.30 },                        // banked carousel — partial shelter
+            { t: 0.70, e: 0.08 }, { t: 0.75, e: 0.00 },  // canyon mouth → TUNNEL: dead calm
+            { t: 0.82, e: 0.10 },                        // still deep in the gorge lee
+            { t: 0.88, e: 0.55 }, { t: 0.94, e: 0.70 },  // climbing out — wind returns on the open tail
+        ],
+    },
+    // Tunnel mouth = "small hole in a big cliff." The gorge floor stays WIDE (78)
+    // right up to the portal lip, then SNAPS to a genuinely narrow slot (half 20,
+    // ~8 ship-widths vs the gorge's ~30) exactly at the entry portal (0.71). The
+    // collision walls track this profile, so it's a real squeeze at road level,
+    // not just a cosmetic cliff up high. Held through the tunnel, then snaps back
+    // wide past the exit portal (0.78). (NB: gentle narrowing never registers —
+    // road + walls + arch all scale together, and even "narrow" values like 44
+    // are still ~19 ships across. It has to be small in absolute ship-widths AND
+    // snap against the wide-gorge reference to read.)
+    widthProfile: [
+        { t: 0.00, half: 74 }, { t: 0.22, half: 64 }, { t: 0.60, half: 78 },
+        { t: 0.704, half: 78 },  // wide gorge floor, held right up to the portal lip
+        { t: 0.710, half: 20 },  // SNAP to a narrow slot AT the entry portal (~8 ships)
+        { t: 0.780, half: 20 },  // hold the slot through the tunnel to the exit portal
+        { t: 0.786, half: 78 },  // SNAP back to the wide gorge past the exit portal
+        { t: 0.815, half: 74 },  // settle back to normal width
+    ],
+    // Low open berms (see over from the chase camera), with low-parapet viaduct
+    // decks at the two bridges: the entry/crossover bridge and the carousel
+    // over-bridge.
+    canyon: {
+        wall: { mode: 'berm', height: 8 },
+        zones: [
+            { start: 0.01, end: 0.075, mode: 'viaduct', height: 2 }, // entry bridge (crossover)
+            { start: 0.60, end: 0.675, mode: 'viaduct', height: 2 }, // carousel over-bridge
+            { start: 0.685, end: 0.845, mode: 'full', height: 90 },  // sunken canyon — stays a slot through the crossover
+        ],
+    },
+    // Roofed tunnel through the deepest part of the canyon dive (à la Sand Hollow).
+    tunnels: [{ start: 0.71, end: 0.78 }],
+    pads: [
+        { trackProgress: 0.04, lateralPosition: 0, width: 44, length: 0.02 },  // off the bridge
+        { trackProgress: 0.34, lateralPosition: 0, width: 44, length: 0.025 }, // hairpin exit / top
+        { trackProgress: 0.55, lateralPosition: 0, width: 44, length: 0.025 }, // ON the carousel
+        { trackProgress: 0.88, lateralPosition: 0, width: 44, length: 0.02 },  // return tail
+    ],
+    hazards: [
+        // A finale: two slicks on the fast descents and two block gates — one on
+        // the east leg, one on the run home — each leaving a clear lane.
+        { type: 'slick', trackProgress: 0.52, lateralPosition: -20, width: 48, length: 0.025 }, // descent off the crest, as the glare clears
+        { type: 'slick', trackProgress: 0.71, lateralPosition: 7, width: 16, length: 0.025 },   // tunnel-mouth dive (sized for the narrow slot — clear left lane)
+        { type: 'block', trackProgress: 0.16, lateralPosition: -22, width: 16, length: 0.015 }, // east-leg gate
+        { type: 'block', trackProgress: 0.16, lateralPosition: 2, width: 16, length: 0.015 },
+        { type: 'block', trackProgress: 0.92, lateralPosition: -22, width: 16, length: 0.015 }, // run-home gate, just past the boost pad
+        { type: 'block', trackProgress: 0.92, lateralPosition: 20, width: 16, length: 0.015 },
+    ],
+};
+
+export const TRACKS = [TRACK_1, TRACK_2, TRACK_3, TRACK_4, TRACK_5, TRACK_6, TRACK_7, TRACK_8, TRACK_9, TRACK_10];
 
 // Minimal, gentle loop used by the interactive tutorial. Flat, wide, sweeping
 // bends, one laterally-offset boost pad. NOT part of TRACKS (not selectable).

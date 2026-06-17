@@ -256,6 +256,54 @@ export const TRACKS = [
             new THREE.Vector3(-270, 1, -360),   // 14 bottom-left sweeper
             new THREE.Vector3(-150, 0, -60),    // 15 back onto the bottom edge → line
         ].map(p => p.multiplyScalar(SCALE * 2)),
+    },
+    {
+        id: 'track_10',
+        name: 'Solstice Classic',
+        // The cup FINALE: a long twisty grand-tour circuit (silhouette "G2").
+        // Open start straight → S-chicane up the right → switchback finger →
+        // kinked top sweep → carousel 1 (left) → esse descent → carousel 2
+        // (lower) → esse return. ELEVATION FLAT for now (shape validation first;
+        // sectors/zones added once the 2D geometry is confirmed sound).
+        points: [
+            // G11: ONE carousel + ONE hairpin + ONE crossover (alpha-loop — the entry
+            // bridge crosses over the return). Start → bridge → hairpin (east) →
+            // carousel (left) → return under the bridge → behind the grid.
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(20, 9, -350),
+            new THREE.Vector3(20, 11, -720),
+            new THREE.Vector3(150, 6, -1080),
+            new THREE.Vector3(500, 3, -1350),
+            new THREE.Vector3(950, 3, -1500),
+            new THREE.Vector3(1350, 5, -1500),
+            new THREE.Vector3(1650, 6, -1400),
+            new THREE.Vector3(1850, 7, -1600),
+            new THREE.Vector3(1750, 7, -1900),
+            new THREE.Vector3(1450, 6, -1950),
+            new THREE.Vector3(1150, 6, -1850),
+            new THREE.Vector3(750, 11, -2000),
+            new THREE.Vector3(300, 15, -2150),
+            new THREE.Vector3(-200, 16, -2200),
+            new THREE.Vector3(-650, 11, -2150),
+            new THREE.Vector3(-950, 7, -1900),
+            new THREE.Vector3(-1000, 7, -1500),
+            new THREE.Vector3(-1300, 9, -1250),
+            new THREE.Vector3(-1700, 11, -1350),
+            new THREE.Vector3(-1800, 13, -1750),
+            new THREE.Vector3(-1500, 15, -2000),
+            new THREE.Vector3(-1100, 16, -1900),
+            new THREE.Vector3(-950, 12, -1500),
+            new THREE.Vector3(-700, -6, -1100),
+            new THREE.Vector3(-400, -18, -750),
+            new THREE.Vector3(-150, -14, -500),
+            new THREE.Vector3(20, -9, -450),
+            new THREE.Vector3(200, -3, -50),
+            new THREE.Vector3(320, 0, 450),
+            new THREE.Vector3(80, 0, 800),
+            new THREE.Vector3(-350, 0, 720),
+            new THREE.Vector3(-560, 0, 320),
+            new THREE.Vector3(-320, 0, -40),
+        ].map(p => p.multiplyScalar(SCALE * 2)),
     }
 ];
 
@@ -503,16 +551,23 @@ const HAZARDS: Record<string, Hz[]> = {
         { type: 'block', t: 0.865, lat: 28, w: 16 }, { type: 'block', t: 0.865, lat: 6, w: 16 },  // second wave, opposite side
     ],
     track_9: [
-        // Opener: forgiving. Two wide sand slicks on long straights, each well
-        // off-centre so there's an easy clear lane — speed bumps, not gates.
         { type: 'slick', t: 0.05, lat: -28, w: 44 },
         { type: 'slick', t: 0.55, lat: 26, w: 44 },
     ],
+    track_10: [
+        // Finale: hazards stacked in the blind/pinched sectors. Tunnel slick,
+        // crag-pinch blocks, gauntlet on the ridge descent, blind-finale slick.
+        { type: 'slick', t: 0.24, lat: -10, w: 48 },
+        { type: 'block', t: 0.61, lat: -28, w: 16 }, { type: 'block', t: 0.61, lat: -4, w: 16 },
+        { type: 'block', t: 0.66, lat: 26, w: 16 }, { type: 'block', t: 0.66, lat: 2, w: 16 },
+        { type: 'block', t: 0.72, lat: -22, w: 16 }, { type: 'block', t: 0.72, lat: 6, w: 16 },
+        { type: 'slick', t: 0.95, lat: 18, w: 52 },
+    ],
 };
-const PADS: Record<string, number> = { track_1: 4, track_2: 3, track_3: 4, track_4: 4, track_5: 5, track_6: 3, track_7: 4, track_8: 4, track_9: 6 };
+const PADS: Record<string, number> = { track_1: 4, track_2: 3, track_3: 4, track_4: 4, track_5: 5, track_6: 3, track_7: 4, track_8: 4, track_9: 6, track_10: 5 };
 // 1.0 = clear visibility. Fog/spray/dust drops this for affected tracks,
 // multiplying hazard threat by (2 − visibility).
-const VISIBILITY: Record<string, number> = { track_1: 1, track_2: 1, track_3: 1, track_4: 1, track_5: 1, track_6: 1, track_7: 1, track_8: 0.6, track_9: 1 };
+const VISIBILITY: Record<string, number> = { track_1: 1, track_2: 1, track_3: 1, track_4: 1, track_5: 1, track_6: 1, track_7: 1, track_8: 0.6, track_9: 1, track_10: 0.55 }; // 0.55: sun glare + storm patches
 
 // Per-hazard LOCAL road half-width (overrides the global ROAD_HALF in the gap
 // math) for tracks whose width varies along the lap. Lets a hazard in a pinched
@@ -524,13 +579,15 @@ const WIDTH_HALF: Record<string, Record<number, number>> = {
     track_8: { 0.34: 50, 0.73: 56, 0.83: 70, 0.865: 70 },
     // Dune Sprint: wide and open throughout (~80).
     track_9: { 0.05: 80, 0.55: 80 },
+    // Solstice: tunnel pinch ~40, crag pinch ~40, gauntlet ~58, open elsewhere.
+    track_10: { 0.24: 40, 0.61: 56, 0.66: 40, 0.72: 58, 0.95: 70 },
 };
 
 // Cup membership — mirror of src/game/CupDefinitions.ts. Only cups whose tracks
 // exist are scored.
 const CUPS: { name: string; trackIds: string[] }[] = [
     { name: 'Nebula Cup', trackIds: ['track_1', 'track_2', 'track_3', 'track_4', 'track_5'] },
-    { name: 'Sunscorch Cup', trackIds: ['track_9', 'track_6', 'track_7', 'track_8'] },
+    { name: 'Sunscorch Cup', trackIds: ['track_9', 'track_6', 'track_7', 'track_8', 'track_10'] },
 ];
 
 // Hand-tunable weights, applied to each metric normalized 0..1 across the tracks.
