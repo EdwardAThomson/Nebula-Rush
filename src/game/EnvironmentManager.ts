@@ -319,6 +319,55 @@ export class EnvironmentManager {
     public exposure = 1.0;
     private rainValues: { positions: Float32Array; velocities: Float32Array } | null = null;
     private planetOffsets = new Map<THREE.Object3D, THREE.Vector3>();
+    // Last player position seen by update(), so rain can ride along horizontally
+    // with the player and read as falling vertically rather than streaking sideways.
+    private lastPlayerPos: THREE.Vector3 | null = null;
+    // Near-track mist (fog weather): one or more ground-hugging soft-sprite layers.
+    // Dead calm — world-anchored; puffs that fall outside `radius` recycle into a
+    // ring around the player so the field always surrounds it. Layers on top of the
+    // exponential scene fog to give the surface a body. (Reusable for snow later.)
+    private mistLayers: { points: THREE.Points; positions: Float32Array; radius: number; yBase: number; yVar: number; initialized: boolean }[] = [];
+    // Soft radial sprite shared by all mist puffs; built once, cached on the class.
+    private static mistTexture: THREE.Texture | null = null;
+
+    private static getMistTexture(): THREE.Texture {
+        if (EnvironmentManager.mistTexture) return EnvironmentManager.mistTexture;
+        const size = 128;
+        const cvs = document.createElement('canvas');
+        cvs.width = cvs.height = size;
+        const ctx = cvs.getContext('2d')!;
+        const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+        g.addColorStop(0, 'rgba(255,255,255,1)');
+        g.addColorStop(0.5, 'rgba(255,255,255,0.45)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, size, size);
+        EnvironmentManager.mistTexture = new THREE.CanvasTexture(cvs);
+        return EnvironmentManager.mistTexture;
+    }
+
+    // Build one ground-hugging mist layer. Puffs start parked far away; the first
+    // update() recycles each into a ring around the player before the first render.
+    private buildMistLayer(count: number, sizeUnits: number, opacity: number, color: number, radius: number, yBase: number, yVar: number) {
+        const positions = new Float32Array(count * 3);
+        positions.fill(1e6);
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const mat = new THREE.PointsMaterial({
+            map: EnvironmentManager.getMistTexture(),
+            color,
+            size: sizeUnits,
+            transparent: true,
+            opacity,
+            depthWrite: false, // soft compositing; terrain still occludes via depthTest
+            sizeAttenuation: true,
+        });
+        const points = new THREE.Points(geo, mat);
+        points.frustumCulled = false; // it wraps the player — never cull
+        points.renderOrder = 2; // draw after opaque scene
+        this.scene.add(points);
+        this.mistLayers.push({ points, positions, radius, yBase, yVar, initialized: false });
+    }
 
     constructor(scene: THREE.Scene) {
         this.scene = scene;
@@ -343,6 +392,15 @@ export class EnvironmentManager {
         // Deep-space time-of-day look (null on planet-side tracks).
         const spaceTime = config.space ? SPACE_TIME[config.timeOfDay] : null;
         this.exposure = spaceTime ? spaceTime.exposure : 1.0;
+        // The golden-sunset glare look only applies by day. At night the track
+        // becomes a real moonlit desert: dark sky, normal night lighting, and the
+        // crest white-out is suppressed (see the glare drive in Game.tsx).
+        const glareActive = !!config.sunGlare && config.timeOfDay !== 'night';
+        // Rain and fog both roll in an overcast sky, darker than the clear/time
+        // default — rain heavily, fog a touch.
+        const isRaining = config.weather === 'rain';
+        const isFoggy = config.weather === 'fog';
+        const skyDim = isRaining ? 0.6 : isFoggy ? 0.8 : 1.0;
 
         // Per-track sky RNG: same track id → same nebula, stars and planets every
         // time, but each track gets its own distinct sky.
@@ -368,8 +426,10 @@ export class EnvironmentManager {
             // out. Dust supplies near haze. Tracks with distant scenery instead
             // get a faint LINEAR horizon haze ending at the camera far plane
             // (6000), so the buttes fade out rather than pop out.
-            this.scene.background = new THREE.Color(config.sunGlare ? 0xe9a866 : timeSettings.skyColor);
-            if (config.sunGlare) {
+            const canyonSky = new THREE.Color(glareActive ? 0xe9a866 : timeSettings.skyColor);
+            canyonSky.multiplyScalar(skyDim); // overcast under rain/fog (no-op when clear)
+            this.scene.background = canyonSky;
+            if (glareActive) {
                 // Golden sunset: warm hazy sky, a low gold fog that Game.tsx pulls
                 // in toward a white-out as you head into the sun.
                 this.scene.fog = new THREE.Fog(0xf0b878, 3200, 6000);
@@ -381,38 +441,78 @@ export class EnvironmentManager {
                 this.scene.fog = new THREE.Fog(STORM[config.timeOfDay], 2600, 6000);
             } else if (config.desertHaze) {
                 const HAZE: Record<TimeOfDay, number> = { morning: 0xe6cfae, day: 0xbfdbe8, evening: 0xd99c6a, night: 0x0e1320 };
-                this.scene.fog = new THREE.Fog(HAZE[config.timeOfDay], 3200, 6000);
+                const haze = new THREE.Color(HAZE[config.timeOfDay]);
+                if (isRaining) haze.multiplyScalar(0.6); // match the darkened rainy sky
+                this.scene.fog = new THREE.Fog(haze, 3200, 6000);
             } else {
                 this.scene.fog = null;
             }
         } else {
-            this.scene.background = new THREE.Color(timeSettings.skyColor);
+            const sky = new THREE.Color(timeSettings.skyColor);
+            sky.multiplyScalar(skyDim); // overcast under rain/fog (no-op when clear)
+            this.scene.background = sky;
             // Use exponential fog for distance fading. Some times of day (night) override the fog
             // colour so the fog reads against the sky instead of disappearing into it.
             const fogColor = ('fogColor' in timeSettings ? timeSettings.fogColor : timeSettings.skyColor) as number;
-            this.scene.fog = new THREE.FogExp2(fogColor, fogDensity);
+            const fog = new THREE.Color(fogColor);
+            if (isRaining) fog.multiplyScalar(0.6);
+            this.scene.fog = new THREE.FogExp2(fog, fogDensity);
+        }
+
+        // "Fog" weather: a cool grey overcast. The sky itself goes grey (a flat
+        // background isn't touched by fog, so without this the haze would fade into
+        // a clear-coloured horizon). EXPONENTIAL fog (not linear) so the haze is
+        // gently present right at the player and thickens smoothly into the
+        // distance — linear fog left the near track totally clear, then walled off
+        // the distance. Replaces the track's default fog so it's weather, not dust.
+        // Skipped on space tracks (always clear) and while the golden glare owns the
+        // look. (On sandstorm tracks the wind-breathed linear dust fog is left as-is
+        // — see the isFog guard in Game.tsx — so this only swaps in on still air.)
+        if (isFoggy && !config.space && !glareActive) {
+            // At night a dark near-black haze AND the near mist layer stacked over an
+            // already-dark scene read as muddy double-murk, so we lighten the haze and
+            // drop the mist — night fog stays a clean background veil. By day the mist
+            // gives the surface a body.
+            const night = config.timeOfDay === 'night';
+            const FOG_GREY: Record<TimeOfDay, number> = { morning: 0xb8bcc2, day: 0xc4c8cd, evening: 0x9aa0a8, night: 0x3d434b };
+            const grey = FOG_GREY[config.timeOfDay];
+            this.scene.background = new THREE.Color(grey); // overcast sky to match the haze
+            this.scene.fog = new THREE.FogExp2(grey, night ? 0.0003 : 0.00045);
+            if (!night) {
+                // Near-track body: an even ground sheet sitting just above the surface,
+                // plus fewer/bigger banks for patchy density on top. Both dead-calm and
+                // world-anchored. Heights stay above ground so terrain doesn't clip them.
+                this.buildMistLayer(340, 130, 0.16, grey, 460, 1, 8);    // even ground sheet
+                this.buildMistLayer(110, 95, 0.34, grey, 420, 4, 28);    // patchy rolling banks
+            }
         }
 
         // 2. LIGHTING
         // Use configured ambient intensity. In space, damp the ambient on bright
         // times of day so the dark nebula backdrop still reads.
-        const ambientIntensity = config.space
-            ? Math.min(timeSettings.ambientIntensity, 0.32)
-            : timeSettings.ambientIntensity;
-        const ambientLight = new THREE.AmbientLight(timeSettings.lightColor, ambientIntensity);
+        // On sunGlare (golden-sunset) tracks the sky, sun and fog are pinned to a
+        // fixed gold regardless of time of day, so tint the fill light to match —
+        // otherwise picking a non-day time darkens the scene against a golden sky.
+        const ambientColor = glareActive ? 0xffd9a0 : timeSettings.lightColor;
+        const ambientIntensity = glareActive
+            ? 0.5 // consistent golden-hour fill, independent of the chosen time
+            : config.space
+                ? Math.min(timeSettings.ambientIntensity, 0.32)
+                : timeSettings.ambientIntensity;
+        const ambientLight = new THREE.AmbientLight(ambientColor, ambientIntensity);
         this.scene.add(ambientLight);
 
         const hemisphereLight = new THREE.HemisphereLight(
-            timeSettings.skyColor,
-            timeSettings.ambientColor,
-            config.timeOfDay === 'night' ? 0.4 : 0.6 // Mild sky/ground bounce at night so terrain reads
+            glareActive ? 0xe9a866 : timeSettings.skyColor,    // match the pinned golden sky
+            glareActive ? 0x6b4a2a : timeSettings.ambientColor, // warm sand bounce
+            glareActive ? 0.6 : (config.timeOfDay === 'night' ? 0.4 : 0.6) // sky/ground bounce
         );
         this.scene.add(hemisphereLight);
 
-        const directionalLight = config.sunGlare
+        const directionalLight = glareActive
             ? new THREE.DirectionalLight(0xffcaa0, 1.5) // warm low solstice sun
             : new THREE.DirectionalLight(timeSettings.lightColor, timeSettings.lightIntensity);
-        if (config.sunGlare && config.sunDir) {
+        if (glareActive && config.sunDir) {
             // Low on the horizon in the sun direction → long raking shadows.
             const d = new THREE.Vector2(config.sunDir[0], config.sunDir[1]);
             const len = d.length() || 1;
@@ -573,7 +673,7 @@ export class EnvironmentManager {
         // 5. RAIN
         let rainSystem = null;
         if (weatherSettings.rain) {
-            const rainCount = 30000; // Increased density
+            const rainCount = 60000; // Heavier downpour
             const rainGeo = new THREE.BufferGeometry();
             const positions = new Float32Array(rainCount * 3);
             this.rainValues = {
@@ -591,10 +691,10 @@ export class EnvironmentManager {
             rainGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
             const rainMat = new THREE.PointsMaterial({
-                color: 0x666666,
-                size: 0.2,
+                color: 0x8a8a8a,
+                size: 0.22,
                 transparent: true,
-                opacity: 0.4
+                opacity: 0.5
             });
 
             rainSystem = new THREE.Points(rainGeo, rainMat);
@@ -622,8 +722,18 @@ export class EnvironmentManager {
             const positions = this.state.rainSystem.geometry.attributes.position.array as Float32Array;
             const count = positions.length / 3;
 
+            // Carry the whole rain field along with the player's horizontal motion.
+            // Without this the droplets are world-fixed between resets, so at racing
+            // speed the camera leaves them behind and the rain reads as horizontal
+            // streaks instead of falling straight down.
+            const dx = this.lastPlayerPos ? playerPos.x - this.lastPlayerPos.x : 0;
+            const dz = this.lastPlayerPos ? playerPos.z - this.lastPlayerPos.z : 0;
+
             for (let i = 0; i < count; i++) {
-                // Drop down
+                // Ride along with the player horizontally...
+                positions[i * 3] += dx;
+                positions[i * 3 + 2] += dz;
+                // ...and fall under gravity vertically.
                 positions[i * 3 + 1] += this.rainValues.velocities[i] * dt * 20;
 
                 // Check floor/reset
@@ -636,6 +746,41 @@ export class EnvironmentManager {
                 }
             }
             this.state.rainSystem.geometry.attributes.position.needsUpdate = true;
+        }
+
+        // Remember where the player was for next frame's rain tracking.
+        if (this.lastPlayerPos) {
+            this.lastPlayerPos.copy(playerPos);
+        } else {
+            this.lastPlayerPos = playerPos.clone();
+        }
+
+        // Near-track mist (fog weather). Dead calm: puffs hold their world position.
+        // First frame fills the WHOLE disc around the player (so the near track has
+        // mist immediately); afterwards a puff only moves when it falls outside the
+        // radius, recycling to the outer ring so it fades in at distance rather than
+        // popping in close. Heights are set from the player's current ground level.
+        for (const layer of this.mistLayers) {
+            const p = layer.positions;
+            const place = (i: number, rad: number) => {
+                const ang = Math.random() * Math.PI * 2;
+                p[i] = playerPos.x + Math.cos(ang) * rad;
+                p[i + 1] = playerPos.y + layer.yBase + Math.random() * layer.yVar;
+                p[i + 2] = playerPos.z + Math.sin(ang) * rad;
+            };
+            if (!layer.initialized) {
+                // sqrt → uniform area density across the full disc
+                for (let i = 0; i < p.length; i += 3) place(i, layer.radius * Math.sqrt(Math.random()));
+                layer.initialized = true;
+            } else {
+                const r2 = layer.radius * layer.radius;
+                for (let i = 0; i < p.length; i += 3) {
+                    const dx = p[i] - playerPos.x;
+                    const dz = p[i + 2] - playerPos.z;
+                    if (dx * dx + dz * dz > r2) place(i, layer.radius * (0.55 + 0.45 * Math.random()));
+                }
+            }
+            layer.points.geometry.attributes.position.needsUpdate = true;
         }
 
         // Follow player with directional light target (for shadows)

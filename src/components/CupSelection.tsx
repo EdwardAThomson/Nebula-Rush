@@ -4,14 +4,17 @@ import { audioManager } from '../game/AudioManager';
 
 interface CupSelectionProps {
     onSelect: (cup: Cup) => void;
+    onRaceAll: () => void;
     onBack: () => void;
 }
 
 const cssHex = (n: number) => '#' + n.toString(16).padStart(6, '0');
 
-export default function CupSelection({ onSelect, onBack }: CupSelectionProps) {
+export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelectionProps) {
     // Read once per render — progression only changes between races.
     const cleared = getClearedCups();
+    // "Race All" chains every built cup; only worth offering with 2+ ready.
+    const readyCupCount = CUPS.filter(isCupReady).length;
 
     return (
         <div className="relative z-10 flex flex-col items-center h-full p-8">
@@ -83,6 +86,16 @@ export default function CupSelection({ onSelect, onBack }: CupSelectionProps) {
                 >
                     BACK TO MENU
                 </button>
+                {readyCupCount >= 2 && (
+                    <button
+                        onClick={() => { audioManager.playClick(); onRaceAll(); }}
+                        onMouseEnter={() => audioManager.playHover()}
+                        className="px-8 py-3 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold rounded shadow-lg transition-all transform hover:scale-105"
+                        title="Race every built cup back-to-back"
+                    >
+                        🏆 RACE ALL
+                    </button>
+                )}
             </div>
         </div>
     );

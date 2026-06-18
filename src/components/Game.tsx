@@ -25,10 +25,15 @@ interface GameProps {
   forcedEnvironment?: EnvironmentConfig;
   pilot?: Pilot | null;
   opponentCount?: number;
+  // "Race All": persist the same rivals and carry accumulated points across cups,
+  // so the campaign standings aggregate over the whole gauntlet.
+  initialRoster?: OpponentConfig[];
+  initialScores?: Record<string, number>;
 
   onExit?: () => void;
   onTutorial?: () => void;     // jump to the tutorial (offered on a rough result)
-  onCupComplete?: (clearedTop3: boolean) => void; // fired when the last cup race ends
+  onCupComplete?: (clearedTop3: boolean, finalScores: Record<string, number>) => void; // fired when the last cup race ends
+  onNextCup?: () => void;      // "Race All": advance to the next cup from the final results
   debugLighting?: boolean;
   onReady?: () => void;
 
@@ -49,7 +54,7 @@ const hashStr = (s: string): number => {
 
 type RaceState = 'intro' | 'racing' | 'finished' | 'results';
 
-export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = true, forcedEnvironment, pilot, opponentCount = 19, onExit, onTutorial, onCupComplete, debugLighting = false, onReady, tutorial = false, trackOverride, trackList, envBias }: GameProps) {
+export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = true, forcedEnvironment, pilot, opponentCount = 19, initialRoster, initialScores, onExit, onTutorial, onCupComplete, onNextCup, debugLighting = false, onReady, tutorial = false, trackOverride, trackList, envBias }: GameProps) {
   const mountRef = useRef<HTMLDivElement>(null);
 
   // The race sequence: a cup's tracks when provided, otherwise the full pool.
@@ -61,8 +66,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   // Campaign State
   // Initialize roster once using a ref or state that doesn't reset on track change
   // Actually, we want it to persist across the entire session.
-  const [roster] = useState<OpponentConfig[]>(() => OpponentManager.generateRoster(opponentCount));
-  const [campaignScores, setCampaignScores] = useState<Record<string, number>>({});
+  const [roster] = useState<OpponentConfig[]>(() => initialRoster ?? OpponentManager.generateRoster(opponentCount));
+  const [campaignScores, setCampaignScores] = useState<Record<string, number>>(() => initialScores ?? {});
 
   // Speed handled via ref
   // const [speed, setSpeed] = useState(0); 
@@ -92,6 +97,9 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const raceStartedRef = useRef(false);
   const raceFinishedRef = useRef(false); // Player finished
   const allFinishedRef = useRef(false); // All ships finished
+  // Game time (ms) at which the player crossed the line. After a grace period we
+  // stop waiting for stragglers and resolve their positions from track progress.
+  const playerFinishGameTime = useRef<number | null>(null);
 
   const countdownRef = useRef(7);
   const countdownStartTime = useRef(0); // Will be set on mount
@@ -184,16 +192,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       if (e.key === 'p' || e.key === 'P') {
         handleScreenshot();
       }
-      // CHEAT: Force Finish
-      if (e.key === 'f' || e.key === 'F') {
-        if (playerShip.current) {
-          playerShip.current.lap = 6;
-          playerShip.current.finished = true;
-          playerShip.current.finishTime = gameTimeRef.current;
-        }
-      }
       // CHEAT: Force Finish All Opponents
-      if (e.key === 'g' || e.key === 'G') {
+      if (e.key === 'l' || e.key === 'L') {
         if (opponentManager.current) {
           opponentManager.current.opponents.forEach(o => {
             o.lap = 6;
@@ -688,6 +688,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         if (!raceFinishedRef.current && playerShip.current?.finished) {
           console.log('[HUDDBG] raceFinishedRef → true (player finished)');
           raceFinishedRef.current = true;
+          playerFinishGameTime.current = gameTimeRef.current;
           setRaceState('finished');
           audioManager.playRaceFinish();
           audioManager.stopEngineRumble();
@@ -741,6 +742,32 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         // Check if EVERYONE is finished
         // Optimization: allShips[totalShips-1].finished is enough check if sorted correctly?
         // Safe check:
+        const everyoneFinished = allShips.every(s => s.finished);
+
+        // Mario-Kart style: once the player has finished, don't make them wait for
+        // the whole field. After a grace period, resolve any stragglers' final
+        // positions from their track progress instead of waiting for real laps.
+        const FINISH_GRACE_MS = 10000;
+        const TOTAL_LAPS = 6; // race finishes once a ship's lap counter passes 5
+        const graceElapsed = playerFinishGameTime.current !== null &&
+          (gameTimeRef.current - playerFinishGameTime.current) > FINISH_GRACE_MS;
+
+        if (graceElapsed && !everyoneFinished) {
+          // Assign a synthetic finish time to each unfinished ship by extrapolating
+          // its current pace to the end of the race. More progress → earlier
+          // estimated finish, so the existing finishTime sort stays consistent.
+          for (const ship of allShips) {
+            if (ship.finished) continue;
+            const progress = ship.getTotalProgress(); // laps + trackProgress, 0..6
+            const pace = progress > 0 ? gameTimeRef.current / progress : gameTimeRef.current;
+            const remaining = Math.max(0, TOTAL_LAPS - progress);
+            ship.finished = true;
+            ship.finishTime = gameTimeRef.current + pace * remaining;
+          }
+          // Re-sort now that every ship has a finishTime.
+          allShips.sort((a, b) => a.finishTime - b.finishTime);
+        }
+
         const allDone = allShips.every(s => s.finished);
 
         if (allDone && !allFinishedRef.current) {
@@ -785,11 +812,15 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           // Cup complete: on the final race, rank everyone by cumulative cup
           // points and report whether the player placed top 3 (unlocks next cup).
           if (isCampaign && currentTrackIndex === tracks.length - 1 && onCupComplete) {
+            // Rank by THIS cup's points (subtract any carried-in totals) so the
+            // top-3 cup-clear check stays per-cup even when Race All aggregates
+            // across cups. The full cumulative totals are reported for aggregation.
+            const base = initialScores ?? {};
             const standings = allShips
-              .map(s => ({ isPlayer: s.isPlayer, total: updatedScores[s.id] || 0 }))
+              .map(s => ({ isPlayer: s.isPlayer, total: (updatedScores[s.id] || 0) - (base[s.id] || 0) }))
               .sort((a, b) => b.total - a.total);
             const playerCupRank = standings.findIndex(s => s.isPlayer) + 1;
-            onCupComplete(playerCupRank >= 1 && playerCupRank <= 3);
+            onCupComplete(playerCupRank >= 1 && playerCupRank <= 3, updatedScores);
           }
         }
       }
@@ -846,7 +877,9 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       }
 
       // --- SUN GLARE: one white-out, keyed to the crest into the sun ---
-      if (glareZone) {
+      // Suppressed at night — there's no low sun to stare into, so the track
+      // plays as a dark moonlit desert (env lighting/sky go night-dark to match).
+      if (glareZone && envConfig.timeOfDay !== 'night') {
         // Triangular ramp through the zone: 0 at start → 1 at the crest (peak)
         // → 0 by end. Smoothstepped so it builds and clears gently. Once a lap.
         const t = currentState.trackProgress;
@@ -863,6 +896,9 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           fog.near += ((3200 - 2800 * glare) - fog.near) * 0.12;
           fog.far += ((6000 - 4600 * glare) - fog.far) * 0.12;
         }
+      } else if (glareZone && glareRef.current) {
+        // Night: ensure the overlay is fully clear (no leftover white-out).
+        glareRef.current.style.opacity = '0';
       }
 
       // setSpeed(Math.round(currentState.velocity.y * 10));
@@ -898,7 +934,10 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         streaks.instanceMatrix.needsUpdate = true;
         (streaks.material as THREE.MeshBasicMaterial).opacity = 0.24 + 0.5 * f01;
         const fog = scene.fog as THREE.Fog | null;
-        if (fog) {
+        if (fog && fog.isFog) {
+          // Breathe the dust near/far with the wind. Only the linear dust fog
+          // (clear weather); under "fog" weather the fog is exponential grey, set
+          // and owned by EnvironmentManager, so leave it untouched.
           fog.near += ((2900 - 2100 * f01) - fog.near) * 0.09;
           fog.far += ((6000 - 2500 * f01) - fog.far) * 0.09;
         }
@@ -1061,6 +1100,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
                   ? handleNextRace
                   : undefined
               }
+              onNextCup={onNextCup}
               onExit={onExit}
               isCampaign={isCampaign}
               photos={photos}
