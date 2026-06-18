@@ -14,6 +14,7 @@ interface LeaderboardProps {
     results: RaceResult[];
     onRestart: () => void;
     onNextRace?: () => void;
+    onNextCup?: () => void;
     onExit?: () => void;
     isCampaign?: boolean;
     photos?: { url: string; time: number }[];
@@ -23,7 +24,7 @@ interface LeaderboardProps {
     showTutorialHint?: boolean;
 }
 
-export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, onNextRace, onExit, isCampaign = false, photos, onDownloadPhoto, onDownloadAll, onTutorial, showTutorialHint }) => {
+export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, onNextRace, onNextCup, onExit, isCampaign = false, photos, onDownloadPhoto, onDownloadAll, onTutorial, showTutorialHint }) => {
     const [viewMode, setViewMode] = useState<'race' | 'campaign'>('race');
     const [preview, setPreview] = useState<number | null>(null); // photo lightbox index
 
@@ -160,6 +161,24 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, on
                         >
                             Next Race
                         </button>
+                    ) : onNextCup ? (
+                        // "Race All": cup finished, but more cups remain in the gauntlet.
+                        <>
+                            {onExit && (
+                                <button
+                                    onClick={onExit}
+                                    className="px-8 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded uppercase tracking-widest transition-all"
+                                >
+                                    Main Menu
+                                </button>
+                            )}
+                            <button
+                                onClick={onNextCup}
+                                className="px-8 py-3 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold rounded uppercase tracking-widest transition-all transform hover:scale-105 shadow-[0_0_20px_rgba(250,204,21,0.5)]"
+                            >
+                                Next Cup →
+                            </button>
+                        </>
                     ) : (
                         onExit && (
                             <button

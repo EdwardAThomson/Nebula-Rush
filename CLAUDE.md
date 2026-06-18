@@ -52,7 +52,7 @@ Audio under `public/assets/audio/{music,sfx}/`, pilot portraits under `public/as
 - Per-frame data flows through **refs and plain object mutation**, not React state. Only low-frequency events (lap counter, race state, results) use `useState`.
 - `tsconfig.app.json` is strict and disallows unused locals/parameters — prefix intentionally unused params with `_` or remove them.
 - The track curve is closed; any code that does `(t + offset) % 1` is normalizing because of this. Don't introduce `t` consumers that assume `0..1` is open.
-- The `// Cheat: Instant Win` (`F`) and `Cheat: Finish Opponents` (`G`) keys in the controls table are real debug shortcuts wired into `Game.tsx`.
+- The `Cheat: Finish Opponents` (`L`) key in `Game.tsx` is a real debug shortcut (force-finishes all AI opponents). The former instant-win key (`F`) has been removed.
 
 ## Development branch
 

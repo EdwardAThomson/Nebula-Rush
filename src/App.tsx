@@ -17,7 +17,8 @@ import SettingsMenu from './components/SettingsMenu';
 import type { Pilot } from './game/PilotDefinitions';
 import type { EnvironmentConfig } from './game/EnvironmentManager';
 import { TRACKS, TUTORIAL_TRACK } from './game/TrackDefinitions';
-import { CUPS, resolveCupTracks, getCupForTrack, type Cup } from './game/CupDefinitions';
+import { CUPS, resolveCupTracks, getCupForTrack, isCupReady, type Cup } from './game/CupDefinitions';
+import { OpponentManager, type OpponentConfig } from './game/OpponentManager';
 import { markCupCleared } from './game/cupProgress';
 
 // Calculate display stats (0-100) dynamically from SHIP_STATS
@@ -108,6 +109,13 @@ function App() {
   };
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
   const [selectedCup, setSelectedCup] = useState<Cup | null>(null);
+  // "Race All": chain every ready cup back-to-back. The final results of each cup
+  // then offers "Next Cup →" instead of dropping straight back to the menu.
+  const [raceAllMode, setRaceAllMode] = useState(false);
+  // Race All aggregates points across cups: one persistent roster of rivals and a
+  // running score map, carried from each cup into the next.
+  const [raceAllRoster, setRaceAllRoster] = useState<OpponentConfig[] | null>(null);
+  const [raceAllScores, setRaceAllScores] = useState<Record<string, number>>({});
   const [selectedEnvConfig, setSelectedEnvConfig] = useState<EnvironmentConfig | null>(null);
   const [selectedPilot, setSelectedPilot] = useState<Pilot | null>(null);
   const [selectedShipConfig, setSelectedShipConfig] = useState<ShipConfig>({
@@ -154,6 +162,7 @@ function App() {
   // Chose a cup → race its tracks in order, accumulating points.
   const handleCupSelect = (cup: Cup) => {
     setSelectedCup(cup);
+    setRaceAllMode(false);
     navigateTo('pilot_selection', () => {
       setGameMode('campaign');
       setSelectedTrackIndex(0);
@@ -161,10 +170,37 @@ function App() {
     });
   };
 
-  // Called when the final race of a cup ends. Clearing it (top 3 overall)
-  // unlocks the next cup.
-  const handleCupComplete = (clearedTop3: boolean) => {
+  // "Race All": start a gauntlet through every ready cup, beginning at the first.
+  // One roster of rivals persists across all cups; scores start fresh and aggregate.
+  const handleRaceAll = () => {
+    const first = CUPS.find(isCupReady);
+    if (!first) return;
+    setSelectedCup(first);
+    setRaceAllMode(true);
+    setRaceAllRoster(OpponentManager.generateRoster(19));
+    setRaceAllScores({});
+    navigateTo('pilot_selection', () => {
+      setGameMode('campaign');
+      setSelectedTrackIndex(0);
+      setSelectedEnvConfig(null);
+    });
+  };
+
+  // "Race All": from a cup's final results, jump straight into the next ready cup
+  // (same pilot/ship). The Game key change remounts at track 0 with a fresh roster.
+  const handleNextCup = () => {
+    const ready = CUPS.filter(isCupReady);
+    const idx = selectedCup ? ready.findIndex((c) => c.id === selectedCup.id) : -1;
+    const next = ready[idx + 1];
+    if (!next) { setRaceAllMode(false); setScreen('start'); return; }
+    navigateTo('game', () => setSelectedCup(next), true);
+  };
+
+  // Called when the final race of a cup ends. Clearing it (top 3 in that cup)
+  // unlocks the next cup. In Race All, carry the cumulative totals into the next cup.
+  const handleCupComplete = (clearedTop3: boolean, finalScores: Record<string, number>) => {
     if (clearedTop3 && selectedCup) markCupCleared(selectedCup.id);
+    if (raceAllMode) setRaceAllScores(finalScores);
   };
 
   /*
@@ -270,6 +306,7 @@ function App() {
   };
 
   const handleGameExit = () => {
+    setRaceAllMode(false);
     setScreen('start');
   };
 
@@ -551,7 +588,7 @@ function App() {
       {/* CUP SELECTION SCREEN (campaign entry) */}
       {
         screen === 'cup_selection' && (
-          <CupSelection onSelect={handleCupSelect} onBack={() => setScreen('start')} />
+          <CupSelection onSelect={handleCupSelect} onRaceAll={handleRaceAll} onBack={() => setScreen('start')} />
         )
       }
 
@@ -631,6 +668,8 @@ function App() {
             onSelect={handleEnvSelect}
             onBack={handleBackFromEnvSelect}
             onMainMenu={() => setScreen('start')}
+            isSpaceTrack={!!getCupForTrack(TRACKS[selectedTrackIndex]?.id ?? '')?.envBias?.space}
+            isStormTrack={!!TRACKS[selectedTrackIndex]?.wind}
           />
         )
       }
@@ -653,6 +692,9 @@ function App() {
       {
         screen === 'game' && selectedShipConfig && (
           <Game
+            // Remount on cup change (Race All) so the next cup starts at track 0
+            // with a fresh roster; per-track in single race.
+            key={gameMode === 'campaign' ? `cup-${selectedCup?.id ?? 'none'}` : `single-${selectedTrackIndex}`}
             // Apply Pilot Modifiers to Ship Config
             shipConfig={selectedShipConfig}
             initialTrackIndex={selectedTrackIndex}
@@ -664,7 +706,19 @@ function App() {
               ? selectedCup?.envBias
               : getCupForTrack(TRACKS[selectedTrackIndex]?.id ?? '')?.envBias}
             onCupComplete={handleCupComplete}
-            forcedEnvironment={selectedEnvConfig || undefined}
+            // Race All: offer "Next Cup" on the final results while ready cups remain.
+            onNextCup={
+              raceAllMode && selectedCup &&
+              CUPS.filter(isCupReady).findIndex((c) => c.id === selectedCup.id) < CUPS.filter(isCupReady).length - 1
+                ? handleNextCup
+                : undefined
+            }
+            // Race All: same rivals + carried scores across cups, so standings aggregate.
+            initialRoster={raceAllMode ? (raceAllRoster ?? undefined) : undefined}
+            initialScores={raceAllMode ? raceAllScores : undefined}
+            // Single race uses the player's env pick; campaign always rolls a fresh
+            // random env per track (never inherits the last single-race selection).
+            forcedEnvironment={gameMode === 'single_race' ? (selectedEnvConfig || undefined) : undefined}
             pilot={selectedPilot}
             onExit={handleGameExit}
             onTutorial={handleTutorial}
