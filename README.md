@@ -12,7 +12,8 @@ This project demonstrates a custom physics engine, procedural mesh generation, a
 I originally started building this game for free using Claude in the web browser. The free version of the model seems to be inhibited, so I eventually took it to my IDE. The first version was pretty rough!
 
 * [F-Zero Clone for $0](https://www.youtube.com/watch?v=KXRh0A3ztOU)
-* [Nebula Rush: 3D Sci-Fi Racer](https://www.youtube.com/watch?v=zMhtxbewmd0)
+* [First cup created for Nebula Rush: 5 race tracks completed!](https://www.youtube.com/watch?v=zMhtxbewmd0)
+* [New ship graphics and background effects added](https://youtu.be/VOGkLEW-zQU)
 
 
 ![Screenshot](./screenshot_nebula_rush_20260601.png)
