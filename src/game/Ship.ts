@@ -28,6 +28,8 @@ export interface ShipConfig {
     strafeSpeed: number;
     slideFactor: number; // NEW
     throttleRate?: number; // throttle ramp/frame (pilot accel stat); default 0.05
+    energyEnabled?: boolean; // player only: hazard/wall damage + DNF at zero
+    maxEnergy?: number;      // per-ship capacity (from SHIP_STATS)
     type: ShipType;
     id?: string;
     name?: string;
@@ -44,6 +46,7 @@ export class Ship {
 
     public finished: boolean = false;
     public finishTime: number = 0;
+    public retired: boolean = false; // energy hit 0 → DNF (sorts last via finishTime)
 
     // Visual components if we need to animate them (e.g. engine glow)
     private glows: THREE.Mesh[] = [];
@@ -69,6 +72,11 @@ export class Ship {
             if (config.strafeSpeed !== undefined) this.state.strafeSpeed = config.strafeSpeed;
             if (config.slideFactor !== undefined) this.state.slideFactor = config.slideFactor;
             if (config.throttleRate !== undefined) this.state.throttleRate = config.throttleRate;
+            if (config.energyEnabled !== undefined) this.state.energyEnabled = config.energyEnabled;
+            if (config.maxEnergy !== undefined) {
+                this.state.maxEnergy = config.maxEnergy;
+                this.state.energy = config.maxEnergy; // spawn with a full tank
+            }
         }
 
         this.id = config?.id || 'player';
@@ -179,6 +187,14 @@ export class Ship {
 
             if (onLapComplete) onLapComplete(msg);
         }, raceStarted, hazards, lateralLimit);
+
+        // Retirement: out of energy → DNF. finished=true with a sentinel time
+        // so the existing rank sort places retirees behind every real finisher.
+        if (this.state.energyEnabled && this.state.energy <= 0 && !this.retired && !this.finished) {
+            this.retired = true;
+            this.finished = true;
+            this.finishTime = Number.MAX_SAFE_INTEGER;
+        }
 
         // Visual Updates — a steady "circle of light" at each engine, a gently
         // flickering saturated cyan flame, and a hot near-white inner core.

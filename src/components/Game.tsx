@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { createTrackCurve, createTrackMesh, getTrackFrame, createBoostPadMeshes, createHazardMeshes, createStartLineMesh, createTrafficLightMesh } from '../game/TrackFactory';
+import { createTrackCurve, createTrackMesh, getTrackFrame, createBoostPadMeshes, createHazardMeshes, createStartLineMesh, createTrafficLightMesh, createRechargeStripMesh } from '../game/TrackFactory';
 import { createStoredZip } from '../utils/zip';
 import { InputManager } from '../game/InputManager';
 import { Ship, type ShipConfig } from '../game/Ship';
@@ -52,7 +52,7 @@ const hashStr = (s: string): number => {
   return h >>> 0;
 };
 
-type RaceState = 'intro' | 'racing' | 'finished' | 'results';
+type RaceState = 'intro' | 'racing' | 'finished' | 'retired' | 'results';
 
 export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = true, forcedEnvironment, pilot, opponentCount = 19, initialRoster, initialScores, onExit, onTutorial, onCupComplete, onNextCup, debugLighting = false, onReady, tutorial = false, trackOverride, trackList, envBias }: GameProps) {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -81,6 +81,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const timeRef = useRef<HTMLDivElement>(null);
   const rankRef = useRef<HTMLDivElement>(null);
   const glareRef = useRef<HTMLDivElement>(null); // sun-glare white-out overlay
+  const energyFillRef = useRef<HTMLDivElement>(null); // energy bar fill (width % per frame)
+  const bumpCooldownRef = useRef(0); // seconds until the next rival-contact bump can fire
 
   const [hudVisible, setHudVisible] = useState(true);
 
@@ -301,6 +303,9 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
     // Creates Player Ship with Pilot Modifiers
     let finalShipConfig = { ...shipConfig };
+    // Energy (hazard/wall damage, DNF at zero) is player-only and skipped in
+    // the tutorial. AI never enables it — see the note in PhysicsEngine.
+    finalShipConfig.energyEnabled = !tutorial;
 
     if (pilot) {
       finalShipConfig.name = pilot.name;
@@ -451,6 +456,9 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     // Create Start Line
     const startLine = createStartLineMesh(trackCurve, bankTrack);
     scene.add(startLine);
+
+    // Energy recharge strip (green glow band just past the line)
+    scene.add(createRechargeStripMesh(trackCurve, bankTrack));
 
     // Create minimap
     const minimapCanvas = document.createElement('canvas');
@@ -728,7 +736,24 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           audioManager.stopEngineRumble();
         }
 
-      }, raceStartedRef.current, gameTimeRef.current, currentTrack.hazards ?? [], wallLimit);
+      }, raceStartedRef.current && !playerShip.current.retired, gameTimeRef.current, currentTrack.hazards ?? [], wallLimit);
+
+      // Player out of energy → retire (DNF). Input is cut via the raceStarted
+      // arg above; the wreck coasts to a stop on friction. Starting the finish
+      // grace here resolves the AI field within ~10s and brings up results.
+      if (playerShip.current.retired && !raceFinishedRef.current) {
+        raceFinishedRef.current = true;
+        playerFinishGameTime.current = gameTimeRef.current;
+        setRaceState('retired');
+        audioManager.stopEngineRumble();
+      }
+
+      // Energy bar (ref-driven, no re-render); % of the ship's own capacity
+      if (energyFillRef.current) {
+        const pct = Math.max(0, Math.min(100, (currentState.energy / (currentState.maxEnergy || 100)) * 100));
+        energyFillRef.current.style.width = `${pct}%`;
+        energyFillRef.current.style.backgroundColor = pct > 50 ? '#22c55e' : pct > 25 ? '#f59e0b' : '#ef4444';
+      }
 
       if (!raceFinishedRef.current && raceStartedRef.current) {
         const currentLapTime = gameTimeRef.current - lapStartGameTime.current;
@@ -741,6 +766,32 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       if (opponentManager.current) {
         if (raceStartedRef.current) {
           opponentManager.current.update(dt, trackLength, currentTrack.pads, raceStartedRef.current, gameTimeRef.current, currentTrack.hazards ?? []);
+        }
+      }
+
+      // --- SHIP CONTACT (player vs rivals only; AI-AI is soft separation in
+      // OpponentManager). Overlap → mutual lateral shove, small speed bleed and
+      // energy tick for the player. 2s grid grace so the packed start doesn't
+      // chain-bump; cooldown stops re-triggering while still overlapped. ---
+      if (opponentManager.current && raceStartedRef.current && gameTimeRef.current > 2000
+        && !playerShip.current.retired && !raceFinishedRef.current) {
+        const ps = playerShip.current.state;
+        if (bumpCooldownRef.current <= 0) {
+          for (const opp of opponentManager.current.opponents) {
+            let dp = Math.abs(ps.trackProgress - opp.state.trackProgress);
+            dp = Math.min(dp, 1 - dp); // closed-loop wrap
+            if (dp * trackLength < 9 && Math.abs(ps.lateralPosition - opp.state.lateralPosition) < 7) {
+              bumpCooldownRef.current = 0.5;
+              const side = ps.lateralPosition >= opp.state.lateralPosition ? 1 : -1;
+              ps.velocity.x += side * 2.0;
+              opp.state.velocity.x -= side * 1.6;
+              ps.velocity.y *= 0.96;
+              if (ps.energyEnabled) ps.energy = Math.max(0, ps.energy - 5);
+              break; // one bump per frame is plenty
+            }
+          }
+        } else {
+          bumpCooldownRef.current -= deltaMs / 1000;
         }
       }
 
@@ -811,7 +862,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           // GENERATE RESULTS
           const results: RaceResult[] = allShips.map((ship, index) => {
             const rank = index + 1;
-            const points = POINTS_TABLE[rank - 1] || 0;
+            // DNF (retired): no points, no time — ranked behind all finishers
+            const points = ship.retired ? 0 : (POINTS_TABLE[rank - 1] || 0);
 
             // Calculate Time from RaceStart
             // finishTime is now game time in ms (not wall-clock timestamp)
@@ -826,7 +878,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
               rank: rank,
               name: ship.name,
               isPlayer: ship.isPlayer,
-              timeStr: formatTime(totalTime),
+              timeStr: ship.retired ? 'DNF' : formatTime(totalTime),
               points: points,
               totalPoints: newTotal
             };
@@ -1156,6 +1208,17 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           </div>
         )}
 
+        {/* Retired (out of energy) Overlay */}
+        {raceState === 'retired' && (
+          <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-40">
+            <div className="text-white px-8 py-4 rounded-lg border animate-pulse" style={{ backgroundColor: 'rgba(0,0,0,0.8)', borderColor: '#ef4444' }}>
+              <div className="text-3xl font-bold text-center" style={{ color: '#ef4444' }}>SHIP DESTROYED</div>
+              <div className="text-xl text-center mt-2">Out of energy — DNF</div>
+              <div className="text-sm text-gray-400 text-center mt-2">Waiting for the field to finish...</div>
+            </div>
+          </div>
+        )}
+
         {/* Leaderboard Overlay */}
         {raceState === 'results' && (
           <div className="pointer-events-auto">
@@ -1190,17 +1253,27 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         {/* z-20 keeps the HUD readable ABOVE the sun-glare white-out (z-10). */}
         {!raceFinishedRef.current && hudVisible && (
           <div className="absolute inset-0 z-20 pointer-events-none">
-            {/* Top Left: pilot identity — anchor for the upcoming energy bar */}
-            {pilot && (
+            {/* Top Left: pilot identity + energy */}
+            {!tutorial && (
               <div className="absolute top-8 left-8 flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                <img
-                  src={pilot.imagePath}
-                  alt={pilot.name}
-                  className="w-14 h-14 rounded-md object-cover border"
-                  style={{ borderColor: '#164e63' }}
-                />
-                <div className="text-sm font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] pr-1">
-                  {pilot.name}
+                {pilot && (
+                  <img
+                    src={pilot.imagePath}
+                    alt={pilot.name}
+                    className="w-14 h-14 rounded-md object-cover border"
+                    style={{ borderColor: '#164e63' }}
+                  />
+                )}
+                <div className="flex flex-col gap-1 pr-1">
+                  {pilot && (
+                    <div className="text-sm font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                      {pilot.name}
+                    </div>
+                  )}
+                  <div className="w-40 h-2.5 rounded bg-gray-900 overflow-hidden border border-gray-600">
+                    <div ref={energyFillRef} className="h-full" style={{ width: '100%', backgroundColor: '#22c55e' }} />
+                  </div>
+                  <div className="text-[10px] text-gray-400 font-bold tracking-widest">ENERGY</div>
                 </div>
               </div>
             )}

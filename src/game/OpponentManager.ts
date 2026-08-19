@@ -5,6 +5,7 @@ import { type ShipType, SHIP_STATS } from './ShipFactory';
 import type { InputSource } from './InputManager';
 import type { GameState } from './PhysicsEngine';
 import type { BoostPad, Hazard } from './TrackDefinitions';
+import { drawRivalNames } from './rivalNames';
 
 class AIInputController implements InputSource {
     private keys: { [key: string]: boolean } = {};
@@ -117,7 +118,9 @@ export class OpponentManager {
     public static generateRoster(count: number): OpponentConfig[] {
         const colors = [0x00cc00, 0x0000cc, 0xcccc00, 0xcc00cc, 0x00cccc, 0xff8800];
         const roster: OpponentConfig[] = [];
-        const usedNames = new Set<string>();
+
+        // Curated rival names, sampled without replacement (see rivalNames.ts)
+        const names = drawRivalNames(count);
 
         for (let i = 0; i < count; i++) {
             // Select Random Ship Type (all 5 types now included)
@@ -138,16 +141,10 @@ export class OpponentManager {
             basetoConfig.turnSpeed *= 1.0 + (Math.random() * 0.2 - 0.1);     // ±10%
             basetoConfig.color = colors[i % colors.length];
 
-            let name: string;
-            do {
-                name = `AI-${Math.floor(Math.random() * 900) + 100}`;
-            } while (usedNames.has(name));
-            usedNames.add(name);
-
             roster.push({
                 ...basetoConfig,
                 id: `ai_${i}`,
-                name
+                name: names[i]
             });
         }
         return roster;
@@ -184,6 +181,31 @@ export class OpponentManager {
             opponent.updateMesh(this.trackCurve, this.bank);
             if (this.windForce) {
                 opponent.mesh.rotateZ(this.windForce(opponent.state.trackProgress, gameTime) * 26);
+            }
+        }
+
+        // 4. Soft separation between overlapping rivals: a gentle mutual lateral
+        // steer-apart so ships hold racing room instead of clipping through each
+        // other on screen. Deliberately NO speed or energy effects (and never
+        // view-dependent) — race outcomes must not change based on who overlaps
+        // whom. Real contact consequences are player-only, handled in Game.tsx.
+        if (raceStarted) {
+            const SEP_ALONG = 8 / trackLength; // world units → track-progress band
+            for (let a = 0; a < this.opponents.length; a++) {
+                for (let b = a + 1; b < this.opponents.length; b++) {
+                    const A = this.opponents[a].state;
+                    const B = this.opponents[b].state;
+                    let dp = Math.abs(A.trackProgress - B.trackProgress);
+                    dp = Math.min(dp, 1 - dp);
+                    if (dp < SEP_ALONG) {
+                        const dl = A.lateralPosition - B.lateralPosition;
+                        if (Math.abs(dl) < 6) {
+                            const push = (dl >= 0 ? 1 : -1) * 0.08 * dt;
+                            A.velocity.x += push;
+                            B.velocity.x -= push;
+                        }
+                    }
+                }
             }
         }
     }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { BoostPad, Hazard } from './TrackDefinitions';
-import { HAZARD_BLOCK_DEPTH, widthAt } from './TrackDefinitions';
+import { HAZARD_BLOCK_DEPTH, RECHARGE_ZONE, widthAt } from './TrackDefinitions';
 
 // Create track path using curve
 export const createTrackCurve = (points: THREE.Vector3[]): THREE.CatmullRomCurve3 => {
@@ -341,6 +341,45 @@ export const createStartLineMesh = (trackCurve: THREE.CatmullRomCurve3, bank: bo
     const material = new THREE.MeshBasicMaterial({
         map: createCheckerTexture(),
         side: THREE.DoubleSide,
+    });
+
+    return new THREE.Mesh(geometry, material);
+};
+
+// Energy recharge strip: a translucent green band spanning the full track
+// width over RECHARGE_ZONE (the same t-range the physics regen checks, both
+// read the constant). Additive so it reads as a glow, not paint.
+export const createRechargeStripMesh = (trackCurve: THREE.CatmullRomCurve3, bank: boolean = true): THREE.Mesh => {
+    const width = 120;
+    const geometry = new THREE.BufferGeometry();
+    const vertices: number[] = [];
+    const segments = Math.max(16, Math.ceil((RECHARGE_ZONE.end - RECHARGE_ZONE.start) * 1500));
+
+    for (let i = 0; i <= segments; i++) {
+        const t = RECHARGE_ZONE.start + (i / segments) * (RECHARGE_ZONE.end - RECHARGE_ZONE.start);
+        const { position, normal, binormal } = getTrackFrame(trackCurve, t, bank);
+        const left = position.clone().add(binormal.clone().multiplyScalar(-width / 2)).add(normal.clone().multiplyScalar(0.7));
+        const right = position.clone().add(binormal.clone().multiplyScalar(width / 2)).add(normal.clone().multiplyScalar(0.7));
+        vertices.push(left.x, left.y, left.z, right.x, right.y, right.z);
+    }
+
+    const indices: number[] = [];
+    for (let i = 0; i < segments; i++) {
+        const base = i * 2;
+        indices.push(base, base + 2, base + 1);
+        indices.push(base + 1, base + 2, base + 3);
+    }
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setIndex(indices);
+
+    const material = new THREE.MeshBasicMaterial({
+        color: 0x22ff88,
+        transparent: true,
+        opacity: 0.3,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
     });
 
     return new THREE.Mesh(geometry, material);

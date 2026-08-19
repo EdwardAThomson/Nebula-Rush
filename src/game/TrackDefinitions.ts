@@ -25,6 +25,12 @@ export interface Hazard {
 // collision in PhysicsEngine lines up with the visible mesh in TrackFactory.
 export const HAZARD_BLOCK_DEPTH = 14;
 
+// Energy recharge strip: a full-width band just past the start line, the same
+// place on every track (uniform for now; make it per-track via TrackConfig if
+// a track ever needs it elsewhere). Physics regen + the green strip mesh both
+// read this, so they can't drift apart.
+export const RECHARGE_ZONE = { start: 0.02, end: 0.05 };
+
 export interface TrackConfig {
     id: string;
     name: string;

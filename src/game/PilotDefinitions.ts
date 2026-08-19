@@ -21,12 +21,23 @@ export const PILOTS: Pilot[] = [
         stats: { velocity: 1, acceleration: 0, handling: 2 }
     },
     {
+        id: 'echo_7',
+        name: 'Echo-7',
+        bio: 'An experimental android racer. She feels no fear, no fatigue, and no mercy.',
+        imagePath: '/assets/pilots/pilot_echo_7_1765624373159.png',
+        gender: 'female',
+        stats: { velocity: 1, acceleration: 1, handling: 1 }
+    },
+    {
         id: 'dennis_grimshaw',
         name: 'Dennis Grimshaw',
         bio: 'A stoic veteran with a scarred past. He races not for glory, but for survival.',
         imagePath: '/assets/pilots/pilot_dennis_grimshaw.png',
         gender: 'male',
-        stats: { velocity: 1, acceleration: -1, handling: 2 }
+        // "Old thunder": an ancient monster of an engine — top speed to match
+        // the aces, but sluggish to build and recover it (accel -2). Was
+        // (1,-1,2), which Orion (1,0,2) strictly dominated.
+        stats: { velocity: 2, acceleration: -2, handling: 2 }
     },
     {
         id: 'zara_qel',
@@ -37,14 +48,6 @@ export const PILOTS: Pilot[] = [
         // velocity bumped -1 → 0: the tracks overwhelmingly reward top speed,
         // and a negative-velocity pilot was a trap pick.
         stats: { velocity: 0, acceleration: 1, handling: 2 }
-    },
-    {
-        id: 'echo_7',
-        name: 'Echo-7',
-        bio: 'An experimental android racer. She feels no fear, no fatigue, and no mercy.',
-        imagePath: '/assets/pilots/pilot_echo_7_1765624373159.png',
-        gender: 'female',
-        stats: { velocity: 1, acceleration: 1, handling: 1 }
     },
     {
         id: 'lyra_vane',

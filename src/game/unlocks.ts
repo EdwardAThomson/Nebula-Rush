@@ -7,10 +7,10 @@ import type { ShipType } from './ShipFactory';
 // Unlocks are DERIVED from the cleared-cups list (cupProgress), so there is no
 // separate save state and campaign is the only path to new pilots/ships.
 
-// Starting roster: a stat spread with NO high-velocity pilot — top speed
-// dominates on current tracks, so the fast pilots (Jax +2, Lyra +2) are all
-// campaign rewards rather than freebies.
-// echo_7 = balanced, orion_reinhardt/dennis = handling, nova = acceleration.
+// Starting roster: echo_7 = balanced, orion_reinhardt = precision,
+// nova = acceleration, dennis = "old thunder" (ace-tier top speed but accel -2,
+// the hard-to-drive speed option). The FORGIVING speed pilots (Jax, Lyra:
+// +2 velocity with decent launch) stay campaign rewards.
 const BASE_PILOTS = ['echo_7', 'orion_reinhardt', 'dennis_grimshaw', 'nova_starling'];
 const BASE_SHIPS: ShipType[] = ['fighter', 'interceptor'];
 
@@ -18,9 +18,12 @@ const BASE_SHIPS: ShipType[] = ['fighter', 'interceptor'];
 // full pass of today's campaign intentionally does NOT unlock everything —
 // the tail arrives with future cups.
 const CUP_REWARDS: Record<string, { pilots?: string[]; ships?: ShipType[] }> = {
+    // Escalating desirability (65 → 68 → 72 → 72-but-hard top speed), and each
+    // pilot fits their cup: outer-rim Darius in the desert, city hotshot Jax
+    // under the Skyline neon, icy Lyra in Cryo.
     nebula: { pilots: ['zara_qel'], ships: ['tank'] },
-    sunscorch: { pilots: ['jax_ace_strider'], ships: ['corsair'] },
-    skyline: { pilots: ['darius_wraith'], ships: ['speedster'] },
+    sunscorch: { pilots: ['darius_wraith'], ships: ['corsair'] },
+    skyline: { pilots: ['jax_ace_strider'], ships: ['speedster'] },
     cryo: { pilots: ['lyra_vane'] },
 };
 

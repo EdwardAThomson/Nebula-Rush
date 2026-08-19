@@ -49,12 +49,15 @@ const getDisplayStats = (type: ShipType) => {
   const normalize = (val: number, min: number, max: number) =>
     Math.round(50 + ((val - min) / (max - min)) * 50);
 
+  const allEnergy = allStats.map(s => s.maxEnergy);
+
   return {
     speed: normalize(topSpeed, minSpeed, maxSpeed),
     accel: normalize(stats.accelFactor, minAccel, maxAccel),
     handling: normalize(handling, minHandling, maxHandling),
     // For corsair, show drift instead of handling
-    drift: Math.round(50 + (stats.slideFactor - 0.85) / (0.995 - 0.85) * 50)
+    drift: Math.round(50 + (stats.slideFactor - 0.85) / (0.995 - 0.85) * 50),
+    energy: normalize(stats.maxEnergy, Math.min(...allEnergy), Math.max(...allEnergy))
   };
 };
 
@@ -78,7 +81,7 @@ const numToCss = (n: number) => '#' + n.toString(16).padStart(6, '0');
 const SHIP_CARDS: {
   type: ShipType; title: string; color: number; info: string;
   titleClass: string; borderClass: string; bgClass: string;
-  stats: { label: string; key: 'speed' | 'accel' | 'handling' | 'drift'; barClass: string }[];
+  stats: { label: string; key: 'speed' | 'accel' | 'handling' | 'drift' | 'energy'; barClass: string }[];
 }[] = [
   {
     type: 'fighter', title: 'FIGHTER', color: 0xcc0000,
@@ -88,6 +91,7 @@ const SHIP_CARDS: {
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
       { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
+      { label: 'Energy', key: 'energy', barClass: 'bg-emerald-400' },
     ],
   },
   {
@@ -98,6 +102,7 @@ const SHIP_CARDS: {
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
       { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
+      { label: 'Energy', key: 'energy', barClass: 'bg-emerald-400' },
     ],
   },
   {
@@ -108,6 +113,7 @@ const SHIP_CARDS: {
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
       { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
+      { label: 'Energy', key: 'energy', barClass: 'bg-emerald-400' },
     ],
   },
   {
@@ -118,6 +124,7 @@ const SHIP_CARDS: {
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
       { label: 'Drift', key: 'drift', barClass: 'bg-pink-500' },
+      { label: 'Energy', key: 'energy', barClass: 'bg-emerald-400' },
     ],
   },
   {
@@ -128,6 +135,7 @@ const SHIP_CARDS: {
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
       { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
+      { label: 'Energy', key: 'energy', barClass: 'bg-emerald-400' },
     ],
   },
 ];
