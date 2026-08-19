@@ -10,8 +10,8 @@ import type { ShipType } from './ShipFactory';
 // Starting roster: a stat spread with NO high-velocity pilot — top speed
 // dominates on current tracks, so the fast pilots (Jax +2, Lyra +2) are all
 // campaign rewards rather than freebies.
-// echo_7 = balanced, orion_pax/kaelen = handling, nova = acceleration.
-const BASE_PILOTS = ['echo_7', 'orion_pax', 'kaelen_vance', 'nova_starling'];
+// echo_7 = balanced, orion_reinhardt/dennis = handling, nova = acceleration.
+const BASE_PILOTS = ['echo_7', 'orion_reinhardt', 'dennis_grimshaw', 'nova_starling'];
 const BASE_SHIPS: ShipType[] = ['fighter', 'interceptor'];
 
 // Rewards granted when a cup is cleared. Later cups aren't authored yet, so a
@@ -28,13 +28,13 @@ const CUP_REWARDS: Record<string, { pilots?: string[]; ships?: ShipType[] }> = {
 // the default path is one click. Falls back to the fighter while locked.
 const PILOT_SIGNATURE_SHIP: Record<string, ShipType> = {
     echo_7: 'fighter',
-    orion_pax: 'interceptor',
+    orion_reinhardt: 'interceptor',
     jax_ace_strider: 'speedster',
     nova_starling: 'tank',
     zara_qel: 'interceptor',
     lyra_vane: 'speedster',
     darius_wraith: 'corsair',
-    kaelen_vance: 'fighter',
+    dennis_grimshaw: 'fighter',
 };
 
 export function getUnlockedPilotIds(cleared: string[] = getClearedCups()): string[] {

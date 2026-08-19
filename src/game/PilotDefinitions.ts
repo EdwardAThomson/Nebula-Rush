@@ -13,18 +13,18 @@ export interface Pilot {
 
 export const PILOTS: Pilot[] = [
     {
-        id: 'orion_pax',
-        name: 'Orion Pax',
+        id: 'orion_reinhardt',
+        name: 'Orion Reinhardt',
         bio: 'A cybernetically enhanced racer. More machine than man, he calculates the perfect racing line every time.',
-        imagePath: '/assets/pilots/pilot_orion_pax_1765624283559.png',
+        imagePath: '/assets/pilots/pilot_orion_reinhardt.png',
         gender: 'male',
         stats: { velocity: 1, acceleration: 0, handling: 2 }
     },
     {
-        id: 'kaelen_vance',
-        name: 'Kaelen Vance',
+        id: 'dennis_grimshaw',
+        name: 'Dennis Grimshaw',
         bio: 'A stoic veteran with a scarred past. He races not for glory, but for survival.',
-        imagePath: '/assets/pilots/pilot_kaelen_vance_1765624265117.png',
+        imagePath: '/assets/pilots/pilot_dennis_grimshaw.png',
         gender: 'male',
         stats: { velocity: 1, acceleration: -1, handling: 2 }
     },

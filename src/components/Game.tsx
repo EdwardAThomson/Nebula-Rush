@@ -1190,6 +1190,21 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         {/* z-20 keeps the HUD readable ABOVE the sun-glare white-out (z-10). */}
         {!raceFinishedRef.current && hudVisible && (
           <div className="absolute inset-0 z-20 pointer-events-none">
+            {/* Top Left: pilot identity — anchor for the upcoming energy bar */}
+            {pilot && (
+              <div className="absolute top-8 left-8 flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                <img
+                  src={pilot.imagePath}
+                  alt={pilot.name}
+                  className="w-14 h-14 rounded-md object-cover border"
+                  style={{ borderColor: '#164e63' }}
+                />
+                <div className="text-sm font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] pr-1">
+                  {pilot.name}
+                </div>
+              </div>
+            )}
+
             {/* Top Right: Music Track */}
             {currentMusicTrackName && (
               <div className="absolute top-8 right-8 text-right animate-pulse p-3 rounded-lg" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
