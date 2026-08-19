@@ -12,14 +12,17 @@ import LightingPlayground from './components/LightingPlayground';
 import PilotSelection from './components/PilotSelection';
 import CupSelection from './components/CupSelection';
 import ShipDemo from './components/ShipDemo';
+import PhysicsTest from './components/PhysicsTest';
 import CaptureStudio from './components/CaptureStudio';
 import SettingsMenu from './components/SettingsMenu';
 import type { Pilot } from './game/PilotDefinitions';
 import type { EnvironmentConfig } from './game/EnvironmentManager';
+import { getUnlockedShipTypes, getSignatureShip, getUnlockHint } from './game/unlocks';
+import { isEnvPickerEnabled } from './game/gameSettings';
 import { TRACKS, TUTORIAL_TRACK } from './game/TrackDefinitions';
 import { CUPS, resolveCupTracks, getCupForTrack, isCupReady, type Cup } from './game/CupDefinitions';
 import { OpponentManager, type OpponentConfig } from './game/OpponentManager';
-import { markCupCleared } from './game/cupProgress';
+import { markCupCleared, isCupUnlocked } from './game/cupProgress';
 
 // Calculate display stats (0-100) dynamically from SHIP_STATS
 const getDisplayStats = (type: ShipType) => {
@@ -70,6 +73,65 @@ const PAINT_PALETTE: { name: string, value: number }[] = [
 ];
 const numToCss = (n: number) => '#' + n.toString(16).padStart(6, '0');
 
+// Ship-select cards, data-driven so lock state / recommended badge are handled
+// once. Class strings stay literal (Tailwind needs them scannable).
+const SHIP_CARDS: {
+  type: ShipType; title: string; color: number; info: string;
+  titleClass: string; borderClass: string; bgClass: string;
+  stats: { label: string; key: 'speed' | 'accel' | 'handling' | 'drift'; barClass: string }[];
+}[] = [
+  {
+    type: 'fighter', title: 'FIGHTER', color: 0xcc0000,
+    info: 'Perfectly balanced stats. Good for beginners and pros alike.',
+    titleClass: 'text-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-900',
+    stats: [
+      { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
+      { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
+      { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
+    ],
+  },
+  {
+    type: 'interceptor', title: 'INTERCEPTOR', color: 0x00ff00,
+    info: 'Bi-plane design. Best-in-class acceleration and turning.',
+    titleClass: 'text-green-500', borderClass: 'border-green-500', bgClass: 'bg-green-900',
+    stats: [
+      { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
+      { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
+      { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
+    ],
+  },
+  {
+    type: 'tank', title: 'TANK', color: 0xcccc00,
+    info: 'Incredible acceleration and grip, but lower top speed.',
+    titleClass: 'text-yellow-500', borderClass: 'border-yellow-500', bgClass: 'bg-yellow-900',
+    stats: [
+      { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
+      { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
+      { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
+    ],
+  },
+  {
+    type: 'corsair', title: 'CORSAIR', color: 0x5500aa,
+    info: 'Aggressive styling. High speed and extreme drift capabilities.',
+    titleClass: 'text-purple-500', borderClass: 'border-purple-500', bgClass: 'bg-purple-900',
+    stats: [
+      { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
+      { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
+      { label: 'Drift', key: 'drift', barClass: 'bg-pink-500' },
+    ],
+  },
+  {
+    type: 'speedster', title: 'SPEEDSTER', color: 0x00ccff,
+    info: 'High top speed, but slower acceleration. Built for long straights.',
+    titleClass: 'text-cyan-400', borderClass: 'border-cyan-500', bgClass: 'bg-cyan-900',
+    stats: [
+      { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
+      { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
+      { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
+    ],
+  },
+];
+
 // Reusable button with audio feedback
 const AudioButton = ({
   onClick,
@@ -93,7 +155,7 @@ const AudioButton = ({
 );
 
 function App() {
-  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'cup_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo' | 'capture' | 'tutorial'>('start');
+  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'cup_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo' | 'capture' | 'tutorial' | 'physics_test'>('start');
   const [gameMode, setGameMode] = useState<'campaign' | 'single_race'>('campaign');
   const [isLoading, setIsLoading] = useState(false); // NEW: Loading state
   const [showHelp, setShowHelp] = useState(false);
@@ -127,6 +189,11 @@ function App() {
     slideFactor: 0.95,
     type: 'fighter'
   });
+
+  // Roster gating: recomputed each render (cheap) so a just-cleared cup's
+  // unlocks show up as soon as the player returns to the menus.
+  const unlockedShips = getUnlockedShipTypes();
+  const signatureShip = selectedPilot ? getSignatureShip(selectedPilot.id, unlockedShips) : 'fighter';
 
   // Paint customizer state (modal on the ship-select screen)
   const [customizeType, setCustomizeType] = useState<ShipType | null>(null);
@@ -220,7 +287,7 @@ function App() {
 
   const handleBackFromPilotSelect = () => {
     if (gameMode === 'single_race') {
-      setScreen('env_selection');
+      setScreen(isEnvPickerEnabled() ? 'env_selection' : 'track_selection');
     } else {
       setScreen('cup_selection');
     }
@@ -287,18 +354,21 @@ function App() {
     setCustomizeType(null);
   };
 
+  // Track picked → straight to pilots with a random environment, unless the
+  // player opted into the full environment screen in Settings.
   const handleTrackSelect = (index: number) => {
     setSelectedTrackIndex(index);
-    setScreen('env_selection');
+    if (isEnvPickerEnabled()) {
+      setScreen('env_selection');
+    } else {
+      setSelectedEnvConfig(null); // race rolls its own env, same as campaign
+      setScreen('pilot_selection');
+    }
   };
 
   const handleEnvSelect = (config: EnvironmentConfig) => {
     setSelectedEnvConfig(config);
     setScreen('pilot_selection');
-  };
-
-  const handleBackFromEnvSelect = () => {
-    setScreen('track_selection');
   };
 
   const handleBackFromShipSelect = () => {
@@ -338,7 +408,7 @@ function App() {
               onClick={handleNewGame}
               className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
             >
-              NEW GAME
+              NEW CAMPAIGN
             </AudioButton>
             <AudioButton
               onClick={handleTutorial}
@@ -350,7 +420,7 @@ function App() {
               onClick={handleTrackSelectMode}
               className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
             >
-              SELECT TRACK
+              SINGLE RACE
             </AudioButton>
             {/* Capture Studio (dev/vlog tool) — delinked from the menu; re-enable
                 this button or call setScreen('capture') to reach it.
@@ -409,6 +479,16 @@ function App() {
             >
               ⚙ SETTINGS
             </AudioButton>
+            {/* Physics Test (dev tool for A/B-ing pilot-stat physics mappings) —
+                delinked from the menu; re-enable this button or call
+                setScreen('physics_test') to reach it.
+            <AudioButton
+              onClick={() => setScreen('physics_test')}
+              className="px-6 py-3 bg-gray-900 hover:bg-gray-800 text-yellow-500 font-bold rounded shadow-lg transform hover:scale-105 transition-all border border-yellow-900"
+            >
+              ⚗ PHYSICS TEST
+            </AudioButton>
+            */}
           </div>
 
           <div className="absolute bottom-8 text-gray-500 text-sm">
@@ -441,7 +521,7 @@ function App() {
           <PilotSelection
             onSelect={handlePilotSelect}
             onBack={handleBackFromPilotSelect}
-            backLabel={gameMode === 'single_race' ? 'BACK TO ENVIRONMENT' : 'BACK TO MENU'}
+            backLabel={gameMode === 'single_race' ? (isEnvPickerEnabled() ? 'BACK TO ENVIRONMENT' : 'BACK TO TRACKS') : 'BACK TO MENU'}
             onMainMenu={gameMode === 'single_race' ? () => setScreen('start') : undefined}
           />
         )
@@ -454,115 +534,51 @@ function App() {
             <h2 className="text-4xl font-bold text-white mb-8">SELECT YOUR SHIP</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
-              {/* SHIP 1: FIGHTER (Balanced) */}
-              <div
-                onClick={() => selectShipAndRace('fighter', 0xcc0000)}
-                onMouseEnter={() => audioManager.playHover()}
-                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-red-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 hover:z-50 group"
-              >
-                <PaintChip type="fighter" defaultColor={0xcc0000} />
-                <div className="h-48 bg-red-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
-                  <ShipPreview color={0xcc0000} type="fighter" />
-                </div>
-                <div className="flex items-center gap-2 mb-4">
-                  <h3 className="text-2xl font-bold text-red-500">FIGHTER</h3>
-                  <InfoTip text="Perfectly balanced stats. Good for beginners and pros alike." />
-                </div>
+              {SHIP_CARDS.map(card => {
+                const locked = !unlockedShips.includes(card.type);
+                const recommended = !locked && card.type === signatureShip;
+                return (
+                  <div
+                    key={card.type}
+                    onClick={() => { if (!locked) selectShipAndRace(card.type, card.color); }}
+                    onMouseEnter={() => { if (!locked) audioManager.playHover(); }}
+                    className={locked
+                      ? 'relative bg-gray-800 bg-opacity-60 p-6 rounded-xl border-2 border-gray-700 opacity-70 cursor-default'
+                      : `relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 ${card.borderClass} hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 hover:z-50 group ${recommended ? 'ring-2 ring-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.25)]' : ''}`}
+                  >
+                    {!locked && <PaintChip type={card.type} defaultColor={card.color} />}
+                    {recommended && selectedPilot && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-amber-500 text-black text-xs font-extrabold z-10 whitespace-nowrap">
+                        ★ {selectedPilot.name.toUpperCase()}'S PICK
+                      </div>
+                    )}
+                    <div
+                      className={`h-48 ${locked ? 'bg-gray-900' : card.bgClass} bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden relative`}
+                      style={locked ? { filter: 'grayscale(1) brightness(0.6)' } : undefined}
+                    >
+                      <ShipPreview color={card.color} type={card.type} />
+                    </div>
+                    {locked && (
+                      <div className="absolute inset-x-0 top-16 flex flex-col items-center z-10 pointer-events-none">
+                        <div className="text-4xl">🔒</div>
+                        <div className="mt-2 px-3 py-1 rounded bg-black/80 text-xs font-bold text-amber-300">
+                          {getUnlockHint('ship', card.type)}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 mb-4">
+                      <h3 className={`text-2xl font-bold ${locked ? 'text-gray-500' : card.titleClass}`}>{card.title}</h3>
+                      {!locked && <InfoTip text={card.info} />}
+                    </div>
 
-                <div className="space-y-2">
-                  <StatBar label="Speed" value={getDisplayStats('fighter').speed} color="bg-cyan-500" />
-                  <StatBar label="Accel" value={getDisplayStats('fighter').accel} color="bg-yellow-500" />
-                  <StatBar label="Handling" value={getDisplayStats('fighter').handling} color="bg-green-500" />
-                </div>
-              </div>
-
-              {/* SHIP 2: INTERCEPTOR (Bi-Plane) */}
-              <div
-                onClick={() => selectShipAndRace('interceptor', 0x00ff00)}
-                onMouseEnter={() => audioManager.playHover()}
-                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-green-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 hover:z-50 group"
-              >
-                <PaintChip type="interceptor" defaultColor={0x00ff00} />
-                <div className="h-48 bg-green-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
-                  <ShipPreview color={0x00ff00} type="interceptor" />
-                </div>
-                <div className="flex items-center gap-2 mb-4">
-                  <h3 className="text-2xl font-bold text-green-500">INTERCEPTOR</h3>
-                  <InfoTip text="Bi-plane design. Best-in-class acceleration and turning." />
-                </div>
-
-                <div className="space-y-2">
-                  <StatBar label="Speed" value={getDisplayStats('interceptor').speed} color="bg-cyan-500" />
-                  <StatBar label="Accel" value={getDisplayStats('interceptor').accel} color="bg-yellow-500" />
-                  <StatBar label="Handling" value={getDisplayStats('interceptor').handling} color="bg-green-500" />
-                </div>
-              </div>
-
-              {/* SHIP 3: TANK (Heavy) */}
-              <div
-                onClick={() => selectShipAndRace('tank', 0xcccc00)}
-                onMouseEnter={() => audioManager.playHover()}
-                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-yellow-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 hover:z-50 group"
-              >
-                <PaintChip type="tank" defaultColor={0xcccc00} />
-                <div className="h-48 bg-yellow-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
-                  <ShipPreview color={0xcccc00} type="tank" />
-                </div>
-                <div className="flex items-center gap-2 mb-4">
-                  <h3 className="text-2xl font-bold text-yellow-500">TANK</h3>
-                  <InfoTip text="Incredible acceleration and grip, but lower top speed." />
-                </div>
-
-                <div className="space-y-2">
-                  <StatBar label="Speed" value={getDisplayStats('tank').speed} color="bg-cyan-500" />
-                  <StatBar label="Accel" value={getDisplayStats('tank').accel} color="bg-yellow-500" />
-                  <StatBar label="Handling" value={getDisplayStats('tank').handling} color="bg-green-500" />
-                </div>
-              </div>
-
-              {/* SHIP 4: CORSAIR (Drifter) */}
-              <div
-                onClick={() => selectShipAndRace('corsair', 0x5500aa)}
-                onMouseEnter={() => audioManager.playHover()}
-                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-purple-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 hover:z-50 group"
-              >
-                <PaintChip type="corsair" defaultColor={0x5500aa} />
-                <div className="h-48 bg-purple-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
-                  <ShipPreview color={0x5500aa} type="corsair" />
-                </div>
-                <div className="flex items-center gap-2 mb-4">
-                  <h3 className="text-2xl font-bold text-purple-500">CORSAIR</h3>
-                  <InfoTip text="Aggressive styling. High speed and extreme drift capabilities." />
-                </div>
-
-                <div className="space-y-2">
-                  <StatBar label="Speed" value={getDisplayStats('corsair').speed} color="bg-cyan-500" />
-                  <StatBar label="Accel" value={getDisplayStats('corsair').accel} color="bg-yellow-500" />
-                  <StatBar label="Drift" value={getDisplayStats('corsair').drift} color="bg-pink-500" />
-                </div>
-              </div>
-
-              {/* SHIP 5: SPEEDSTER */}
-              <div
-                onClick={() => selectShipAndRace('speedster', 0x00ccff)}
-                onMouseEnter={() => audioManager.playHover()}
-                className="relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 border-cyan-500 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 hover:z-50 group"
-              >
-                <PaintChip type="speedster" defaultColor={0x00ccff} />
-                <div className="h-48 bg-cyan-900 bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden">
-                  <ShipPreview color={0x00ccff} type="speedster" />
-                </div>
-                <div className="flex items-center gap-2 mb-4">
-                  <h3 className="text-2xl font-bold text-cyan-400">SPEEDSTER</h3>
-                  <InfoTip text="High top speed, but slower acceleration. Built for long straights." />
-                </div>
-
-                <div className="space-y-2">
-                  <StatBar label="Speed" value={getDisplayStats('speedster').speed} color="bg-cyan-500" />
-                  <StatBar label="Accel" value={getDisplayStats('speedster').accel} color="bg-yellow-500" />
-                  <StatBar label="Handling" value={getDisplayStats('speedster').handling} color="bg-green-500" />
-                </div>
-              </div>
+                    <div className="space-y-2">
+                      {card.stats.map(s => (
+                        <StatBar key={s.label} label={s.label} value={getDisplayStats(card.type)[s.key]} color={s.barClass} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="flex space-x-6 mt-8">
@@ -600,17 +616,27 @@ function App() {
 
             <div className="w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide space-y-10">
               {[
-                ...CUPS.map(cup => ({ id: cup.id, label: cup.name, sub: cup.theme, accent: cup.accent, tracks: resolveCupTracks(cup) })),
+                // Single race shares the campaign's cup gating: a cup's tracks
+                // open here once the cup itself is unlocked (previous cleared).
+                ...CUPS.map((cup, i) => ({
+                  id: cup.id, label: cup.name, sub: cup.theme, accent: cup.accent,
+                  tracks: resolveCupTracks(cup),
+                  locked: !isCupUnlocked(cup),
+                  unlockHint: i > 0 ? `Clear the ${CUPS[i - 1].name} to unlock` : '',
+                })),
                 // Any track not yet assigned to a cup (work-in-progress tracks).
-                { id: '_dev', label: 'In Development', sub: 'Unassigned', accent: 0x9ca3af, tracks: TRACKS.filter(t => !getCupForTrack(t.id)) },
+                { id: '_dev', label: 'In Development', sub: 'Unassigned', accent: 0x9ca3af, tracks: TRACKS.filter(t => !getCupForTrack(t.id)), locked: false, unlockHint: '' },
               ].filter(group => group.tracks.length > 0).map(group => (
                 <div key={group.id}>
                   {/* Cup divider */}
                   <div className="flex items-center gap-4 mb-5">
                     <div className="h-0.5 flex-1 rounded" style={{ backgroundColor: numToCss(group.accent), opacity: 0.4 }} />
                     <div className="text-center px-2">
-                      <div className="text-xl font-extrabold" style={{ color: numToCss(group.accent) }}>{group.label}</div>
+                      <div className="text-xl font-extrabold" style={{ color: numToCss(group.accent), opacity: group.locked ? 0.5 : 1 }}>{group.label}</div>
                       <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500">{group.sub}</div>
+                      {group.locked && (
+                        <div className="text-xs font-bold text-amber-300 mt-1">🔒 {group.unlockHint}</div>
+                      )}
                     </div>
                     <div className="h-0.5 flex-1 rounded" style={{ backgroundColor: numToCss(group.accent), opacity: 0.4 }} />
                   </div>
@@ -618,7 +644,18 @@ function App() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {group.tracks.map(track => {
                       const index = TRACKS.indexOf(track);
-                      return (
+                      return group.locked ? (
+                        <div
+                          key={track.id}
+                          className="bg-gray-800 bg-opacity-50 p-6 rounded-xl border-2 border-gray-700 opacity-60 cursor-default"
+                        >
+                          <div className="h-48 bg-black bg-opacity-50 rounded mb-4 flex items-center justify-center overflow-hidden border border-gray-700 relative" style={{ filter: 'grayscale(1) brightness(0.6)' }}>
+                            <TrackPreview points={track.points} />
+                          </div>
+                          <h3 className="text-2xl font-bold mb-2 text-gray-500">{track.name}</h3>
+                          <p className="text-gray-600 text-sm">{track.description}</p>
+                        </div>
+                      ) : (
                         <div
                           key={track.id}
                           onClick={() => { audioManager.playClick(); handleTrackSelect(index); }}
@@ -661,12 +698,12 @@ function App() {
         )
       }
 
-      {/* ENVIRONMENT SELECTION SCREEN */}
+      {/* ENVIRONMENT SELECTION SCREEN (opt-in via Settings; off by default) */}
       {
         screen === 'env_selection' && (
           <EnvironmentSelection
             onSelect={handleEnvSelect}
-            onBack={handleBackFromEnvSelect}
+            onBack={() => setScreen('track_selection')}
             onMainMenu={() => setScreen('start')}
             isSpaceTrack={!!getCupForTrack(TRACKS[selectedTrackIndex]?.id ?? '')?.envBias?.space}
             isStormTrack={!!TRACKS[selectedTrackIndex]?.wind}
@@ -747,6 +784,13 @@ function App() {
       {
         screen === 'ship_demo' && (
           <ShipDemo onBack={() => setScreen('start')} />
+        )
+      }
+
+      {/* PHYSICS TEST (dev tool: A/B pilot-stat mappings by driving them) */}
+      {
+        screen === 'physics_test' && (
+          <PhysicsTest onBack={() => setScreen('start')} />
         )
       }
 

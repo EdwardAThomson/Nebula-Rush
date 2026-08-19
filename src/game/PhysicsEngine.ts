@@ -17,6 +17,7 @@ export interface GameState {
     hoverDamping: number;
     gravity: number;
     throttle: number;
+    throttleRate?: number; // unset in the real game (defaults 0.05); physics-test-page hook
     friction: number; // NEW: Air drag
     slideFactor: number;
     accelFactor: number;
@@ -81,8 +82,10 @@ export const updatePhysics = (
     // --- INPUT HANDLING ---
 
     // 1. Throttle
-    // Rate of change per 60Hz frame
-    const throttleRate = 0.05;
+    // Rate of change per 60Hz frame. The optional state.throttleRate override
+    // exists ONLY for the physics test page — nothing in the real game sets it,
+    // so production behavior is identical to the long-standing constant.
+    const throttleRate = state.throttleRate ?? 0.05;
     const decayRate = 0.03;
 
     if (raceStarted && (inputManager.isKeyPressed('ArrowUp') || inputManager.isKeyPressed('w'))) {
@@ -200,6 +203,10 @@ export const updatePhysics = (
                 if (state.lastBoostPadIndex !== index) {
                     hitBoostPad = true;
                     state.lastBoostPadIndex = index;
+                    // Instant kick so the pickup is felt immediately — the 1.35x
+                    // thrust multiplier alone ramps too slowly (friction time
+                    // constant ~1.7s) to read as a boost. +6 ≈ +60 km/h on the HUD.
+                    state.velocity.y += 6.0;
                 }
                 state.boostTimer = 5.0; // 5 Seconds boost
             }

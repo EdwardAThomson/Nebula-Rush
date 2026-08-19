@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { audioManager } from '../game/AudioManager';
+import { isEnvPickerEnabled, setEnvPickerEnabled } from '../game/gameSettings';
 
 interface SettingsMenuProps {
     onClose: () => void;
@@ -10,6 +11,7 @@ export default function SettingsMenu({ onClose }: SettingsMenuProps) {
     const [musicVolume, setMusicVolume] = useState(audioManager.getMusicVolume() * 100);
     const [sfxEnabled, setSfxEnabled] = useState(audioManager.isSfxEnabled());
     const [musicEnabled, setMusicEnabled] = useState(audioManager.isMusicEnabled());
+    const [envPicker, setEnvPicker] = useState(isEnvPickerEnabled());
 
     // Jukebox State
     const [currentTrack, setCurrentTrack] = useState<string | null>(audioManager.getCurrentTrackName());
@@ -119,6 +121,31 @@ export default function SettingsMenu({ onClose }: SettingsMenuProps) {
                         />
                         <span className="text-gray-400 w-12 text-right">{Math.round(musicVolume)}%</span>
                     </div>
+                </div>
+
+                {/* Gameplay Section */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between mb-1">
+                        <label className="text-white font-bold">Environment Picker</label>
+                        <button
+                            onClick={() => {
+                                audioManager.playClick();
+                                const next = !envPicker;
+                                setEnvPickerEnabled(next);
+                                setEnvPicker(next);
+                            }}
+                            onMouseEnter={() => audioManager.playHover()}
+                            className={`px-4 py-1 rounded font-bold text-sm transition-all ${envPicker
+                                ? 'bg-green-600 text-white'
+                                : 'bg-gray-700 text-gray-400'
+                                }`}
+                        >
+                            {envPicker ? 'ON' : 'OFF'}
+                        </button>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                        Choose time of day and weather before each single race. When off, every race rolls a random environment.
+                    </p>
                 </div>
 
                 {/* Jukebox Section */}

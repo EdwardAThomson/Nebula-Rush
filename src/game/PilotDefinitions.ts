@@ -34,7 +34,9 @@ export const PILOTS: Pilot[] = [
         bio: 'Ex-military tactician. She treats every race like a battlefield and plans her moves three laps ahead.',
         imagePath: '/assets/pilots/pilot_zara_qel_1765624359604.png',
         gender: 'female',
-        stats: { velocity: -1, acceleration: 1, handling: 2 }
+        // velocity bumped -1 → 0: the tracks overwhelmingly reward top speed,
+        // and a negative-velocity pilot was a trap pick.
+        stats: { velocity: 0, acceleration: 1, handling: 2 }
     },
     {
         id: 'echo_7',
@@ -58,7 +60,8 @@ export const PILOTS: Pilot[] = [
         bio: 'High-tech prodigy and engineer. She built her own ship and knows every bolt and circuit.',
         imagePath: '/assets/pilots/pilot_nova_starling_1765624324792.png',
         gender: 'female',
-        stats: { velocity: -1, acceleration: 2, handling: 1 }
+        // velocity bumped -1 → 0 (see Zara): speed dominates on current tracks.
+        stats: { velocity: 0, acceleration: 2, handling: 1 }
     },
     {
         id: 'darius_wraith',

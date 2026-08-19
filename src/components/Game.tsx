@@ -138,6 +138,16 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const [photoToast, setPhotoToast] = useState(false);
   const photoToastTimer = useRef<number | null>(null);
 
+  // Keyboard-only early exit: Esc arms a confirm prompt, a second Esc quits.
+  // The prompt auto-dismisses after a few seconds (can't use "any key cancels":
+  // a held W repeats keydowns and would cancel instantly). The ref mirrors the
+  // state for the keydown handler.
+  const [confirmExit, setConfirmExit] = useState(false);
+  const confirmExitRef = useRef(false);
+  const exitPromptTimer = useRef<number | null>(null);
+  const onExitRef = useRef(onExit);
+  useEffect(() => { onExitRef.current = onExit; }, [onExit]);
+
   // Brief red vignette when the player clips a hazard block.
   const [hazardFlash, setHazardFlash] = useState(false);
   const hazardFlashTimer = useRef<number | null>(null);
@@ -184,6 +194,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       photosRef.current.forEach((p) => URL.revokeObjectURL(p.url));
       if (photoToastTimer.current) clearTimeout(photoToastTimer.current);
       if (hazardFlashTimer.current) clearTimeout(hazardFlashTimer.current);
+      if (exitPromptTimer.current) clearTimeout(exitPromptTimer.current);
     };
   }, []);
 
@@ -206,6 +217,22 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       if (e.key === 'h' || e.key === 'H') {
         setHudVisible(v => !v);
       }
+      // Early exit: first Esc arms the confirm prompt, second Esc quits.
+      // Disabled in the tutorial (own flow) and on results (leaderboard buttons).
+      if (e.key === 'Escape' && !tutorial && !allFinishedRef.current) {
+        if (exitPromptTimer.current) clearTimeout(exitPromptTimer.current);
+        if (confirmExitRef.current) {
+          confirmExitRef.current = false;
+          onExitRef.current?.();
+        } else {
+          confirmExitRef.current = true;
+          setConfirmExit(true);
+          exitPromptTimer.current = window.setTimeout(() => {
+            confirmExitRef.current = false;
+            setConfirmExit(false);
+          }, 3000);
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
 
@@ -220,7 +247,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       window.removeEventListener('keydown', handleKeyDown);
       audioManager.setTrackChangeListener(() => { }); // Clear listener
     };
-  }, []);
+  }, [tutorial]);
 
   // [HUDDBG] Trace any change to the HUD-visibility gate.
   useEffect(() => {
@@ -279,13 +306,27 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       finalShipConfig.name = pilot.name;
       finalShipConfig.id = pilot.id;
 
-      // Apply Stats
-      // Acceleration: +/- 10% per point
+      // Apply Stats — the "decoupled" mapping, chosen by playtest on the
+      // Physics Test page (Aug 2026). Each stat owns exactly what its name
+      // says; top speed = accelFactor/(1-friction) at full throttle.
+      //
+      // Velocity → friction: SOLE owner of top speed (±0.0004/pt ≈ ±5%/pt).
+      // Applied first — the accel co-scaling below builds on the result.
+      if (pilot.stats.velocity !== 0) {
+        finalShipConfig.friction += (pilot.stats.velocity * 0.0004);
+      }
+
+      // Acceleration → thrust AND drag scaled together (×1.15/pt), so the
+      // ship converges on the SAME top speed proportionally faster, spools
+      // throttle quicker, and surges harder onto boosts. Off-throttle it also
+      // sheds speed faster (responsive vs floaty). Never changes top speed —
+      // the old accelFactor-only multiplier made accel a stronger top-speed
+      // stat than velocity itself.
       if (pilot.stats.acceleration !== 0) {
-        // Base accelFactor is around 0.5 - 0.9.
-        // Let's being conservative: 5% per point.
-        const modifier = 1 + (pilot.stats.acceleration * 0.05);
-        finalShipConfig.accelFactor *= modifier;
+        const k = 1 + (pilot.stats.acceleration * 0.15);
+        finalShipConfig.accelFactor *= k;
+        finalShipConfig.friction = 1 - (1 - finalShipConfig.friction) * k;
+        finalShipConfig.throttleRate = 0.05 * k;
       }
 
       // Handling: +/- 10% per point to turnSpeed
@@ -294,16 +335,6 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         finalShipConfig.turnSpeed *= modifier;
         // Also affect strafe speed slightly?
         finalShipConfig.strafeSpeed *= modifier;
-      }
-
-      // Velocity: Modifies Friction (Top Speed)
-      // Base friction is 0.99.
-      // +2 Velocity = 0.992 (Less drag)
-      // -2 Velocity = 0.988 (More drag)
-      if (pilot.stats.velocity !== 0) {
-        // Friction is 0-1, closer to 1 is less drag.
-        // We add/subtract a tiny amount.
-        finalShipConfig.friction += (pilot.stats.velocity * 0.0002);
       }
     }
 
@@ -540,6 +571,9 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
     // Animation loop
     let lastTime = performance.now();
+    // 0..1 boost camera level: snaps up on pad pickup, eases back as the boost
+    // fades. Drives the FOV widen + camera pull-back that sell the speed hit.
+    let boostCamLevel = 0;
 
     const animate = () => {
       animationId = requestAnimationFrame(animate);
@@ -845,8 +879,18 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       // camera turning with it. Keeps the world mostly stable.
       const CAMERA_YAW_FOLLOW = 0.5;
       const cameraForward = tangent.clone().applyAxisAngle(normal, currentState.yaw * CAMERA_YAW_FOLLOW).normalize();
-      const cameraDist = 12;
-      const cameraHeightBase = 5;
+
+      // Boost camera: gentle pull out over ~0.6s on pickup, long ~2s release
+      // as the boost ends. FOV widen + pull-back together read as a speed surge.
+      const boosting = currentState.boostTimer > 0;
+      boostCamLevel += ((boosting ? 1 : 0) - boostCamLevel) * Math.min(1, (boosting ? 0.08 : 0.025) * dt);
+      const targetFov = 75 + 9 * boostCamLevel;
+      if (Math.abs(camera.fov - targetFov) > 0.01) {
+        camera.fov = targetFov;
+        camera.updateProjectionMatrix();
+      }
+      const cameraDist = 12 + 3.5 * boostCamLevel;
+      const cameraHeightBase = 5 + 0.8 * boostCamLevel;
 
       const targetCameraPos = trackPos.clone()
         .add(trackBinormal.clone().multiplyScalar(visualLateralPos))
@@ -986,7 +1030,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       cancelAnimationFrame(animationId);
 
       scene.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
+        if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
           object.geometry.dispose();
           if (Array.isArray(object.material)) {
             object.material.forEach(m => m.dispose());
@@ -1032,6 +1076,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       allFinishedRef.current = false;
 
       setLastLapTime(0); // Reset Last Lap Display
+      confirmExitRef.current = false;
+      setConfirmExit(false);
       setCurrentTrackIndex(prev => prev + 1);
     }
   };
@@ -1077,6 +1123,27 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
         {/* HUD - Hide on Results or Toggle */}
         {/* HUD Removed (Consolidated) */}
+
+        {/* Early-exit confirm — appears only after Esc is pressed, so the HUD
+            stays clean. A second Esc quits (skipping the leaderboard; in
+            campaign this forfeits the whole campaign); it self-dismisses if the
+            second Esc doesn't come within 3s. */}
+        {confirmExit && raceState !== 'results' && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center">
+            <div className="p-6 rounded-lg border border-gray-500 text-center" style={{ backgroundColor: 'rgba(0,0,0,0.85)' }}>
+              <div className="text-2xl font-bold text-white">
+                {isCampaign
+                  ? 'Quit and forfeit the whole campaign?'
+                  : 'Quit this race and return to the main menu?'}
+              </div>
+              <div className="text-base text-gray-300 mt-3">
+                Press <span className="text-red-400 font-bold">ESC</span> again to quit
+                <span className="mx-2">·</span>
+                keep racing and this disappears
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Waiting Overlay */}
         {raceState === 'finished' && (
