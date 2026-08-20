@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { createTrackCurve, createTrackMesh, getTrackFrame, createBoostPadMeshes, createHazardMeshes, createStartLineMesh, createTrafficLightMesh } from '../game/TrackFactory';
+import { createTrackCurve, createTrackMesh, getTrackFrame, createBoostPadMeshes, createHazardMeshes, createStartLineMesh, createTrafficLightMesh, createRechargeStripMesh } from '../game/TrackFactory';
 import { createStoredZip } from '../utils/zip';
 import { InputManager } from '../game/InputManager';
 import { Ship, type ShipConfig } from '../game/Ship';
@@ -52,7 +52,7 @@ const hashStr = (s: string): number => {
   return h >>> 0;
 };
 
-type RaceState = 'intro' | 'racing' | 'finished' | 'results';
+type RaceState = 'intro' | 'racing' | 'finished' | 'retired' | 'results';
 
 export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = true, forcedEnvironment, pilot, opponentCount = 19, initialRoster, initialScores, onExit, onTutorial, onCupComplete, onNextCup, debugLighting = false, onReady, tutorial = false, trackOverride, trackList, envBias }: GameProps) {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -81,6 +81,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const timeRef = useRef<HTMLDivElement>(null);
   const rankRef = useRef<HTMLDivElement>(null);
   const glareRef = useRef<HTMLDivElement>(null); // sun-glare white-out overlay
+  const energyFillRef = useRef<HTMLDivElement>(null); // energy bar fill (width % per frame)
+  const bumpCooldownRef = useRef(0); // seconds until the next rival-contact bump can fire
 
   const [hudVisible, setHudVisible] = useState(true);
 
@@ -138,6 +140,16 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
   const [photoToast, setPhotoToast] = useState(false);
   const photoToastTimer = useRef<number | null>(null);
 
+  // Keyboard-only early exit: Esc arms a confirm prompt, a second Esc quits.
+  // The prompt auto-dismisses after a few seconds (can't use "any key cancels":
+  // a held W repeats keydowns and would cancel instantly). The ref mirrors the
+  // state for the keydown handler.
+  const [confirmExit, setConfirmExit] = useState(false);
+  const confirmExitRef = useRef(false);
+  const exitPromptTimer = useRef<number | null>(null);
+  const onExitRef = useRef(onExit);
+  useEffect(() => { onExitRef.current = onExit; }, [onExit]);
+
   // Brief red vignette when the player clips a hazard block.
   const [hazardFlash, setHazardFlash] = useState(false);
   const hazardFlashTimer = useRef<number | null>(null);
@@ -184,6 +196,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       photosRef.current.forEach((p) => URL.revokeObjectURL(p.url));
       if (photoToastTimer.current) clearTimeout(photoToastTimer.current);
       if (hazardFlashTimer.current) clearTimeout(hazardFlashTimer.current);
+      if (exitPromptTimer.current) clearTimeout(exitPromptTimer.current);
     };
   }, []);
 
@@ -206,6 +219,22 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       if (e.key === 'h' || e.key === 'H') {
         setHudVisible(v => !v);
       }
+      // Early exit: first Esc arms the confirm prompt, second Esc quits.
+      // Disabled in the tutorial (own flow) and on results (leaderboard buttons).
+      if (e.key === 'Escape' && !tutorial && !allFinishedRef.current) {
+        if (exitPromptTimer.current) clearTimeout(exitPromptTimer.current);
+        if (confirmExitRef.current) {
+          confirmExitRef.current = false;
+          onExitRef.current?.();
+        } else {
+          confirmExitRef.current = true;
+          setConfirmExit(true);
+          exitPromptTimer.current = window.setTimeout(() => {
+            confirmExitRef.current = false;
+            setConfirmExit(false);
+          }, 3000);
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
 
@@ -220,7 +249,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       window.removeEventListener('keydown', handleKeyDown);
       audioManager.setTrackChangeListener(() => { }); // Clear listener
     };
-  }, []);
+  }, [tutorial]);
 
   // [HUDDBG] Trace any change to the HUD-visibility gate.
   useEffect(() => {
@@ -274,18 +303,35 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
     // Creates Player Ship with Pilot Modifiers
     let finalShipConfig = { ...shipConfig };
+    // Energy (hazard/wall damage, DNF at zero) is player-only and skipped in
+    // the tutorial. AI never enables it — see the note in PhysicsEngine.
+    finalShipConfig.energyEnabled = !tutorial;
 
     if (pilot) {
       finalShipConfig.name = pilot.name;
       finalShipConfig.id = pilot.id;
 
-      // Apply Stats
-      // Acceleration: +/- 10% per point
+      // Apply Stats — the "decoupled" mapping, chosen by playtest on the
+      // Physics Test page (Aug 2026). Each stat owns exactly what its name
+      // says; top speed = accelFactor/(1-friction) at full throttle.
+      //
+      // Velocity → friction: SOLE owner of top speed (±0.0004/pt ≈ ±5%/pt).
+      // Applied first — the accel co-scaling below builds on the result.
+      if (pilot.stats.velocity !== 0) {
+        finalShipConfig.friction += (pilot.stats.velocity * 0.0004);
+      }
+
+      // Acceleration → thrust AND drag scaled together (×1.15/pt), so the
+      // ship converges on the SAME top speed proportionally faster, spools
+      // throttle quicker, and surges harder onto boosts. Off-throttle it also
+      // sheds speed faster (responsive vs floaty). Never changes top speed —
+      // the old accelFactor-only multiplier made accel a stronger top-speed
+      // stat than velocity itself.
       if (pilot.stats.acceleration !== 0) {
-        // Base accelFactor is around 0.5 - 0.9.
-        // Let's being conservative: 5% per point.
-        const modifier = 1 + (pilot.stats.acceleration * 0.05);
-        finalShipConfig.accelFactor *= modifier;
+        const k = 1 + (pilot.stats.acceleration * 0.15);
+        finalShipConfig.accelFactor *= k;
+        finalShipConfig.friction = 1 - (1 - finalShipConfig.friction) * k;
+        finalShipConfig.throttleRate = 0.05 * k;
       }
 
       // Handling: +/- 10% per point to turnSpeed
@@ -294,16 +340,6 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         finalShipConfig.turnSpeed *= modifier;
         // Also affect strafe speed slightly?
         finalShipConfig.strafeSpeed *= modifier;
-      }
-
-      // Velocity: Modifies Friction (Top Speed)
-      // Base friction is 0.99.
-      // +2 Velocity = 0.992 (Less drag)
-      // -2 Velocity = 0.988 (More drag)
-      if (pilot.stats.velocity !== 0) {
-        // Friction is 0-1, closer to 1 is less drag.
-        // We add/subtract a tiny amount.
-        finalShipConfig.friction += (pilot.stats.velocity * 0.0002);
       }
     }
 
@@ -420,6 +456,11 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     // Create Start Line
     const startLine = createStartLineMesh(trackCurve, bankTrack);
     scene.add(startLine);
+
+    // Energy recharge pad (green glow band; per-track placement, shared with
+    // the physics regen via the same zone object)
+    scene.add(createRechargeStripMesh(trackCurve, bankTrack, currentTrack.recharge));
+    playerShip.current.state.rechargeZone = currentTrack.recharge;
 
     // Create minimap
     const minimapCanvas = document.createElement('canvas');
@@ -540,6 +581,9 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
     // Animation loop
     let lastTime = performance.now();
+    // 0..1 boost camera level: snaps up on pad pickup, eases back as the boost
+    // fades. Drives the FOV widen + camera pull-back that sell the speed hit.
+    let boostCamLevel = 0;
 
     const animate = () => {
       animationId = requestAnimationFrame(animate);
@@ -694,7 +738,24 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           audioManager.stopEngineRumble();
         }
 
-      }, raceStartedRef.current, gameTimeRef.current, currentTrack.hazards ?? [], wallLimit);
+      }, raceStartedRef.current && !playerShip.current.retired, gameTimeRef.current, currentTrack.hazards ?? [], wallLimit);
+
+      // Player out of energy → retire (DNF). Input is cut via the raceStarted
+      // arg above; the wreck coasts to a stop on friction. Starting the finish
+      // grace here resolves the AI field within ~10s and brings up results.
+      if (playerShip.current.retired && !raceFinishedRef.current) {
+        raceFinishedRef.current = true;
+        playerFinishGameTime.current = gameTimeRef.current;
+        setRaceState('retired');
+        audioManager.stopEngineRumble();
+      }
+
+      // Energy bar (ref-driven, no re-render); % of the ship's own capacity
+      if (energyFillRef.current) {
+        const pct = Math.max(0, Math.min(100, (currentState.energy / (currentState.maxEnergy || 100)) * 100));
+        energyFillRef.current.style.width = `${pct}%`;
+        energyFillRef.current.style.backgroundColor = pct > 50 ? '#22c55e' : pct > 25 ? '#f59e0b' : '#ef4444';
+      }
 
       if (!raceFinishedRef.current && raceStartedRef.current) {
         const currentLapTime = gameTimeRef.current - lapStartGameTime.current;
@@ -707,6 +768,32 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       if (opponentManager.current) {
         if (raceStartedRef.current) {
           opponentManager.current.update(dt, trackLength, currentTrack.pads, raceStartedRef.current, gameTimeRef.current, currentTrack.hazards ?? []);
+        }
+      }
+
+      // --- SHIP CONTACT (player vs rivals only; AI-AI is soft separation in
+      // OpponentManager). Overlap → mutual lateral shove, small speed bleed and
+      // energy tick for the player. 2s grid grace so the packed start doesn't
+      // chain-bump; cooldown stops re-triggering while still overlapped. ---
+      if (opponentManager.current && raceStartedRef.current && gameTimeRef.current > 2000
+        && !playerShip.current.retired && !raceFinishedRef.current) {
+        const ps = playerShip.current.state;
+        if (bumpCooldownRef.current <= 0) {
+          for (const opp of opponentManager.current.opponents) {
+            let dp = Math.abs(ps.trackProgress - opp.state.trackProgress);
+            dp = Math.min(dp, 1 - dp); // closed-loop wrap
+            if (dp * trackLength < 9 && Math.abs(ps.lateralPosition - opp.state.lateralPosition) < 7) {
+              bumpCooldownRef.current = 0.5;
+              const side = ps.lateralPosition >= opp.state.lateralPosition ? 1 : -1;
+              ps.velocity.x += side * 2.0;
+              opp.state.velocity.x -= side * 1.6;
+              ps.velocity.y *= 0.96;
+              if (ps.energyEnabled) ps.energy = Math.max(0, ps.energy - 5);
+              break; // one bump per frame is plenty
+            }
+          }
+        } else {
+          bumpCooldownRef.current -= deltaMs / 1000;
         }
       }
 
@@ -777,7 +864,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           // GENERATE RESULTS
           const results: RaceResult[] = allShips.map((ship, index) => {
             const rank = index + 1;
-            const points = POINTS_TABLE[rank - 1] || 0;
+            // DNF (retired): no points, no time — ranked behind all finishers
+            const points = ship.retired ? 0 : (POINTS_TABLE[rank - 1] || 0);
 
             // Calculate Time from RaceStart
             // finishTime is now game time in ms (not wall-clock timestamp)
@@ -792,7 +880,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
               rank: rank,
               name: ship.name,
               isPlayer: ship.isPlayer,
-              timeStr: formatTime(totalTime),
+              timeStr: ship.retired ? 'DNF' : formatTime(totalTime),
               points: points,
               totalPoints: newTotal
             };
@@ -845,8 +933,18 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       // camera turning with it. Keeps the world mostly stable.
       const CAMERA_YAW_FOLLOW = 0.5;
       const cameraForward = tangent.clone().applyAxisAngle(normal, currentState.yaw * CAMERA_YAW_FOLLOW).normalize();
-      const cameraDist = 12;
-      const cameraHeightBase = 5;
+
+      // Boost camera: gentle pull out over ~0.6s on pickup, long ~2s release
+      // as the boost ends. FOV widen + pull-back together read as a speed surge.
+      const boosting = currentState.boostTimer > 0;
+      boostCamLevel += ((boosting ? 1 : 0) - boostCamLevel) * Math.min(1, (boosting ? 0.08 : 0.025) * dt);
+      const targetFov = 75 + 9 * boostCamLevel;
+      if (Math.abs(camera.fov - targetFov) > 0.01) {
+        camera.fov = targetFov;
+        camera.updateProjectionMatrix();
+      }
+      const cameraDist = 12 + 3.5 * boostCamLevel;
+      const cameraHeightBase = 5 + 0.8 * boostCamLevel;
 
       const targetCameraPos = trackPos.clone()
         .add(trackBinormal.clone().multiplyScalar(visualLateralPos))
@@ -986,7 +1084,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       cancelAnimationFrame(animationId);
 
       scene.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
+        if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
           object.geometry.dispose();
           if (Array.isArray(object.material)) {
             object.material.forEach(m => m.dispose());
@@ -1032,6 +1130,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       allFinishedRef.current = false;
 
       setLastLapTime(0); // Reset Last Lap Display
+      confirmExitRef.current = false;
+      setConfirmExit(false);
       setCurrentTrackIndex(prev => prev + 1);
     }
   };
@@ -1078,6 +1178,27 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         {/* HUD - Hide on Results or Toggle */}
         {/* HUD Removed (Consolidated) */}
 
+        {/* Early-exit confirm — appears only after Esc is pressed, so the HUD
+            stays clean. A second Esc quits (skipping the leaderboard; in
+            campaign this forfeits the whole campaign); it self-dismisses if the
+            second Esc doesn't come within 3s. */}
+        {confirmExit && raceState !== 'results' && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center">
+            <div className="p-6 rounded-lg border border-gray-500 text-center" style={{ backgroundColor: 'rgba(0,0,0,0.85)' }}>
+              <div className="text-2xl font-bold text-white">
+                {isCampaign
+                  ? 'Quit and forfeit the whole campaign?'
+                  : 'Quit this race and return to the main menu?'}
+              </div>
+              <div className="text-base text-gray-300 mt-3">
+                Press <span className="text-red-400 font-bold">ESC</span> again to quit
+                <span className="mx-2">·</span>
+                keep racing and this disappears
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Waiting Overlay */}
         {raceState === 'finished' && (
           <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-40">
@@ -1085,6 +1206,17 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
               <div className="text-3xl font-bold text-center" style={{ color: '#eab308' }}>FINISHED!</div>
               <div className="text-xl text-center mt-2">Waiting for opponents...</div>
               <div className="text-4xl font-bold text-center mt-2" style={{ color: '#22d3ee' }}>Rank: {finalRank}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Retired (out of energy) Overlay */}
+        {raceState === 'retired' && (
+          <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-40">
+            <div className="text-white px-8 py-4 rounded-lg border animate-pulse" style={{ backgroundColor: 'rgba(0,0,0,0.8)', borderColor: '#ef4444' }}>
+              <div className="text-3xl font-bold text-center" style={{ color: '#ef4444' }}>SHIP DESTROYED</div>
+              <div className="text-xl text-center mt-2">Out of energy — DNF</div>
+              <div className="text-sm text-gray-400 text-center mt-2">Waiting for the field to finish...</div>
             </div>
           </div>
         )}
@@ -1123,6 +1255,31 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         {/* z-20 keeps the HUD readable ABOVE the sun-glare white-out (z-10). */}
         {!raceFinishedRef.current && hudVisible && (
           <div className="absolute inset-0 z-20 pointer-events-none">
+            {/* Top Left: pilot identity + energy */}
+            {!tutorial && (
+              <div className="absolute top-8 left-8 flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                {pilot && (
+                  <img
+                    src={pilot.imagePath}
+                    alt={pilot.name}
+                    className="w-14 h-14 rounded-md object-cover border"
+                    style={{ borderColor: '#164e63' }}
+                  />
+                )}
+                <div className="flex flex-col gap-1 pr-1">
+                  {pilot && (
+                    <div className="text-sm font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                      {pilot.name}
+                    </div>
+                  )}
+                  <div className="w-40 h-2.5 rounded bg-gray-900 overflow-hidden border border-gray-600">
+                    <div ref={energyFillRef} className="h-full" style={{ width: '100%', backgroundColor: '#22c55e' }} />
+                  </div>
+                  <div className="text-[10px] text-gray-400 font-bold tracking-widest">ENERGY</div>
+                </div>
+              </div>
+            )}
+
             {/* Top Right: Music Track */}
             {currentMusicTrackName && (
               <div className="absolute top-8 right-8 text-right animate-pulse p-3 rounded-lg" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>

@@ -27,6 +27,10 @@ class AudioManager {
     private lastHoverTime: number = 0;
     private hoverCooldown: number = 500; // ms between hover sounds
 
+    // Effects whose play() failure has already been warned about (once each,
+    // so a missing file on the server is visible in the console without spam).
+    private warnedSfx: Set<SoundEffect> = new Set();
+
     private config: AudioConfig = {
         sfxVolume: 0.5,
         musicVolume: 0.3,
@@ -101,25 +105,37 @@ class AudioManager {
         return pool;
     }
 
-    // Play a sound effect
-    public playSfx(effect: SoundEffect) {
+    // Play a sound effect. `gain` scales the configured sfx volume (capped at
+    // 1.0) so key moments can cut through the music + engine rumble bed.
+    public playSfx(effect: SoundEffect, gain: number = 1) {
         if (!this.config.sfxEnabled) return;
 
         const pool = this.preloadSfx(effect);
+        const volume = Math.min(1, this.config.sfxVolume * gain);
 
         // Find an audio element that's not currently playing
         const available = pool.find(audio => audio.paused || audio.ended);
 
+        const warnOnce = (err: unknown) => {
+            // NotAllowedError = autoplay before first user gesture (expected,
+            // stays quiet). Anything else (e.g. NotSupportedError from a 404'd
+            // file on the server) is a real problem — surface it once.
+            const name = (err as DOMException)?.name;
+            if (name !== 'NotAllowedError' && !this.warnedSfx.has(effect)) {
+                this.warnedSfx.add(effect);
+                console.warn(`[AudioManager] '${effect}' failed to play (${name ?? err}) — is ${this.sfxPaths[effect]} deployed?`);
+            }
+        };
+
         if (available) {
             available.currentTime = 0;
-            available.volume = this.config.sfxVolume;
-            available.play().catch(() => {
-                // Ignore autoplay errors - user hasn't interacted yet
-            });
+            available.volume = volume;
+            available.play().catch(warnOnce);
         } else {
             // All instances busy, reuse the first one
             pool[0].currentTime = 0;
-            pool[0].play().catch(() => { });
+            pool[0].volume = volume;
+            pool[0].play().catch(warnOnce);
         }
     }
 
@@ -152,7 +168,9 @@ class AudioManager {
     }
 
     public playBoost() {
-        this.playSfx('boost');
+        // Louder than the default sfx level — at 0.5 it sinks into the
+        // music + engine-rumble bed and pad pickups go unnoticed.
+        this.playSfx('boost', 1.6);
     }
 
     public playEngineRumble() {

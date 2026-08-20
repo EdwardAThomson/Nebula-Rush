@@ -17,6 +17,7 @@ export interface GameState {
     hoverDamping: number;
     gravity: number;
     throttle: number;
+    throttleRate?: number; // unset in the real game (defaults 0.05); physics-test-page hook
     friction: number; // NEW: Air drag
     slideFactor: number;
     accelFactor: number;
@@ -26,6 +27,15 @@ export interface GameState {
     wallContact?: number; // set by checkCollision: −1/+1 = pressed against that wall, 0 = free
     boostTimer: number; // Time remaining for speed boost
     lastBoostPadIndex: number; // Track which pad was last hit (for sound effects)
+    // Energy (F-Zero style): drains on hazard-block hits and wall scraping,
+    // recharges on the strip past the start line. 0 = retired (DNF).
+    // PLAYER-ONLY for now — enabled via energyEnabled, which the AI never sets:
+    // opponents have no hazard avoidance yet, so damage parity would DNF the
+    // whole field every race. Revisit when AI steering learns to dodge.
+    energy: number;
+    maxEnergy: number; // per-ship capacity (SHIP_STATS.maxEnergy; Tank highest)
+    energyEnabled?: boolean;
+    rechargeZone?: RechargeZone; // the current track's pad (RECHARGE_ZONE default)
     hazardCooldown: number; // Seconds of immunity after a block hit (stops cluster re-trigger / vibration)
     hasCrossedStartLine: boolean; // True once the player crosses the line for the first time
 }
@@ -57,12 +67,20 @@ export const INITIAL_GAME_STATE: GameState = {
     wallContact: 0,
     boostTimer: 0,
     lastBoostPadIndex: -1,
+    energy: 100,
+    maxEnergy: 100,
     hazardCooldown: 0,
     hasCrossedStartLine: false
 };
 
-import type { BoostPad, Hazard } from './TrackDefinitions';
-import { HAZARD_BLOCK_DEPTH } from './TrackDefinitions';
+import type { BoostPad, Hazard, RechargeZone } from './TrackDefinitions';
+import { HAZARD_BLOCK_DEPTH, RECHARGE_ZONE } from './TrackDefinitions';
+
+// Energy tuning (per-second rates are converted by dt/60 in the frame loop).
+export const ENERGY_MAX = 100;
+export const ENERGY_BLOCK_HIT = 18;   // flat cost per hazard-block strike
+export const ENERGY_WALL_DRAIN = 10;  // per second while scraping a wall
+export const ENERGY_RECHARGE = 35;    // per second on the recharge strip
 
 export const updatePhysics = (
     state: GameState,
@@ -81,8 +99,10 @@ export const updatePhysics = (
     // --- INPUT HANDLING ---
 
     // 1. Throttle
-    // Rate of change per 60Hz frame
-    const throttleRate = 0.05;
+    // Rate of change per 60Hz frame. The optional state.throttleRate override
+    // exists ONLY for the physics test page — nothing in the real game sets it,
+    // so production behavior is identical to the long-standing constant.
+    const throttleRate = state.throttleRate ?? 0.05;
     const decayRate = 0.03;
 
     if (raceStarted && (inputManager.isKeyPressed('ArrowUp') || inputManager.isKeyPressed('w'))) {
@@ -200,6 +220,10 @@ export const updatePhysics = (
                 if (state.lastBoostPadIndex !== index) {
                     hitBoostPad = true;
                     state.lastBoostPadIndex = index;
+                    // Instant kick so the pickup is felt immediately — the 1.35x
+                    // thrust multiplier alone ramps too slowly (friction time
+                    // constant ~1.7s) to read as a boost. +6 ≈ +60 km/h on the HUD.
+                    state.velocity.y += 6.0;
                 }
                 state.boostTimer = 5.0; // 5 Seconds boost
             }
@@ -232,6 +256,7 @@ export const updatePhysics = (
                 const side = state.lateralPosition >= h.lateralPosition ? 1 : -1;
                 state.velocity.x += side * 3.0; // shove sideways, away from the block
                 state.hazardCooldown = 0.6; // brief immunity → no cluster re-trigger / vibration
+                if (state.energyEnabled) state.energy = Math.max(0, state.energy - ENERGY_BLOCK_HIT);
                 if (onLapComplete) onLapComplete("HAZARD");
             }
         } else if (h.type === 'slick') {
@@ -329,6 +354,18 @@ export const updatePhysics = (
 
     // --- COLLISION DETECTION ---
     checkCollision(state, lateralLimit);
+
+    // --- ENERGY: wall-scrape drain + recharge strip ---
+    if (state.energyEnabled && raceStarted) {
+        if (state.wallContact !== 0) {
+            state.energy = Math.max(0, state.energy - ENERGY_WALL_DRAIN * dt / 60);
+        }
+        const rz = state.rechargeZone ?? RECHARGE_ZONE;
+        if (state.trackProgress >= rz.start && state.trackProgress <= rz.end
+            && Math.abs(state.lateralPosition - rz.lateralPosition) < rz.width / 2) {
+            state.energy = Math.min(state.maxEnergy, state.energy + ENERGY_RECHARGE * dt / 60);
+        }
+    }
 
     // --- VISUAL ROTATION LAG ---
     // Smoothly interpolate current rotation to target rotation

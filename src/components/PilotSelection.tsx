@@ -1,5 +1,6 @@
 import { PILOTS, type Pilot } from '../game/PilotDefinitions';
 import { audioManager } from '../game/AudioManager';
+import { getUnlockedPilotIds, getUnlockHint } from '../game/unlocks';
 
 interface PilotSelectionProps {
     onSelect: (pilot: Pilot) => void;
@@ -9,33 +10,52 @@ interface PilotSelectionProps {
 }
 
 export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK', onMainMenu }: PilotSelectionProps) {
-
+    const unlockedIds = getUnlockedPilotIds();
+    // Unlocked pilots first (left side), locked trailing — stable sort keeps
+    // each group in its roster order.
+    const pilots = [...PILOTS].sort((a, b) =>
+        Number(unlockedIds.includes(b.id)) - Number(unlockedIds.includes(a.id)));
 
     return (
         <div className="relative z-10 flex flex-col items-center h-full p-8">
             <h2 className="text-4xl font-bold text-white mb-8 animate-pulse text-center">CHOOSE YOUR PILOT</h2>
 
             <div className="flex flex-wrap justify-center gap-6 w-full max-w-7xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
-                {PILOTS.map((pilot) => (
+                {pilots.map((pilot) => {
+                    const locked = !unlockedIds.includes(pilot.id);
+                    return (
                     <div
                         key={pilot.id}
-                        onClick={() => { audioManager.playClick(); onSelect(pilot); }}
-                        onMouseEnter={() => audioManager.playHover()}
-                        className={`
-                            relative bg-gray-900 bg-opacity-80 rounded-xl cursor-pointer transition-all transform hover:scale-105
-                            w-64 border-2 flex flex-col border-gray-700 hover:border-gray-500 hover:shadow-[0_0_20px_rgba(34,211,238,0.3)]
-                        `}
+                        onClick={() => { if (locked) return; audioManager.playClick(); onSelect(pilot); }}
+                        onMouseEnter={() => { if (!locked) audioManager.playHover(); }}
+                        className={locked
+                            ? 'relative bg-gray-900 bg-opacity-80 rounded-xl w-64 border-2 flex flex-col border-gray-800 opacity-60 cursor-default'
+                            : `relative bg-gray-900 bg-opacity-80 rounded-xl cursor-pointer transition-all transform hover:scale-105
+                               w-64 border-2 flex flex-col border-gray-700 hover:border-gray-500 hover:shadow-[0_0_20px_rgba(34,211,238,0.3)]`}
                     >
                         {/* Image */}
                         <div className="h-64 w-full overflow-hidden rounded-t-xl">
                             <img
                                 src={pilot.imagePath}
                                 alt={pilot.name}
-                                className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
+                                className={locked
+                                    ? 'w-full h-full object-cover grayscale brightness-50'
+                                    : 'w-full h-full object-cover transition-transform duration-500 hover:scale-110'}
                             />
                         </div>
 
+                        {/* Locked overlay: how to earn this pilot */}
+                        {locked && (
+                            <div className="absolute inset-x-0 top-24 flex flex-col items-center z-20 pointer-events-none">
+                                <div className="text-4xl">🔒</div>
+                                <div className="mt-2 px-3 py-1 rounded bg-black/80 text-xs font-bold text-amber-300">
+                                    {getUnlockHint('pilot', pilot.id)}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Info badge — bio shown as a tooltip on hover */}
+                        {!locked && (
                         <div className="group/tip absolute top-2 right-2 z-20" onClick={(e) => e.stopPropagation()}>
                             <div className="w-6 h-6 flex items-center justify-center rounded-full bg-black/70 border border-gray-400 text-gray-200 text-xs font-bold cursor-help select-none">
                                 i
@@ -44,10 +64,11 @@ export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK', o
                                 {pilot.bio}
                             </div>
                         </div>
+                        )}
 
                         {/* Info */}
                         <div className="p-4 flex-1 flex flex-col">
-                            <h3 className="text-xl font-bold mb-4 text-white group-hover:text-cyan-400">
+                            <h3 className={`text-xl font-bold mb-4 ${locked ? 'text-gray-500' : 'text-white group-hover:text-cyan-400'}`}>
                                 {pilot.name}
                             </h3>
 
@@ -61,7 +82,8 @@ export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK', o
 
 
                     </div>
-                ))}
+                    );
+                })}
             </div>
 
 

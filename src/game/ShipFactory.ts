@@ -7,41 +7,46 @@ export interface ShipParts {
 
 export type ShipType = 'fighter' | 'speedster' | 'tank' | 'interceptor' | 'corsair';
 
-export const SHIP_STATS: Record<ShipType, { accelFactor: number, turnSpeed: number, friction: number, strafeSpeed: number, slideFactor: number }> = {
+export const SHIP_STATS: Record<ShipType, { accelFactor: number, turnSpeed: number, friction: number, strafeSpeed: number, slideFactor: number, maxEnergy: number }> = {
     fighter: {
         accelFactor: 0.56,
         turnSpeed: 0.001,
         friction: 0.9914,       // Top speed ~62.5
         strafeSpeed: 0.011,
-        slideFactor: 0.95 // Balanced
+        slideFactor: 0.95, // Balanced
+        maxEnergy: 100 // Baseline
     },
     speedster: {
         accelFactor: 0.45,
         turnSpeed: 0.0009,
         friction: 0.9932,       // Top speed ~66.2 (fastest)
         strafeSpeed: 0.009,
-        slideFactor: 0.98 // Slippery
+        slideFactor: 0.98, // Slippery
+        maxEnergy: 80 // Glass cannon: fastest hull, thinnest plating
     },
     tank: {
         accelFactor: 0.75,      // Faster accel (was 0.65)
         turnSpeed: 0.0011,
         friction: 0.9883,       // Top speed ~60.9 (slowest, but close to pack)
         strafeSpeed: 0.018,     // Strong strafe (was 0.015)
-        slideFactor: 0.92 // Grippy/Snappy
+        slideFactor: 0.92, // Grippy/Snappy
+        maxEnergy: 140 // Lives up to the name — shrugs off hazards
     },
     interceptor: {
         accelFactor: 0.72,
         turnSpeed: 0.0015, // Snap turn
         friction: 0.9889,       // Top speed ~63.6
         strafeSpeed: 0.013,
-        slideFactor: 0.92 // Snappy but can hold a line (was 0.85)
+        slideFactor: 0.92, // Snappy but can hold a line (was 0.85)
+        maxEnergy: 95
     },
     corsair: {
         accelFactor: 0.53,
         turnSpeed: 0.0012,
         friction: 0.9919,       // Top speed ~61.0
         strafeSpeed: 0.010,
-        slideFactor: 0.995 // Ice Skater (Extreme Drift)
+        slideFactor: 0.995, // Ice Skater (Extreme Drift)
+        maxEnergy: 90
     }
 };
 

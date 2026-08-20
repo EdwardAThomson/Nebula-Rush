@@ -16,7 +16,7 @@ export interface Cup {
     // Sketched track names for cups that aren't authored yet — shown on the
     // "Coming soon" card so the full arc is visible in the menu.
     plannedTracks?: string[];
-    // Force the cup to stay locked ("COMING SOON" / unselectable) in the New Game
+    // Force the cup to stay locked ("COMING SOON" / unselectable) in the New Campaign
     // cup screen even if some of its tracks are built. Lets a built track be
     // grouped under its cup on the Track Select screen (via resolveCupTracks)
     // without making the half-finished cup playable as a campaign.
@@ -45,7 +45,7 @@ export const CUPS: Cup[] = [
         accent: 0xff8c1a,
         // All five built — race order = difficulty ramp: Dune Sprint opener → Mesa
         // → Sand Hollow → Sandstorm Pass → Solstice Classic finale. Playable as a
-        // full campaign in New Game.
+        // full campaign in New Campaign.
         trackIds: ['track_9', 'track_6', 'track_7', 'track_8', 'track_10'],
         plannedTracks: ['Dune Sprint', 'Mesa Run', "Sand Hollow", 'Sandstorm Pass', 'Solstice Classic'],
     },

@@ -6,6 +6,19 @@ import { getTrackFrame } from './TrackFactory';
 import type { BoostPad, Hazard } from './TrackDefinitions';
 import { audioManager } from './AudioManager';
 
+// Thruster palette: cyan at cruise, shifting to hot orange while boosting so a
+// boost is unmistakable from behind. Core stays near-white, warmed slightly.
+const FLAME_BASE = new THREE.Color(0x00ffff);
+const FLAME_BOOST = new THREE.Color(0xff8c2a);
+const CORE_BASE = new THREE.Color(0xeaf6ff);
+const CORE_BOOST = new THREE.Color(0xffe8c0);
+const AURA_BASE = new THREE.Color(0x44ccff);
+const AURA_BOOST = new THREE.Color(0xffa040);
+// Lightning arcs crackling over the aura: electric blue-white, warmed slightly
+// at full boost so they pop against (not blend into) the orange flames.
+const ARC_BASE = new THREE.Color(0xaaeeff);
+const ARC_BOOST = new THREE.Color(0xffe9b0);
+
 export interface ShipConfig {
     color: number;
     accentColor?: number; // Secondary livery color (wings/trim); defaults to white
@@ -14,6 +27,9 @@ export interface ShipConfig {
     friction: number;
     strafeSpeed: number;
     slideFactor: number; // NEW
+    throttleRate?: number; // throttle ramp/frame (pilot accel stat); default 0.05
+    energyEnabled?: boolean; // player only: hazard/wall damage + DNF at zero
+    maxEnergy?: number;      // per-ship capacity (from SHIP_STATS)
     type: ShipType;
     id?: string;
     name?: string;
@@ -30,10 +46,15 @@ export class Ship {
 
     public finished: boolean = false;
     public finishTime: number = 0;
+    public retired: boolean = false; // energy hit 0 → DNF (sorts last via finishTime)
 
     // Visual components if we need to animate them (e.g. engine glow)
     private glows: THREE.Mesh[] = [];
+    private aura: THREE.Mesh | null = null;     // additive shell around the hull while boosting
+    private arcs: THREE.Line[] = [];            // lightning crackling over the aura shell
+    private lastArcTime = 0;                    // when the arc shapes were last re-rolled
     private boostFlash = 0;                     // 0..1, spikes on boost pickup, then decays
+    private boostLevel = 0;                     // 0..1, eases toward 1 while boosting (drives color)
     private flamePhase = Math.random() * 100;   // desync flame flicker per ship
 
     constructor(scene: THREE.Scene, isPlayer: boolean = false, config?: Partial<ShipConfig>) {
@@ -50,6 +71,12 @@ export class Ship {
             if (config.friction !== undefined) this.state.friction = config.friction;
             if (config.strafeSpeed !== undefined) this.state.strafeSpeed = config.strafeSpeed;
             if (config.slideFactor !== undefined) this.state.slideFactor = config.slideFactor;
+            if (config.throttleRate !== undefined) this.state.throttleRate = config.throttleRate;
+            if (config.energyEnabled !== undefined) this.state.energyEnabled = config.energyEnabled;
+            if (config.maxEnergy !== undefined) {
+                this.state.maxEnergy = config.maxEnergy;
+                this.state.energy = config.maxEnergy; // spawn with a full tank
+            }
         }
 
         this.id = config?.id || 'player';
@@ -70,6 +97,38 @@ export class Ship {
                 if (m.material) m.material = (m.material as THREE.Material).clone();
             });
         });
+
+        // Boost aura: an additive shell around the whole hull that lights up
+        // only while boostTimer runs — invisible the rest of the time.
+        const auraMat = new THREE.MeshBasicMaterial({
+            color: 0x44ccff,
+            transparent: true,
+            opacity: 0,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+        });
+        this.aura = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), auraMat);
+        this.aura.scale.set(2.6, 1.5, 3.6);
+        this.aura.visible = false;
+        this.mesh.add(this.aura);
+
+        // Lightning arcs: jagged polylines re-rolled every few frames while
+        // boosting. Children of the aura, so they live on the same ellipsoid
+        // (paths are built on the unit sphere; the aura's scale shapes them)
+        // and share its visibility gate.
+        for (let i = 0; i < 5; i++) {
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(12 * 3), 3));
+            const arc = new THREE.Line(geo, new THREE.LineBasicMaterial({
+                color: 0xaaeeff,
+                transparent: true,
+                opacity: 0,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+            }));
+            this.aura.add(arc);
+            this.arcs.push(arc);
+        }
 
         scene.add(this.mesh);
     }
@@ -129,6 +188,14 @@ export class Ship {
             if (onLapComplete) onLapComplete(msg);
         }, raceStarted, hazards, lateralLimit);
 
+        // Retirement: out of energy → DNF. finished=true with a sentinel time
+        // so the existing rank sort places retirees behind every real finisher.
+        if (this.state.energyEnabled && this.state.energy <= 0 && !this.retired && !this.finished) {
+            this.retired = true;
+            this.finished = true;
+            this.finishTime = Number.MAX_SAFE_INTEGER;
+        }
+
         // Visual Updates — a steady "circle of light" at each engine, a gently
         // flickering saturated cyan flame, and a hot near-white inner core.
         // Boost expands the circle, grows/brightens the core, and bumps the
@@ -137,6 +204,9 @@ export class Ship {
             this.boostFlash = Math.max(0, this.boostFlash - 0.05); // decay the pickup punch
             const boosting = this.state.boostTimer > 0;
             const heat = Math.min(1, (boosting ? 0.6 : 0) + this.boostFlash); // 0..1 "hotness"
+            // Eased 0..1 boost level: snaps up fast on pickup, fades out gently
+            // when the timer ends. Drives the color shift and the aura.
+            this.boostLevel += ((boosting ? 1 : 0) - this.boostLevel) * Math.min(1, 0.12 * dt);
 
             const time = performance.now() * 0.001 + this.flamePhase;
             // Gentle flicker for the cones only — small amplitude so it reads as
@@ -159,6 +229,7 @@ export class Ship {
                 glowMesh.scale.setScalar(glowScale); // steady circle (no flicker)
                 if (glowMesh.material instanceof THREE.MeshBasicMaterial) {
                     glowMesh.material.opacity = glowOpacity;
+                    glowMesh.material.color.copy(FLAME_BASE).lerp(FLAME_BOOST, this.boostLevel);
                 }
 
                 const outer = glowMesh.children[0] as THREE.Mesh | undefined;
@@ -169,7 +240,9 @@ export class Ship {
                         outerWide * (1 + 0.03 * Math.cos(time * 17))
                     );
                     if (outer.material instanceof THREE.MeshBasicMaterial) {
-                        outer.material.opacity = 0.3 + 0.15 * heat; // saturated cyan, no white-out
+                        outer.material.opacity = 0.3 + 0.15 * heat; // saturated flame, no white-out
+                        // Cruise cyan → boost orange, eased by boostLevel.
+                        outer.material.color.copy(FLAME_BASE).lerp(FLAME_BOOST, this.boostLevel);
                     }
                 }
 
@@ -178,10 +251,58 @@ export class Ship {
                     core.scale.set(coreWide, coreLen, coreWide);
                     if (core.material instanceof THREE.MeshBasicMaterial) {
                         core.material.opacity = 0.5 + 0.35 * heat; // hot centre brightens on boost
+                        core.material.color.copy(CORE_BASE).lerp(CORE_BOOST, this.boostLevel);
                     }
                 }
             });
+
+            // Aura envelope: a glowing shell around the hull, only while boosting.
+            // Flares on pickup, breathes gently for the boost's duration.
+            if (this.aura) {
+                const auraOpacity = 0.16 * this.boostLevel + 0.25 * this.boostFlash;
+                this.aura.visible = auraOpacity > 0.01;
+                if (this.aura.visible) {
+                    const pulse = 1 + 0.05 * Math.sin(time * 9) + 0.25 * this.boostFlash;
+                    this.aura.scale.set(2.6 * pulse, 1.5 * pulse, 3.6 * pulse);
+                    const mat = this.aura.material as THREE.MeshBasicMaterial;
+                    mat.opacity = auraOpacity;
+                    mat.color.copy(AURA_BASE).lerp(AURA_BOOST, this.boostLevel);
+
+                    // Lightning: re-roll the jagged paths ~every 50ms so the
+                    // arcs jump around the shell; flicker opacity per frame.
+                    if (time - this.lastArcTime > 0.05) {
+                        this.lastArcTime = time;
+                        this.arcs.forEach(arc => this.rerollArc(arc));
+                    }
+                    const arcStrength = Math.min(1, 0.7 * this.boostLevel + this.boostFlash);
+                    this.arcs.forEach(arc => {
+                        const am = arc.material as THREE.LineBasicMaterial;
+                        am.opacity = (0.3 + 0.7 * Math.random()) * arcStrength;
+                        am.color.copy(ARC_BASE).lerp(ARC_BOOST, this.boostLevel);
+                    });
+                }
+            }
         }
+    }
+
+    // Build one jagged lightning path between two random points on the unit
+    // sphere (the parent aura's scale stretches it onto the ellipsoid).
+    // Endpoints stay anchored to the shell; midpoints jitter radially.
+    private rerollArc(arc: THREE.Line) {
+        const a = new THREE.Vector3().randomDirection();
+        const b = new THREE.Vector3().randomDirection();
+        if (a.dot(b) < -0.6) b.negate(); // avoid near-antipodal pairs (degenerate lerp)
+        const pos = arc.geometry.getAttribute('position') as THREE.BufferAttribute;
+        const p = new THREE.Vector3();
+        const n = pos.count;
+        for (let i = 0; i < n; i++) {
+            const t = i / (n - 1);
+            p.copy(a).lerp(b, t).normalize();
+            const midness = Math.min(t, 1 - t) * 4; // 0 at endpoints → jitter-free anchors
+            const r = 1.04 + (Math.random() - 0.5) * 0.22 * Math.min(1, midness);
+            pos.setXYZ(i, p.x * r, p.y * r, p.z * r);
+        }
+        pos.needsUpdate = true;
     }
 
     public getPosition(): THREE.Vector3 {

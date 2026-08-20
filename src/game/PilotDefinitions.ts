@@ -13,28 +13,12 @@ export interface Pilot {
 
 export const PILOTS: Pilot[] = [
     {
-        id: 'orion_pax',
-        name: 'Orion Pax',
+        id: 'orion_reinhardt',
+        name: 'Orion Reinhardt',
         bio: 'A cybernetically enhanced racer. More machine than man, he calculates the perfect racing line every time.',
-        imagePath: '/assets/pilots/pilot_orion_pax_1765624283559.png',
+        imagePath: '/assets/pilots/pilot_orion_reinhardt.png',
         gender: 'male',
         stats: { velocity: 1, acceleration: 0, handling: 2 }
-    },
-    {
-        id: 'kaelen_vance',
-        name: 'Kaelen Vance',
-        bio: 'A stoic veteran with a scarred past. He races not for glory, but for survival.',
-        imagePath: '/assets/pilots/pilot_kaelen_vance_1765624265117.png',
-        gender: 'male',
-        stats: { velocity: 1, acceleration: -1, handling: 2 }
-    },
-    {
-        id: 'zara_qel',
-        name: 'Zara Qel',
-        bio: 'Ex-military tactician. She treats every race like a battlefield and plans her moves three laps ahead.',
-        imagePath: '/assets/pilots/pilot_zara_qel_1765624359604.png',
-        gender: 'female',
-        stats: { velocity: -1, acceleration: 1, handling: 2 }
     },
     {
         id: 'echo_7',
@@ -43,6 +27,27 @@ export const PILOTS: Pilot[] = [
         imagePath: '/assets/pilots/pilot_echo_7_1765624373159.png',
         gender: 'female',
         stats: { velocity: 1, acceleration: 1, handling: 1 }
+    },
+    {
+        id: 'dennis_grimshaw',
+        name: 'Dennis Grimshaw',
+        bio: 'A stoic veteran with a scarred past. He races not for glory, but for survival.',
+        imagePath: '/assets/pilots/pilot_dennis_grimshaw.png',
+        gender: 'male',
+        // "Old thunder": an ancient monster of an engine — top speed to match
+        // the aces, but sluggish to build and recover it (accel -2). Was
+        // (1,-1,2), which Orion (1,0,2) strictly dominated.
+        stats: { velocity: 2, acceleration: -2, handling: 2 }
+    },
+    {
+        id: 'zara_qel',
+        name: 'Zara Qel',
+        bio: 'Ex-military tactician. She treats every race like a battlefield and plans her moves three laps ahead.',
+        imagePath: '/assets/pilots/pilot_zara_qel_1765624359604.png',
+        gender: 'female',
+        // velocity bumped -1 → 0: the tracks overwhelmingly reward top speed,
+        // and a negative-velocity pilot was a trap pick.
+        stats: { velocity: 0, acceleration: 1, handling: 2 }
     },
     {
         id: 'lyra_vane',
@@ -58,7 +63,8 @@ export const PILOTS: Pilot[] = [
         bio: 'High-tech prodigy and engineer. She built her own ship and knows every bolt and circuit.',
         imagePath: '/assets/pilots/pilot_nova_starling_1765624324792.png',
         gender: 'female',
-        stats: { velocity: -1, acceleration: 2, handling: 1 }
+        // velocity bumped -1 → 0 (see Zara): speed dominates on current tracks.
+        stats: { velocity: 0, acceleration: 2, handling: 1 }
     },
     {
         id: 'darius_wraith',

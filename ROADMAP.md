@@ -1,6 +1,6 @@
 # Roadmap — Nebula Rush
 
-_Status: active · updated 2026-06-02_
+_Status: active · updated 2026-08-19_
 
 A high-speed 3D anti-gravity racing game in the browser (React 19, Vite,
 TypeScript, Three.js) — procedural tracks, physics-driven handling, AI opponents.
@@ -30,18 +30,37 @@ Inspired by F-Zero / Wipeout. The README Roadmap section is the source plan.
 - [x] Dev tools (track analysis, ship/pilot balance tests, lighting playground, env test)
 - [x] Onboarding: How-to-Play modal + interactive guided tutorial (first-visit pulse, Help link, results-screen hint)
 - [x] Track hazards: obstacle blocks (speed loss + knock) and slip/slow patches (affect player + AI)
+- [x] Progression: cups (5 tracks each, unlock chain), pilot / ship / track unlocks earned by clearing cups
+- [x] Streamlined race journey (env screen opt-in via Settings, signature-ship preselect, New Campaign / Single Race)
+- [x] Boost overhaul (audible SFX, speed kick, orange flames, aura + lightning, camera FOV pull-back)
+- [x] Early race exit (Esc, Esc) and decoupled pilot physics (velocity owns top speed; accel owns convergence)
 
-## Next
+## Next (agreed order, 2026-08-19)
 
-- [ ] Harder AI (boost opponent acceleration / top speed / handling)
-- [ ] Progression — cups (5 tracks each, unlock chain), pilot unlocks, track unlocks
+Mechanics before economy, economy before the content that showcases it.
+
+1. [ ] Player profile foundation: one versioned localStorage save for progression
+       (credits, cup clears, future parts). Settings and audio prefs stay separate.
+2. [ ] Energy system (F-Zero style): drain on hazard hits and wall contact, retire
+       at zero, recharge strip per track. Decide AI damage parity up front.
+       Boost-for-energy spending deferred until the base loop proves out.
+3. [ ] Garage / shop: credits from race placement; parts map one-to-one onto the
+       decoupled stat knobs (engine = top speed, thrusters = convergence,
+       fins = handling, capacitor = energy). Tune prices with an economy sim
+       script (like test-pilots), and compensate AI per cup tier so upgrades
+       don't erode difficulty.
+4. [ ] Skyline Cup: tight-corner city tracks that make handling and braking
+       matter (scheduled after the garage so handling parts have a market).
+5. [ ] Time trial + ghost replay: flexible slot, zero balance risk.
+
+Also still queued:
+
 - [ ] More hazards + verticality: jump ramps (reintroduce jump/drift mechanics + tutorial steps)
 
 ## Backlog
 
 - [ ] Backend & accounts (Hetzner shared Postgres, cross-device saves, online leaderboards)
 - [ ] Server-authoritative anti-cheat + hide cheat keys / dev tools in production
-- [ ] Economy (credits, engine/part upgrade screen)
 - [ ] Per-track backgrounds (distinct skybox / backdrop per track; surface detail is done)
 - [ ] Audio (engine pitch by speed, 3D opponent engines, impact SFX)
 - [ ] Ship damage (visual + handling) and metallic finishes / decals

@@ -5,10 +5,11 @@
 import { PILOTS } from '../src/game/PilotDefinitions';
 import { SHIP_STATS } from '../src/game/ShipFactory';
 
-// How pilot stats are applied (from Game.tsx):
-// - Acceleration: +/- 5% per point to accelFactor
+// How pilot stats are applied (from Game.tsx — "decoupled" mapping, Aug 2026):
+// - Velocity: +/- 0.0004 per point to friction (sole owner of top speed)
+// - Acceleration: thrust AND drag scaled by (1 + 0.15/pt) together — same top
+//   speed, proportionally faster convergence; throttle spool scaled the same
 // - Handling: +/- 10% per point to turnSpeed and strafeSpeed
-// - Velocity: +/- 0.0002 per point to friction
 
 interface PilotSimResult {
     name: string;
@@ -27,25 +28,31 @@ function simulatePilot(pilot: typeof PILOTS[0]): PilotSimResult {
     // Use fighter as baseline ship
     const baseStats = { ...SHIP_STATS.fighter };
     
-    // Apply pilot modifiers (same logic as Game.tsx)
-    const accelModifier = 1 + (pilot.stats.acceleration * 0.05);
+    // Apply pilot modifiers (same logic as Game.tsx, decoupled mapping)
     const handlingModifier = 1 + (pilot.stats.handling * 0.1);
-    const frictionBonus = pilot.stats.velocity * 0.0002;
-    
-    const effectiveAccel = baseStats.accelFactor * accelModifier;
-    const effectiveFriction = baseStats.friction + frictionBonus;
+    let effectiveAccel = baseStats.accelFactor;
+    let effectiveFriction = baseStats.friction + pilot.stats.velocity * 0.0004;
+    let throttleRate = 0.05;
+    if (pilot.stats.acceleration !== 0) {
+        const k = 1 + (pilot.stats.acceleration * 0.15);
+        effectiveAccel *= k;
+        effectiveFriction = 1 - (1 - effectiveFriction) * k;
+        throttleRate = 0.05 * k;
+    }
     const effectiveTurnSpeed = baseStats.turnSpeed * handlingModifier;
-    
-    // Calculate effective top speed
+
+    // Calculate effective top speed (unchanged by the accel stat, by design)
     const effectiveTopSpeed = effectiveAccel / (1 - effectiveFriction);
-    
-    // Simulate time to 90% top speed
+
+    // Simulate time to 90% top speed (throttle spool included)
     let velocity = 0;
+    let throttle = 0;
     const target = effectiveTopSpeed * 0.90;
     let timeToTopSpeed = -1;
-    
-    for (let frame = 0; frame < 600; frame++) {
-        velocity += effectiveAccel;
+
+    for (let frame = 0; frame < 1800; frame++) {
+        throttle = Math.min(1, throttle + throttleRate);
+        velocity += effectiveAccel * throttle;
         velocity *= effectiveFriction;
         if (timeToTopSpeed < 0 && velocity >= target) {
             timeToTopSpeed = frame / 60;
@@ -172,8 +179,9 @@ if (minTotal !== maxTotal) {
 console.log('');
 console.log('MODIFIER FORMULAS (from Game.tsx):');
 console.log('-'.repeat(100));
-console.log('  Velocity:     friction += (velocity * 0.0002)');
-console.log('  Acceleration: accelFactor *= (1 + acceleration * 0.05)');
+console.log('  Velocity:     friction += (velocity * 0.0004)   [sole top-speed stat]');
+console.log('  Acceleration: k = 1 + accel*0.15; accelFactor *= k; (1-friction) *= k; throttleRate *= k');
+console.log('                [same top speed, reached proportionally faster]');
 console.log('  Handling:     turnSpeed *= (1 + handling * 0.1), strafeSpeed *= (1 + handling * 0.1)');
 console.log('');
 console.log('Fighter baseline: accel=0.55, friction=0.9912, turnSpeed=0.001, topSpeed=62.50');
