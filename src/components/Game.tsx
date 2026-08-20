@@ -457,8 +457,10 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     const startLine = createStartLineMesh(trackCurve, bankTrack);
     scene.add(startLine);
 
-    // Energy recharge strip (green glow band just past the line)
-    scene.add(createRechargeStripMesh(trackCurve, bankTrack));
+    // Energy recharge pad (green glow band; per-track placement, shared with
+    // the physics regen via the same zone object)
+    scene.add(createRechargeStripMesh(trackCurve, bankTrack, currentTrack.recharge));
+    playerShip.current.state.rechargeZone = currentTrack.recharge;
 
     // Create minimap
     const minimapCanvas = document.createElement('canvas');

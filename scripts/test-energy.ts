@@ -40,19 +40,52 @@ function freshState(overrides: Partial<GameState> = {}): GameState {
     check('wall scrape drains (~20/2s)', s.energy < ENERGY_MAX - 15 && s.energy > ENERGY_MAX - 25);
 }
 
-// 3. Recharge strip refills, clamped at max
+// 3. Recharge pad refills (when ON it laterally), clamped at max
 {
     const s = freshState({ energy: 40, trackProgress: RECHARGE_ZONE.start + 0.001, velocity: new THREE.Vector2(0, 0) });
     for (let i = 0; i < 120; i++) {
-        s.trackProgress = RECHARGE_ZONE.start + 0.001; // parked on the strip
+        s.trackProgress = RECHARGE_ZONE.start + 0.001; // parked on the pad band
+        s.lateralPosition = RECHARGE_ZONE.lateralPosition; // and on the pad itself
         updatePhysics(s, idleInput, trackLength, [], 1, undefined, true, []);
     }
-    check('strip recharges (~70/2s)', s.energy > 100 ? false : s.energy > 105 - 40 && s.energy <= ENERGY_MAX);
+    check('pad recharges (~70/2s)', s.energy > 100 ? false : s.energy > 105 - 40 && s.energy <= ENERGY_MAX);
     for (let i = 0; i < 600; i++) {
         s.trackProgress = RECHARGE_ZONE.start + 0.001;
+        s.lateralPosition = RECHARGE_ZONE.lateralPosition;
         updatePhysics(s, idleInput, trackLength, [], 1, undefined, true, []);
     }
     check('recharge clamps at max', s.energy === ENERGY_MAX);
+}
+
+// 3b. Pad is tactical: same track band but off the pad laterally → no regen
+{
+    const s = freshState({ energy: 40, trackProgress: RECHARGE_ZONE.start + 0.001 });
+    for (let i = 0; i < 120; i++) {
+        s.trackProgress = RECHARGE_ZONE.start + 0.001;
+        s.lateralPosition = RECHARGE_ZONE.lateralPosition - RECHARGE_ZONE.width; // clearly off it
+        updatePhysics(s, idleInput, trackLength, [], 1, undefined, true, []);
+    }
+    check('off-pad lateral gets no recharge', s.energy === 40);
+}
+
+// 3c. Per-track zone override: custom pad works, default location goes inert
+{
+    const custom = { start: 0.5, end: 0.53, lateralPosition: -30, width: 30 };
+    const s = freshState({ energy: 40, rechargeZone: custom });
+    for (let i = 0; i < 120; i++) {
+        s.trackProgress = 0.51;
+        s.lateralPosition = -30;
+        updatePhysics(s, idleInput, trackLength, [], 1, undefined, true, []);
+    }
+    check('per-track pad recharges', s.energy > 60);
+
+    const s2 = freshState({ energy: 40, rechargeZone: custom });
+    for (let i = 0; i < 120; i++) {
+        s2.trackProgress = RECHARGE_ZONE.start + 0.001;
+        s2.lateralPosition = RECHARGE_ZONE.lateralPosition;
+        updatePhysics(s2, idleInput, trackLength, [], 1, undefined, true, []);
+    }
+    check('default location inert when track overrides', s2.energy === 40);
 }
 
 // 4. Energy floors at 0, never negative

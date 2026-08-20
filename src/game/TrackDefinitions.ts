@@ -25,11 +25,19 @@ export interface Hazard {
 // collision in PhysicsEngine lines up with the visible mesh in TrackFactory.
 export const HAZARD_BLOCK_DEPTH = 14;
 
-// Energy recharge strip: a full-width band just past the start line, the same
-// place on every track (uniform for now; make it per-track via TrackConfig if
-// a track ever needs it elsewhere). Physics regen + the green strip mesh both
-// read this, so they can't drift apart.
-export const RECHARGE_ZONE = { start: 0.02, end: 0.05 };
+// Energy recharge pad. Deliberately PARTIAL width and offset laterally —
+// topping up means leaving the racing line, so it's a tactical choice, not
+// free energy. Placement is per-track via TrackConfig.recharge; tracks
+// without one get this default (just past the start line, right side).
+// Physics regen + the green pad mesh both read the same zone object, so they
+// can't drift apart. Rule: never place a pad inside a tunnel (validated below).
+export interface RechargeZone {
+    start: number;           // track progress 0..1
+    end: number;
+    lateralPosition: number; // pad centre
+    width: number;
+}
+export const RECHARGE_ZONE: RechargeZone = { start: 0.02, end: 0.05, lateralPosition: 25, width: 36 };
 
 export interface TrackConfig {
     id: string;
@@ -37,6 +45,9 @@ export interface TrackConfig {
     description: string;
     points: THREE.Vector3[];
     pads: BoostPad[];
+    // Per-track energy recharge pad placement; RECHARGE_ZONE default if unset.
+    // Never place inside a tunnel range (load-time check warns if violated).
+    recharge?: RechargeZone;
     hazards?: Hazard[]; // optional obstacles / slip patches
     difficulty: number; // 1-5
     // Per-track surface palette (F-Zero-style): road base tint + emissive
@@ -862,3 +873,12 @@ export const TUTORIAL_TRACK: TrackConfig = {
         { type: 'slick', trackProgress: 0.45, lateralPosition: 22, width: 36, length: 0.03 },
     ],
 };
+
+// Dev-time guard: a recharge pad must never sit inside a tunnel (recharging
+// blind in a roofed corridor punishes the wrong thing). Warns, doesn't throw.
+TRACKS.forEach((t) => {
+    const zone = t.recharge;
+    if (!zone || !t.tunnels?.length) return;
+    const overlap = t.tunnels.some((tn) => zone.start < tn.end && zone.end > tn.start);
+    if (overlap) console.warn(`[TrackDefinitions] ${t.id}: recharge pad overlaps a tunnel — move it.`);
+});

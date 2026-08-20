@@ -35,6 +35,7 @@ export interface GameState {
     energy: number;
     maxEnergy: number; // per-ship capacity (SHIP_STATS.maxEnergy; Tank highest)
     energyEnabled?: boolean;
+    rechargeZone?: RechargeZone; // the current track's pad (RECHARGE_ZONE default)
     hazardCooldown: number; // Seconds of immunity after a block hit (stops cluster re-trigger / vibration)
     hasCrossedStartLine: boolean; // True once the player crosses the line for the first time
 }
@@ -72,7 +73,7 @@ export const INITIAL_GAME_STATE: GameState = {
     hasCrossedStartLine: false
 };
 
-import type { BoostPad, Hazard } from './TrackDefinitions';
+import type { BoostPad, Hazard, RechargeZone } from './TrackDefinitions';
 import { HAZARD_BLOCK_DEPTH, RECHARGE_ZONE } from './TrackDefinitions';
 
 // Energy tuning (per-second rates are converted by dt/60 in the frame loop).
@@ -359,7 +360,9 @@ export const updatePhysics = (
         if (state.wallContact !== 0) {
             state.energy = Math.max(0, state.energy - ENERGY_WALL_DRAIN * dt / 60);
         }
-        if (state.trackProgress >= RECHARGE_ZONE.start && state.trackProgress <= RECHARGE_ZONE.end) {
+        const rz = state.rechargeZone ?? RECHARGE_ZONE;
+        if (state.trackProgress >= rz.start && state.trackProgress <= rz.end
+            && Math.abs(state.lateralPosition - rz.lateralPosition) < rz.width / 2) {
             state.energy = Math.min(state.maxEnergy, state.energy + ENERGY_RECHARGE * dt / 60);
         }
     }
