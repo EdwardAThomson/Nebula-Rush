@@ -5,7 +5,7 @@ export interface ShipParts {
     glows: THREE.Mesh[];
 }
 
-export type ShipType = 'fighter' | 'speedster' | 'tank' | 'interceptor' | 'corsair';
+export type ShipType = 'fighter' | 'speedster' | 'tank' | 'interceptor' | 'corsair' | 'lancer';
 
 export const SHIP_STATS: Record<ShipType, { accelFactor: number, turnSpeed: number, friction: number, strafeSpeed: number, slideFactor: number, maxEnergy: number }> = {
     fighter: {
@@ -47,12 +47,105 @@ export const SHIP_STATS: Record<ShipType, { accelFactor: number, turnSpeed: numb
         strafeSpeed: 0.010,
         slideFactor: 0.995, // Ice Skater (Extreme Drift)
         maxEnergy: 90
+    },
+    lancer: {
+        // Visual-design experiment (lofted hull + twin nacelles). Stats are a
+        // fighter-like placeholder until the look is settled; it is not yet in
+        // the ship-selection roster or the AI pool.
+        accelFactor: 0.58,
+        turnSpeed: 0.0011,
+        friction: 0.9916,       // Top speed ~62.8
+        strafeSpeed: 0.012,
+        slideFactor: 0.94,
+        maxEnergy: 100
     }
 };
 
 // Caches
 const geometryCache: Record<string, THREE.BufferGeometry> = {};
 const materialCache: Record<string, THREE.Material> = {};
+
+// --- Lofted hull helper -------------------------------------------------
+// Sweeps a rounded cross-section through a list of stations along +Z, so a
+// hull tapers like a real fuselage instead of being a constant-radius capsule
+// with a bullet glued on the front. Each station gives the half-width (w),
+// half-height (h) and centre height (y) at that z; the values are smoothed
+// with a Catmull-Rom curve so the taper blends between stations.
+//   n     — superellipse exponent: 2 = ellipse, higher squares the shoulders
+//   belly — squashes the lower half (1 = round, 0.5 = flat-bottomed)
+interface LoftStation { z: number; w: number; h: number; y: number }
+
+const createLoftGeometry = (
+    stations: LoftStation[],
+    opts: { rings?: number; segments?: number; n?: number; belly?: number; capStart?: boolean; capEnd?: boolean } = {}
+): THREE.BufferGeometry => {
+    const { rings = 40, segments = 36, n = 2.6, belly = 0.6, capStart = false, capEnd = true } = opts;
+    const sizeCurve = new THREE.CatmullRomCurve3(stations.map(s => new THREE.Vector3(s.z, s.w, s.h)), false, 'centripetal');
+    const yCurve = new THREE.CatmullRomCurve3(stations.map(s => new THREE.Vector3(s.z, s.y, 0)), false, 'centripetal');
+    const expo = 2 / n;
+    const sp = (v: number) => Math.sign(v) * Math.pow(Math.abs(v), expo);
+
+    const positions: number[] = [];
+    const indices: number[] = [];
+    const ringAt = (u: number) => {
+        const s = sizeCurve.getPoint(u);          // (z, w, h)
+        const yc = yCurve.getPoint(u).y;
+        const ring: [number, number, number][] = [];
+        for (let j = 0; j <= segments; j++) {
+            const th = (j / segments) * Math.PI * 2;
+            const cx = sp(Math.cos(th)), cy = sp(Math.sin(th));
+            ring.push([s.y * cx, yc + s.z * cy * (cy < 0 ? belly : 1), s.x]);
+        }
+        return { ring, centre: [0, yc, s.x] as [number, number, number] };
+    };
+
+    for (let i = 0; i <= rings; i++) {
+        ringAt(i / rings).ring.forEach(p => positions.push(...p));
+    }
+    for (let i = 0; i < rings; i++) {
+        for (let j = 0; j < segments; j++) {
+            const a = i * (segments + 1) + j;
+            const b = a + segments + 1;
+            indices.push(a, a + 1, b, a + 1, b + 1, b);   // outward-facing
+        }
+    }
+    // Caps use their own copy of the rim so the flat face keeps a hard edge
+    // instead of blending into the side normals.
+    const addCap = (u: number, facing: 1 | -1) => {
+        const { ring, centre } = ringAt(u);
+        const c = positions.length / 3;
+        positions.push(...centre);
+        ring.forEach(p => positions.push(...p));
+        for (let j = 0; j < segments; j++) {
+            if (facing > 0) indices.push(c, c + 1 + j, c + 2 + j);
+            else indices.push(c, c + 2 + j, c + 1 + j);
+        }
+    };
+    if (capStart) addCap(0, -1);
+    if (capEnd) addCap(1, 1);
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+};
+
+// Swept trapezoid panel (wing stub / fin / canard) in plan view, built per
+// side so mirroring never flips normals. Shape X = outward span (sign of dir),
+// Y = chord with +Y forward. The leading edge sweeps back by `sweep` across
+// the span; the trailing edge follows from the tip chord.
+const createSweptPanelShape = (span: number, rootChord: number, tipChord: number, sweep: number, dir: 1 | -1) => {
+    const tipLead = rootChord / 2 - sweep;
+    const pts: [number, number][] = [
+        [0, rootChord / 2], [span, tipLead], [span, tipLead - tipChord], [0, -rootChord / 2]
+    ];
+    if (dir < 0) pts.reverse();
+    const s = new THREE.Shape();
+    pts.forEach(([x, y], i) => (i === 0 ? s.moveTo(x * dir, y) : s.lineTo(x * dir, y)));
+    s.closePath();
+    return s;
+};
 
 export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter', accentColor: number = 0xeeeeee, buggyWing: boolean = false): ShipParts => {
     const ship = new THREE.Group();
@@ -874,6 +967,169 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
                 fin.position.set(0.25, 0.4, fz);
                 eng.add(fin);
             });
+        });
+
+    } else if (type === 'lancer') {
+        exhaustScale = 1.4;
+        // --- LANCER (design experiment: "reads as one ship") ---
+        // Built around a single lofted fuselage that tapers nose-to-tail, with
+        // two big outboard engine nacelles carried on short swept wing stubs,
+        // a bubble canopy that blends into a dorsal spine, and a V-tail. The
+        // goal is a strong, legible silhouette (long low hull, wide stance,
+        // obvious engines) with a few deliberate details instead of greebles.
+        // Forward is -Z; the hull spans Z -4.2 (nose tip) .. +3.4 (tail cap).
+        // The nacelles sit low and forward (Z -1.5 .. +2.5) so the hull and
+        // V-tail stay visible above and behind them.
+
+        // Painted-metal hull rather than chrome: lower metalness so the paint
+        // colour reads as paint, with enough roughness to keep soft highlights.
+        const hullMat = getMaterial('lancer_hull', { color, metalness: 0.55, roughness: 0.42, envMapIntensity: envBoost }, THREE.MeshStandardMaterial);
+        const trimMat = getMaterial('lancer_trim', { color: accentColor, metalness: 0.5, roughness: 0.45, envMapIntensity: envBoost }, THREE.MeshStandardMaterial);
+        const nacelleMat = getMaterial('lancer_nacelle', { color: 0x2b2f36, metalness: 0.9, roughness: 0.38, envMapIntensity: envBoost }, THREE.MeshStandardMaterial);
+        // Intake / nozzle interiors: matte near-black, double-sided because the
+        // lathe profiles for the inner surfaces run "backwards".
+        const intakeMat = getMaterial('lancer_intake', { color: 0x0b0d10, metalness: 0.3, roughness: 0.9, side: THREE.DoubleSide }, THREE.MeshStandardMaterial);
+        // Smoked glass canopy with a cool tint.
+        const canopyMat = getMaterial('lancer_canopy', { color: 0x16323a, metalness: 0.2, roughness: 0.08, transparent: true, opacity: 0.82, envMapIntensity: envBoost }, THREE.MeshStandardMaterial);
+
+        // 1. Fuselage: flat-bellied loft, widest around the cockpit, with the
+        //    centreline rising slightly toward the tail for a racing rake.
+        const hullGeo = getGeometry('lancer_hull', () => createLoftGeometry([
+            { z: -4.2, w: 0.04, h: 0.03, y: 0.34 },
+            { z: -3.5, w: 0.28, h: 0.19, y: 0.36 },
+            { z: -2.5, w: 0.66, h: 0.40, y: 0.41 },
+            { z: -1.3, w: 0.98, h: 0.58, y: 0.48 },
+            { z: 0.0, w: 1.04, h: 0.62, y: 0.52 },
+            { z: 1.4, w: 0.92, h: 0.56, y: 0.56 },
+            { z: 2.7, w: 0.66, h: 0.42, y: 0.60 },
+            { z: 3.4, w: 0.48, h: 0.30, y: 0.62 },
+        ], { n: 2.6, belly: 0.55, capEnd: true }));
+        ship.add(new THREE.Mesh(hullGeo, hullMat));
+
+        // 2. Canopy: a bubble loft sitting on the hull top, with a dark sill
+        //    plate under it so the glass has a frame.
+        const canopyStations: LoftStation[] = [
+            { z: -2.0, w: 0.04, h: 0.03, y: 0.96 },
+            { z: -1.4, w: 0.30, h: 0.22, y: 0.99 },
+            { z: -0.6, w: 0.40, h: 0.36, y: 1.03 },
+            { z: 0.3, w: 0.36, h: 0.30, y: 1.07 },
+            { z: 0.9, w: 0.22, h: 0.12, y: 1.09 },
+        ];
+        const canopyGeo = getGeometry('lancer_canopy', () => createLoftGeometry(canopyStations, { n: 2.2, belly: 0.15, capEnd: true }));
+        ship.add(new THREE.Mesh(canopyGeo, canopyMat));
+        const sillGeo = getGeometry('lancer_canopy_sill', () => createLoftGeometry(
+            canopyStations.map(s => ({ z: s.z, w: s.w + 0.06, h: Math.max(0.03, s.h * 0.3), y: s.y - 0.03 })),
+            { n: 2.2, belly: 0.2, capEnd: true }
+        ));
+        ship.add(new THREE.Mesh(sillGeo, nacelleMat));
+
+        // 3. Dorsal spine: fairing from the back of the canopy down to the tail.
+        const spineGeo = getGeometry('lancer_spine', () => createLoftGeometry([
+            { z: 0.2, w: 0.30, h: 0.30, y: 1.05 },
+            { z: 1.4, w: 0.26, h: 0.26, y: 1.02 },
+            { z: 2.6, w: 0.16, h: 0.16, y: 0.98 },
+            { z: 3.4, w: 0.08, h: 0.06, y: 0.94 },
+        ], { n: 2.2, belly: 0.2, capEnd: true }));
+        ship.add(new THREE.Mesh(spineGeo, hullMat));
+
+        // 4. Wing stubs: short swept panels that carry the nacelles. Root is
+        //    buried in the hull side, tip buried in the nacelle, so the engines
+        //    are visibly attached rather than floating alongside.
+        const nacelleX = 2.1, nacelleY = 0.06, nacelleFront = -1.5;
+        const stubSettings = { steps: 1, depth: 0.2, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.05, bevelSegments: 3 };
+        ([1, -1] as const).forEach(dir => {
+            const geo = getGeometry(`lancer_stub_${dir}`, () => new THREE.ExtrudeGeometry(createSweptPanelShape(1.6, 2.6, 1.6, 0.8, dir), stubSettings));
+            const stub = new THREE.Mesh(geo, hullMat);
+            stub.rotation.x = -Math.PI / 2;                 // shape +Y (forward) -> world -Z, thickness -> +Y
+            stub.position.set(dir * 0.75, nacelleY - 0.04, 0.0);
+            ship.add(stub);
+        });
+
+        // 5. Engine nacelles: lathe-turned pods with an intake lip, a gentle
+        //    boat-tail and a recessed nozzle. Lathe profiles are (radius, axial)
+        //    pairs; rotation.x = +90° turns the lathe axis (+Y) into +Z.
+        const nacelleOuterGeo = getGeometry('lancer_nacelle_outer', () => new THREE.LatheGeometry([
+            new THREE.Vector2(0.52, 0.02), new THREE.Vector2(0.66, 0.00), new THREE.Vector2(0.72, 0.25),
+            new THREE.Vector2(0.74, 1.10), new THREE.Vector2(0.72, 2.40), new THREE.Vector2(0.62, 3.40),
+            new THREE.Vector2(0.50, 3.95), new THREE.Vector2(0.44, 4.05),
+        ], 36));
+        const nacelleIntakeGeo = getGeometry('lancer_nacelle_intake', () => new THREE.LatheGeometry([
+            new THREE.Vector2(0.52, 0.02), new THREE.Vector2(0.26, 0.42),
+        ], 36));
+        const nacelleNozzleGeo = getGeometry('lancer_nacelle_nozzle', () => new THREE.LatheGeometry([
+            new THREE.Vector2(0.44, 4.05), new THREE.Vector2(0.36, 4.05), new THREE.Vector2(0.36, 3.60), new THREE.Vector2(0.0, 3.60),
+        ], 36));
+        const spinnerGeo = getGeometry('lancer_spinner', () => new THREE.ConeGeometry(0.26, 0.55, 24));
+        const bandGeo = getGeometry('lancer_nacelle_band', () => new THREE.TorusGeometry(0.75, 0.03, 8, 36));
+        const grooveGeo = getGeometry('lancer_nacelle_groove', () => new THREE.TorusGeometry(0.72, 0.035, 8, 36));
+        const nozzleRingGeo = getGeometry('lancer_nozzle_ring', () => new THREE.TorusGeometry(0.40, 0.03, 8, 36));
+
+        [-nacelleX, nacelleX].forEach(ex => {
+            const pod = new THREE.Group();
+            pod.position.set(ex, nacelleY, nacelleFront);
+            pod.rotation.x = Math.PI / 2;
+            pod.add(new THREE.Mesh(nacelleOuterGeo, nacelleMat));
+            pod.add(new THREE.Mesh(nacelleIntakeGeo, intakeMat));
+            pod.add(new THREE.Mesh(nacelleNozzleGeo, intakeMat));
+            // Intake spinner cone, tip just proud of the lip.
+            const spinner = new THREE.Mesh(spinnerGeo, nacelleMat);
+            spinner.rotation.x = Math.PI;                     // cone tip (+Y) -> -Y = forward in pod space
+            spinner.position.set(0, 0.2, 0);
+            pod.add(spinner);
+            ship.add(pod);
+
+            // One accent band forward, a dark groove aft, and a thin lit ring
+            // at the nozzle.
+            const band = new THREE.Mesh(bandGeo, trimMat);
+            band.position.set(ex, nacelleY, nacelleFront + 0.8);
+            ship.add(band);
+            const groove = new THREE.Mesh(grooveGeo, intakeMat);
+            groove.position.set(ex, nacelleY, nacelleFront + 2.7);
+            ship.add(groove);
+            const ring = new THREE.Mesh(nozzleRingGeo, glowMaterial);
+            ring.position.set(ex, nacelleY, nacelleFront + 4.0);
+            ship.add(ring);
+
+            enginePositions.push(new THREE.Vector3(ex, nacelleY, nacelleFront + 3.9));
+        });
+
+        // 6. V-tail: two fins canted 38° outward from the spine. Each fin sits
+        //    in a pivot group so the cant is applied after the fin is laid in
+        //    the YZ plane.
+        const vFinShape = new THREE.Shape();
+        vFinShape.moveTo(0, 0);
+        vFinShape.lineTo(1.4, 0);
+        vFinShape.lineTo(1.4, 0.3);
+        vFinShape.quadraticCurveTo(1.3, 1.0, 0.9, 1.05);  // rounded tip
+        vFinShape.lineTo(0, 0);                            // swept leading edge
+        const vFinGeo = getGeometry('lancer_vfin', () => new THREE.ExtrudeGeometry(vFinShape, { depth: 0.08, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 2 }));
+        ([1, -1] as const).forEach(dir => {
+            const pivot = new THREE.Group();
+            pivot.position.set(dir * 0.16, 0.92, 1.9);
+            pivot.rotation.z = -dir * 0.66;
+            const fin = new THREE.Mesh(vFinGeo, trimMat);
+            fin.rotation.y = -Math.PI / 2;                  // shape X -> world +Z (aft)
+            fin.position.x = dir > 0 ? 0.04 : -0.04;        // centre the thickness
+            pivot.add(fin);
+            ship.add(pivot);
+        });
+
+        // 7. Nose canards: small swept foreplanes.
+        const canardSettings = { steps: 1, depth: 0.06, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.015, bevelSegments: 2 };
+        ([1, -1] as const).forEach(dir => {
+            const geo = getGeometry(`lancer_canard_${dir}`, () => new THREE.ExtrudeGeometry(createSweptPanelShape(0.75, 0.7, 0.35, 0.3, dir), canardSettings));
+            const canard = new THREE.Mesh(geo, trimMat);
+            canard.rotation.x = -Math.PI / 2;
+            canard.position.set(dir * 0.45, 0.42, -2.6);
+            ship.add(canard);
+        });
+
+        // 8. Side vents behind the canopy: the one panel detail.
+        const ventGeo = getGeometry('lancer_vent', () => new THREE.BoxGeometry(0.06, 0.16, 0.5));
+        [-0.99, 0.99].forEach(vx => {
+            const vent = new THREE.Mesh(ventGeo, nacelleMat);
+            vent.position.set(vx, 0.6, 0.6);
+            ship.add(vent);
         });
 
     } else {
