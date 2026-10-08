@@ -16,7 +16,7 @@ I originally started building this game for free using Claude in the web browser
 * [New ship graphics and background effects added](https://youtu.be/VOGkLEW-zQU)
 
 
-![Screenshot](./screenshot_nebula_rush_20260601.png)
+![Screenshot](./screenshot_nebula_rush_20261008.png)
 
 
 ## Features
