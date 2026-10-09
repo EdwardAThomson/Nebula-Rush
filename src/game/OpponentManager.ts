@@ -4,17 +4,118 @@ import { type ShipType, SHIP_STATS } from './ShipFactory';
 
 import type { InputSource } from './InputManager';
 import type { GameState } from './PhysicsEngine';
-import type { BoostPad, Hazard } from './TrackDefinitions';
+import type { BoostPad, Hazard, RechargeZone } from './TrackDefinitions';
+import { HAZARD_BLOCK_DEPTH, RECHARGE_ZONE } from './TrackDefinitions';
 import { drawRivalNames } from './rivalNames';
+
+// AI hazard + energy awareness. Opponents take the same energy damage as the
+// player (blocks, wall scraping, contact), so they look ahead and steer round
+// blocks, and divert over the recharge pad when running low. Neither is
+// perfect on purpose: each rival rolls per block whether it spots it in time,
+// so the field still takes hits and the odd one runs dry.
+const AI_LOOKAHEAD_S = 4.0;   // seconds of track scanned ahead for blocks / the pad
+const AI_DODGE_MARGIN = 5;    // lateral clearance kept beyond a block's half-width
+const AI_LANE_LIMIT = 50;     // default tracks: stay clear of the ±60 box wall
+const AI_PAD_INSET = 4;       // aim this far inside the recharge pad's edge
+
+const IDLE_INPUT: InputSource = { isKeyPressed: () => false };
 
 class AIInputController implements InputSource {
     private keys: { [key: string]: boolean } = {};
     public targetLateral: number = 0;
-    public baseLane: number = 0; // preferred lane before any canyon-width clamp
+    public baseLane: number = 0; // preferred lane before hazards / pad / walls
+    // 0..1 chance of spotting each block in time to dodge it.
+    public alertness: number;
+    // Energy fraction under which this rival heads for the recharge pad.
+    public rechargeBelow: number;
+    private seekingCharge = false;
+    // Per-block dodge decision for the current approach (index → spotted?),
+    // rolled once as the block enters the lookahead window and cleared once
+    // it's behind, so each lap is a fresh roll.
+    private blockCalls = new Map<number, boolean>();
 
     constructor(target: number) {
         this.targetLateral = target;
         this.baseLane = target;
+        this.alertness = 0.86 + Math.random() * 0.12; // 86–98%
+        this.rechargeBelow = 0.45 + Math.random() * 0.2; // 45–65%
+    }
+
+    // Pick this frame's target lane: preferred lane → recharge pad if low →
+    // wall clamp → dodge any spotted block ahead.
+    plan(state: GameState, trackLength: number, hazards: Hazard[], wallLimit?: (t: number) => [number, number]) {
+        const t = state.trackProgress;
+        const lookahead = Math.max(state.velocity.y, 20) * 60 * AI_LOOKAHEAD_S; // world units
+        const distAhead = (p: number) => (((p - t) % 1 + 1) % 1) * trackLength;
+        let lane = this.baseLane;
+
+        // Recharge: commit when low, hold until topped up or past the pad.
+        if (state.energyEnabled) {
+            const frac = state.energy / (state.maxEnergy || 100);
+            const rz = state.rechargeZone ?? RECHARGE_ZONE;
+            if (frac < this.rechargeBelow) this.seekingCharge = true;
+            if (frac >= 0.98) this.seekingCharge = false;
+            const onPad = t >= rz.start && t <= rz.end;
+            if (this.seekingCharge && (onPad || distAhead(rz.start) < lookahead)) {
+                const half = rz.width / 2 - AI_PAD_INSET;
+                lane = Math.max(rz.lateralPosition - half, Math.min(rz.lateralPosition + half, lane));
+            }
+        }
+
+        // Walls: canyon gorge width per-t, else the fixed box.
+        let minL = -AI_LANE_LIMIT, maxL = AI_LANE_LIMIT;
+        if (wallLimit) {
+            const [lo, hi] = wallLimit(t);
+            minL = lo + 4;
+            maxL = hi - 4;
+        }
+        lane = Math.max(minL, Math.min(maxL, lane));
+
+        // Blocks: the NEAREST spotted row of blocks (boxes side by side at the
+        // same spot) blocks lateral intervals (width plus clearance). Take the
+        // free lane nearest the one we want; side-by-side blocks merge into one
+        // wall this way, so the AI finds the real gap. Only the nearest row
+        // counts: slalom rows a short way apart (Sand Hollow) would otherwise
+        // union into a full-width wall with no gap at all.
+        const spottedAhead: { d: number; lo: number; hi: number }[] = [];
+        hazards.forEach((h, i) => {
+            if (h.type !== 'block') return;
+            const d = distAhead(h.trackProgress);
+            const behind = d > trackLength - HAZARD_BLOCK_DEPTH; // just passed (wrapped)
+            if (d > lookahead && !behind) {
+                this.blockCalls.delete(i);
+                return;
+            }
+            if (behind) return;
+            let spotted = this.blockCalls.get(i);
+            if (spotted === undefined) {
+                spotted = Math.random() < this.alertness;
+                this.blockCalls.set(i, spotted);
+            }
+            const half = h.width / 2 + AI_DODGE_MARGIN;
+            if (spotted) spottedAhead.push({ d, lo: h.lateralPosition - half, hi: h.lateralPosition + half });
+        });
+        const nearest = Math.min(...spottedAhead.map(b => b.d));
+        const blocked = spottedAhead
+            .filter(b => b.d <= nearest + 2 * HAZARD_BLOCK_DEPTH)
+            .map(b => [b.lo, b.hi] as [number, number]);
+        if (blocked.length) {
+            const free = (x: number) => x >= minL && x <= maxL && blocked.every(([lo, hi]) => x <= lo || x >= hi);
+            if (!free(lane)) {
+                let best: number | null = null;
+                for (const [lo, hi] of blocked) {
+                    for (const c of [lo, hi]) {
+                        if (!free(c)) continue;
+                        // Least deviation from the wanted lane; ties → nearer to where we are.
+                        const cost = Math.abs(c - lane) + 0.1 * Math.abs(c - state.lateralPosition);
+                        if (best === null || cost < Math.abs(best - lane) + 0.1 * Math.abs(best - state.lateralPosition)) best = c;
+                    }
+                }
+                if (best !== null) lane = best;
+            }
+        }
+
+        this.targetLateral = lane;
     }
 
     update(state: GameState) {
@@ -43,8 +144,6 @@ class AIInputController implements InputSource {
             this.keys['d'] = true;
             this.keys['ArrowRight'] = true;
         }
-
-        // Random Strafe usage for aggression? Maybe later.
     }
 
     isKeyPressed(key: string): boolean {
@@ -66,6 +165,7 @@ export class OpponentManager {
     private bank: boolean;
     private wallLimit?: (t: number) => [number, number];
     private windForce?: (t: number, ms: number) => number;
+    private rechargeZone?: RechargeZone;
 
     constructor(
         scene: THREE.Scene,
@@ -73,19 +173,23 @@ export class OpponentManager {
         roster: OpponentConfig[],
         bank: boolean = true,
         wallLimit?: (t: number) => [number, number],
-        windForce?: (t: number, ms: number) => number
+        windForce?: (t: number, ms: number) => number,
+        rechargeZone?: RechargeZone
     ) {
         this.scene = scene;
         this.trackCurve = trackCurve;
         this.bank = bank;
         this.wallLimit = wallLimit;
         this.windForce = windForce;
+        this.rechargeZone = rechargeZone;
         this.spawnOpponents(roster);
     }
 
     private spawnOpponents(roster: OpponentConfig[]) {
         roster.forEach((config, i) => {
-            const opponent = new Ship(this.scene, false, config);
+            // Energy parity with the player: same damage sources, same DNF.
+            const opponent = new Ship(this.scene, false, { ...config, energyEnabled: true });
+            opponent.state.rechargeZone = this.rechargeZone;
 
             // Grid Positioning
             const row = Math.floor(i / 2) + 1;
@@ -155,15 +259,15 @@ export class OpponentManager {
             const opponent = this.opponents[i];
             const controller = this.controllers[i];
 
-            // 1. Update AI Decision. On canyon tracks, keep the target lane inside
-            // the local gorge width so opponents thread the canyon instead of
-            // steering into (and grinding against) the rock on tight bends.
-            if (this.wallLimit) {
-                const [minL, maxL] = this.wallLimit(opponent.state.trackProgress);
-                const buf = 4;
-                controller.targetLateral = Math.max(minL + buf, Math.min(maxL - buf, controller.baseLane));
+            // 1. Update AI Decision: preferred lane, bent toward the recharge
+            // pad when low and around spotted blocks, kept inside the walls
+            // (on canyon tracks, the local gorge width). A retired (out of
+            // energy) rival gets no input and coasts to a stop.
+            if (!opponent.retired) {
+                controller.plan(opponent.state, trackLength, hazards, this.wallLimit);
+                controller.update(opponent.state);
             }
-            controller.update(opponent.state);
+            const input = opponent.retired ? IDLE_INPUT : controller;
 
             // 1b. The storm shoves the AI too (same wind as the player). Below
             // the weakest strafe, so a wall-blown AI can always steer back off.
@@ -172,10 +276,10 @@ export class OpponentManager {
             }
 
             // 2. Update Physics (same wall clamp as the player → solid walls for AI)
-            opponent.update(dt, controller, trackLength, pads, (_msg) => {
+            opponent.update(dt, input, trackLength, pads, (_msg) => {
                 // Handle lap complete if needed (e.g. AI lap counter)
                 // For now, ignore
-            }, raceStarted, gameTime, hazards, this.wallLimit);
+            }, raceStarted && !opponent.retired, gameTime, hazards, this.wallLimit);
 
             // 3. Update Mesh (+ visual wind lean: roll against the local shove)
             opponent.updateMesh(this.trackCurve, this.bank);
