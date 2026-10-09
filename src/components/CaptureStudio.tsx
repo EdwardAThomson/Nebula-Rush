@@ -17,7 +17,7 @@ interface CaptureStudioProps { onBack: () => void; }
 const SHIP_TYPES: ShipType[] = ['fighter', 'speedster', 'tank', 'interceptor', 'corsair'];
 const SHIP_COLORS: Record<ShipType, number> = {
     fighter: 0xcc0000, speedster: 0x00ccff, tank: 0xcccc00, interceptor: 0x00ff00, corsair: 0x5500aa,
-    lancer: 0xd9531e,
+    lancer: 0xd9531e, rapier: 0x2e7bd6, sledge: 0xc8a34a, kestrel: 0x9b1b3c,
 };
 
 // A naive "fine detail" road texture used to *demonstrate* the stretching

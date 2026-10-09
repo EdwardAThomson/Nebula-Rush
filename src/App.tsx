@@ -83,12 +83,46 @@ const SHIP_CARDS: {
   titleClass: string; borderClass: string; bgClass: string;
   stats: { label: string; key: 'speed' | 'accel' | 'handling' | 'drift' | 'energy'; barClass: string }[];
 }[] = [
+  // Design mockups (lofted hulls, lathe-turned nacelles). Listed first and
+  // unlocked from the start so the looks can be raced and compared; all share
+  // balanced placeholder stats.
   {
-    // Design experiment (lofted hull, twin nacelles). Listed first and
-    // unlocked from the start so the new look can be raced and judged.
     type: 'lancer', title: 'LANCER', color: 0xd9531e,
-    info: 'Prototype hull. Balanced stats while the new design is evaluated.',
+    info: 'Mockup: single lofted hull with twin outboard nacelles and a V-tail.',
     titleClass: 'text-orange-400', borderClass: 'border-orange-500', bgClass: 'bg-orange-900',
+    stats: [
+      { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
+      { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
+      { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
+      { label: 'Energy', key: 'energy', barClass: 'bg-emerald-400' },
+    ],
+  },
+  {
+    type: 'rapier', title: 'RAPIER', color: 0x2e7bd6,
+    info: 'Mockup: podracer layout. Two huge engines out front, open pod towed behind.',
+    titleClass: 'text-blue-400', borderClass: 'border-blue-500', bgClass: 'bg-blue-900',
+    stats: [
+      { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
+      { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
+      { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
+      { label: 'Energy', key: 'energy', barClass: 'bg-emerald-400' },
+    ],
+  },
+  {
+    type: 'sledge', title: 'SLEDGE', color: 0xc8a34a,
+    info: 'Mockup: landspeeder. Low wide slab, open cockpit, three turbines across the tail.',
+    titleClass: 'text-amber-400', borderClass: 'border-amber-500', bgClass: 'bg-amber-900',
+    stats: [
+      { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
+      { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
+      { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
+      { label: 'Energy', key: 'energy', barClass: 'bg-emerald-400' },
+    ],
+  },
+  {
+    type: 'kestrel', title: 'KESTREL', color: 0x9b1b3c,
+    info: 'Mockup: air racer. Slim fuselage, big swept wing, twin tails, buried engine.',
+    titleClass: 'text-rose-400', borderClass: 'border-rose-500', bgClass: 'bg-rose-900',
     stats: [
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },

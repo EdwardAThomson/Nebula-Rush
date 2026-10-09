@@ -7,7 +7,7 @@ interface ShipDemoProps {
 }
 
 export default function ShipDemo({ onBack }: ShipDemoProps) {
-    const shipTypes: ShipType[] = ['lancer', 'speedster', 'fighter', 'tank', 'interceptor', 'corsair'];
+    const shipTypes: ShipType[] = ['lancer', 'rapier', 'sledge', 'kestrel', 'speedster', 'fighter', 'tank', 'interceptor', 'corsair'];
     const [currentIndex, setCurrentIndex] = useState(0);
 
     const currentType = shipTypes[currentIndex];
@@ -19,7 +19,10 @@ export default function ShipDemo({ onBack }: ShipDemoProps) {
         tank: 0xcccc00,      // Yellow
         interceptor: 0x00ff00, // Green
         corsair: 0x5500aa,   // Purple
-        lancer: 0xd9531e     // Burnt orange (design experiment)
+        lancer: 0xd9531e,    // Burnt orange (design mockups)
+        rapier: 0x2e7bd6,    // Blue
+        sledge: 0xc8a34a,    // Sand gold
+        kestrel: 0x9b1b3c    // Crimson
     };
 
     const handleNext = () => {

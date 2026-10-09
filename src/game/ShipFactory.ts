@@ -5,7 +5,7 @@ export interface ShipParts {
     glows: THREE.Mesh[];
 }
 
-export type ShipType = 'fighter' | 'speedster' | 'tank' | 'interceptor' | 'corsair' | 'lancer';
+export type ShipType = 'fighter' | 'speedster' | 'tank' | 'interceptor' | 'corsair' | 'lancer' | 'rapier' | 'sledge' | 'kestrel';
 
 export const SHIP_STATS: Record<ShipType, { accelFactor: number, turnSpeed: number, friction: number, strafeSpeed: number, slideFactor: number, maxEnergy: number }> = {
     fighter: {
@@ -48,13 +48,37 @@ export const SHIP_STATS: Record<ShipType, { accelFactor: number, turnSpeed: numb
         slideFactor: 0.995, // Ice Skater (Extreme Drift)
         maxEnergy: 90
     },
+    // Visual-design mockups (lofted hulls + lathe-turned nacelles). All four
+    // share fighter-like placeholder stats until a look is chosen; they are
+    // unlocked from the start for evaluation and are not in the AI pool.
     lancer: {
-        // Visual-design experiment (lofted hull + twin nacelles). Stats are a
-        // fighter-like placeholder until the look is settled; it is not yet in
-        // the ship-selection roster or the AI pool.
         accelFactor: 0.58,
         turnSpeed: 0.0011,
         friction: 0.9916,       // Top speed ~62.8
+        strafeSpeed: 0.012,
+        slideFactor: 0.94,
+        maxEnergy: 100
+    },
+    rapier: {
+        accelFactor: 0.58,
+        turnSpeed: 0.0011,
+        friction: 0.9916,
+        strafeSpeed: 0.012,
+        slideFactor: 0.94,
+        maxEnergy: 100
+    },
+    sledge: {
+        accelFactor: 0.58,
+        turnSpeed: 0.0011,
+        friction: 0.9916,
+        strafeSpeed: 0.012,
+        slideFactor: 0.94,
+        maxEnergy: 100
+    },
+    kestrel: {
+        accelFactor: 0.58,
+        turnSpeed: 0.0011,
+        friction: 0.9916,
         strafeSpeed: 0.012,
         slideFactor: 0.94,
         maxEnergy: 100
@@ -269,6 +293,87 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
 
     let enginePositions: THREE.Vector3[] = [];
     let exhaustScale = 1.0;
+
+    // --- Prototype toolkit (design mockups: lancer, rapier, sledge, kestrel) ---
+    // Materials: painted-metal hull (lower metalness than the chrome of the
+    // original five, so paint reads as paint), accent trim, gunmetal engine
+    // pods, matte-black intake/nozzle interiors (double-sided because those
+    // lathe profiles run "backwards"), and a smoked-glass canopy. Built
+    // lazily so the original ships never allocate them.
+    const protoMats = () => ({
+        hullMat: getMaterial('proto_hull', { color, metalness: 0.55, roughness: 0.42, envMapIntensity: envBoost }, THREE.MeshStandardMaterial),
+        trimMat: getMaterial('proto_trim', { color: accentColor, metalness: 0.5, roughness: 0.45, envMapIntensity: envBoost }, THREE.MeshStandardMaterial),
+        nacelleMat: getMaterial('proto_nacelle', { color: 0x2b2f36, metalness: 0.9, roughness: 0.38, envMapIntensity: envBoost }, THREE.MeshStandardMaterial),
+        intakeMat: getMaterial('proto_intake', { color: 0x0b0d10, metalness: 0.3, roughness: 0.9, side: THREE.DoubleSide }, THREE.MeshStandardMaterial),
+        canopyMat: getMaterial('proto_canopy', { color: 0x16323a, metalness: 0.2, roughness: 0.08, transparent: true, opacity: 0.82, envMapIntensity: envBoost }, THREE.MeshStandardMaterial),
+    });
+    type ProtoMats = ReturnType<typeof protoMats>;
+
+    // Engine pod: a lathe-turned nacelle with an intake lip and spinner cone,
+    // a gentle boat-tail and a recessed nozzle with a lit ring. The profile is
+    // the Lancer's (radius 0.74, length 4.05) scaled to r / len. Pod-local +Z
+    // is aft with the intake lip at z = 0; glowZ is where the exhaust belongs.
+    const makeNacelle = (key: string, r: number, len: number, mats: ProtoMats) => {
+        const rs = r / 0.74, ls = len / 4.05;
+        const P = (pr: number, pa: number) => new THREE.Vector2(pr * rs, pa * ls);
+        const outerGeo = getGeometry(`${key}_outer`, () => new THREE.LatheGeometry([
+            P(0.52, 0.02), P(0.66, 0.00), P(0.72, 0.25), P(0.74, 1.10), P(0.72, 2.40), P(0.62, 3.40), P(0.50, 3.95), P(0.44, 4.05),
+        ], 36));
+        const intakeGeo = getGeometry(`${key}_intake`, () => new THREE.LatheGeometry([P(0.52, 0.02), P(0.26, 0.42)], 36));
+        const nozzleGeo = getGeometry(`${key}_nozzle`, () => new THREE.LatheGeometry([P(0.44, 4.05), P(0.36, 4.05), P(0.36, 3.60), P(0.0, 3.60)], 36));
+        const spinnerGeo = getGeometry(`${key}_spinner`, () => new THREE.ConeGeometry(0.26 * rs, 0.55 * ls, 24));
+        const ringGeo = getGeometry(`${key}_ring`, () => new THREE.TorusGeometry(0.40 * rs, 0.03, 8, 36));
+
+        const pod = new THREE.Group();
+        const turned = new THREE.Group();              // lathe axis (+Y) -> pod +Z
+        turned.rotation.x = Math.PI / 2;
+        turned.add(new THREE.Mesh(outerGeo, mats.nacelleMat));
+        turned.add(new THREE.Mesh(intakeGeo, mats.intakeMat));
+        turned.add(new THREE.Mesh(nozzleGeo, mats.intakeMat));
+        const spinner = new THREE.Mesh(spinnerGeo, mats.nacelleMat);
+        spinner.rotation.x = Math.PI;                  // cone tip -> forward
+        spinner.position.y = 0.2 * ls;
+        turned.add(spinner);
+        pod.add(turned);
+        const ring = new THREE.Mesh(ringGeo, glowMaterial);
+        ring.position.z = 4.0 * ls;
+        pod.add(ring);
+        return { pod, glowZ: 3.9 * ls };
+    };
+
+    // Swept fin with a rounded tip, in the XY plane: X = chord running aft
+    // from the leading root, Y = height. Lay it with rotation.y = -PI/2 so X
+    // maps to world +Z, then cant with a parent pivot's rotation.z.
+    const makeFinGeometry = (key: string, chord: number, height: number, thickness = 0.08) =>
+        getGeometry(key, () => {
+            const s = new THREE.Shape();
+            s.moveTo(0, 0);
+            s.lineTo(chord, 0);
+            s.lineTo(chord, 0.29 * height);
+            s.quadraticCurveTo(0.93 * chord, 0.95 * height, 0.64 * chord, height);   // rounded tip
+            s.lineTo(0, 0);                                                           // swept leading edge
+            return new THREE.ExtrudeGeometry(s, { depth: thickness, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 2 });
+        });
+    const addFin = (geo: THREE.BufferGeometry, material: THREE.Material, pos: THREE.Vector3, cant: number) => {
+        const pivot = new THREE.Group();
+        pivot.position.copy(pos);
+        pivot.rotation.z = cant;
+        const fin = new THREE.Mesh(geo, material);
+        fin.rotation.y = -Math.PI / 2;                 // shape X -> world +Z (aft)
+        fin.position.x = 0.04;                         // centre the thickness
+        pivot.add(fin);
+        ship.add(pivot);
+        return pivot;
+    };
+
+    // Thin strut between two points (cylinder along its local Y, re-aimed).
+    const addStrut = (geo: THREE.BufferGeometry, material: THREE.Material, from: THREE.Vector3, to: THREE.Vector3) => {
+        const strut = new THREE.Mesh(geo, material);
+        strut.scale.y = from.distanceTo(to);
+        strut.position.copy(from).lerp(to, 0.5);
+        strut.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize());
+        ship.add(strut);
+    };
 
     if (type === 'speedster') {
         // --- BEVELED SPEEDSTER (Original Design + Smooth Edges) ---
@@ -971,7 +1076,7 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
 
     } else if (type === 'lancer') {
         exhaustScale = 1.4;
-        // --- LANCER (design experiment: "reads as one ship") ---
+        // --- LANCER (design mockup 1: "reads as one ship") ---
         // Built around a single lofted fuselage that tapers nose-to-tail, with
         // two big outboard engine nacelles carried on short swept wing stubs,
         // a bubble canopy that blends into a dorsal spine, and a V-tail. The
@@ -980,17 +1085,8 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         // Forward is -Z; the hull spans Z -4.2 (nose tip) .. +3.4 (tail cap).
         // The nacelles sit low and forward (Z -1.5 .. +2.5) so the hull and
         // V-tail stay visible above and behind them.
-
-        // Painted-metal hull rather than chrome: lower metalness so the paint
-        // colour reads as paint, with enough roughness to keep soft highlights.
-        const hullMat = getMaterial('lancer_hull', { color, metalness: 0.55, roughness: 0.42, envMapIntensity: envBoost }, THREE.MeshStandardMaterial);
-        const trimMat = getMaterial('lancer_trim', { color: accentColor, metalness: 0.5, roughness: 0.45, envMapIntensity: envBoost }, THREE.MeshStandardMaterial);
-        const nacelleMat = getMaterial('lancer_nacelle', { color: 0x2b2f36, metalness: 0.9, roughness: 0.38, envMapIntensity: envBoost }, THREE.MeshStandardMaterial);
-        // Intake / nozzle interiors: matte near-black, double-sided because the
-        // lathe profiles for the inner surfaces run "backwards".
-        const intakeMat = getMaterial('lancer_intake', { color: 0x0b0d10, metalness: 0.3, roughness: 0.9, side: THREE.DoubleSide }, THREE.MeshStandardMaterial);
-        // Smoked glass canopy with a cool tint.
-        const canopyMat = getMaterial('lancer_canopy', { color: 0x16323a, metalness: 0.2, roughness: 0.08, transparent: true, opacity: 0.82, envMapIntensity: envBoost }, THREE.MeshStandardMaterial);
+        const mats = protoMats();
+        const { hullMat, trimMat, nacelleMat, intakeMat, canopyMat } = mats;
 
         // 1. Fuselage: flat-bellied loft, widest around the cockpit, with the
         //    centreline rising slightly toward the tail for a racing rake.
@@ -1045,73 +1141,26 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
             ship.add(stub);
         });
 
-        // 5. Engine nacelles: lathe-turned pods with an intake lip, a gentle
-        //    boat-tail and a recessed nozzle. Lathe profiles are (radius, axial)
-        //    pairs; rotation.x = +90° turns the lathe axis (+Y) into +Z.
-        const nacelleOuterGeo = getGeometry('lancer_nacelle_outer', () => new THREE.LatheGeometry([
-            new THREE.Vector2(0.52, 0.02), new THREE.Vector2(0.66, 0.00), new THREE.Vector2(0.72, 0.25),
-            new THREE.Vector2(0.74, 1.10), new THREE.Vector2(0.72, 2.40), new THREE.Vector2(0.62, 3.40),
-            new THREE.Vector2(0.50, 3.95), new THREE.Vector2(0.44, 4.05),
-        ], 36));
-        const nacelleIntakeGeo = getGeometry('lancer_nacelle_intake', () => new THREE.LatheGeometry([
-            new THREE.Vector2(0.52, 0.02), new THREE.Vector2(0.26, 0.42),
-        ], 36));
-        const nacelleNozzleGeo = getGeometry('lancer_nacelle_nozzle', () => new THREE.LatheGeometry([
-            new THREE.Vector2(0.44, 4.05), new THREE.Vector2(0.36, 4.05), new THREE.Vector2(0.36, 3.60), new THREE.Vector2(0.0, 3.60),
-        ], 36));
-        const spinnerGeo = getGeometry('lancer_spinner', () => new THREE.ConeGeometry(0.26, 0.55, 24));
+        // 5. Engine nacelles, with one accent band forward and a dark groove aft.
         const bandGeo = getGeometry('lancer_nacelle_band', () => new THREE.TorusGeometry(0.75, 0.03, 8, 36));
         const grooveGeo = getGeometry('lancer_nacelle_groove', () => new THREE.TorusGeometry(0.72, 0.035, 8, 36));
-        const nozzleRingGeo = getGeometry('lancer_nozzle_ring', () => new THREE.TorusGeometry(0.40, 0.03, 8, 36));
-
         [-nacelleX, nacelleX].forEach(ex => {
-            const pod = new THREE.Group();
+            const { pod, glowZ } = makeNacelle('lancer_pod', 0.74, 4.05, mats);
             pod.position.set(ex, nacelleY, nacelleFront);
-            pod.rotation.x = Math.PI / 2;
-            pod.add(new THREE.Mesh(nacelleOuterGeo, nacelleMat));
-            pod.add(new THREE.Mesh(nacelleIntakeGeo, intakeMat));
-            pod.add(new THREE.Mesh(nacelleNozzleGeo, intakeMat));
-            // Intake spinner cone, tip just proud of the lip.
-            const spinner = new THREE.Mesh(spinnerGeo, nacelleMat);
-            spinner.rotation.x = Math.PI;                     // cone tip (+Y) -> -Y = forward in pod space
-            spinner.position.set(0, 0.2, 0);
-            pod.add(spinner);
-            ship.add(pod);
-
-            // One accent band forward, a dark groove aft, and a thin lit ring
-            // at the nozzle.
             const band = new THREE.Mesh(bandGeo, trimMat);
-            band.position.set(ex, nacelleY, nacelleFront + 0.8);
-            ship.add(band);
+            band.position.z = 0.8;
+            pod.add(band);
             const groove = new THREE.Mesh(grooveGeo, intakeMat);
-            groove.position.set(ex, nacelleY, nacelleFront + 2.7);
-            ship.add(groove);
-            const ring = new THREE.Mesh(nozzleRingGeo, glowMaterial);
-            ring.position.set(ex, nacelleY, nacelleFront + 4.0);
-            ship.add(ring);
-
-            enginePositions.push(new THREE.Vector3(ex, nacelleY, nacelleFront + 3.9));
+            groove.position.z = 2.7;
+            pod.add(groove);
+            ship.add(pod);
+            enginePositions.push(new THREE.Vector3(ex, nacelleY, nacelleFront + glowZ));
         });
 
-        // 6. V-tail: two fins canted 38° outward from the spine. Each fin sits
-        //    in a pivot group so the cant is applied after the fin is laid in
-        //    the YZ plane.
-        const vFinShape = new THREE.Shape();
-        vFinShape.moveTo(0, 0);
-        vFinShape.lineTo(1.4, 0);
-        vFinShape.lineTo(1.4, 0.3);
-        vFinShape.quadraticCurveTo(1.3, 1.0, 0.9, 1.05);  // rounded tip
-        vFinShape.lineTo(0, 0);                            // swept leading edge
-        const vFinGeo = getGeometry('lancer_vfin', () => new THREE.ExtrudeGeometry(vFinShape, { depth: 0.08, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 2 }));
+        // 6. V-tail: two fins canted 38° outward from the spine.
+        const vFinGeo = makeFinGeometry('lancer_vfin', 1.4, 1.05);
         ([1, -1] as const).forEach(dir => {
-            const pivot = new THREE.Group();
-            pivot.position.set(dir * 0.16, 0.92, 1.9);
-            pivot.rotation.z = -dir * 0.66;
-            const fin = new THREE.Mesh(vFinGeo, trimMat);
-            fin.rotation.y = -Math.PI / 2;                  // shape X -> world +Z (aft)
-            fin.position.x = dir > 0 ? 0.04 : -0.04;        // centre the thickness
-            pivot.add(fin);
-            ship.add(pivot);
+            addFin(vFinGeo, trimMat, new THREE.Vector3(dir * 0.16, 0.92, 1.9), -dir * 0.66);
         });
 
         // 7. Nose canards: small swept foreplanes.
@@ -1132,6 +1181,259 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
             ship.add(vent);
         });
 
+    } else if (type === 'rapier') {
+        exhaustScale = 1.6;
+        // --- RAPIER (design mockup 2: podracer layout) ---
+        // Two oversized engines out front carrying the paint, a glowing energy
+        // binder between them, and a small open-cockpit pod trailing behind on
+        // a pair of tow struts. Almost all the mass is engine, by design.
+        // Forward is -Z. Engines Z -4.0 .. +0.4, pod Z +0.9 .. +3.8.
+        const mats = protoMats();
+        const { hullMat, trimMat, nacelleMat, intakeMat, canopyMat } = mats;
+        const engX = 1.75, engY = 0.35, engFront = -4.0, engLen = 4.4, engR = 0.82;
+
+        // 1. Engines: painted pods (the engines ARE the ship), each with a dark
+        //    cooling groove and a swept control vane on top.
+        const grooveGeo = getGeometry('rapier_groove', () => new THREE.TorusGeometry(engR - 0.02, 0.04, 8, 36));
+        const vaneGeo = makeFinGeometry('rapier_vane', 1.1, 0.6);
+        [-engX, engX].forEach(ex => {
+            const { pod, glowZ } = makeNacelle('rapier_pod', engR, engLen, { ...mats, nacelleMat: hullMat });
+            pod.position.set(ex, engY, engFront);
+            [1.6, 3.0].forEach(gz => {
+                const groove = new THREE.Mesh(grooveGeo, intakeMat);
+                groove.position.z = gz;
+                pod.add(groove);
+            });
+            ship.add(pod);
+            enginePositions.push(new THREE.Vector3(ex, engY, engFront + glowZ));
+            addFin(vaneGeo, trimMat, new THREE.Vector3(ex, engY + engR - 0.06, engFront + 1.9), 0);
+        });
+
+        // 2. Energy binder: a cyan beam between the intakes, with dark emitter
+        //    nubs at each end, plus a structural crossbar further back.
+        const binderGeo = getGeometry('rapier_binder', () => new THREE.CylinderGeometry(0.05, 0.05, 1, 10));
+        const binder = new THREE.Mesh(binderGeo, glowMaterial);
+        binder.rotation.z = Math.PI / 2;
+        binder.scale.y = 2 * (engX - engR) + 0.2;
+        binder.position.set(0, engY + 0.15, engFront + 1.0);
+        ship.add(binder);
+        const nubGeo = getGeometry('rapier_nub', () => new THREE.BoxGeometry(0.22, 0.22, 0.3));
+        [-1, 1].forEach(dir => {
+            const nub = new THREE.Mesh(nubGeo, nacelleMat);
+            nub.position.set(dir * (engX - engR + 0.02), engY + 0.15, engFront + 1.0);
+            ship.add(nub);
+        });
+        const crossGeo = getGeometry('rapier_crossbar', () => new THREE.BoxGeometry(2 * (engX - engR) + 0.3, 0.14, 0.32));
+        const cross = new THREE.Mesh(crossGeo, nacelleMat);
+        cross.position.set(0, engY - 0.1, engFront + 3.1);
+        ship.add(cross);
+
+        // 3. Pod: a small lofted cockpit tub, low and behind the engines, with
+        //    an open cockpit (dark well + raked windscreen + headrest fairing).
+        const tubGeo = getGeometry('rapier_tub', () => createLoftGeometry([
+            { z: 0.9, w: 0.08, h: 0.06, y: 0.30 },
+            { z: 1.4, w: 0.42, h: 0.30, y: 0.34 },
+            { z: 2.2, w: 0.55, h: 0.40, y: 0.38 },
+            { z: 3.0, w: 0.50, h: 0.42, y: 0.42 },
+            { z: 3.8, w: 0.30, h: 0.28, y: 0.46 },
+        ], { n: 2.6, belly: 0.5, capEnd: true }));
+        ship.add(new THREE.Mesh(tubGeo, hullMat));
+        const wellGeo = getGeometry('rapier_well', () => new THREE.BoxGeometry(0.66, 0.1, 1.1));
+        const well = new THREE.Mesh(wellGeo, intakeMat);
+        well.position.set(0, 0.78, 2.5);
+        ship.add(well);
+        const screenGeo = getGeometry('rapier_screen', () => new THREE.BoxGeometry(0.66, 0.34, 0.04));
+        const screen = new THREE.Mesh(screenGeo, canopyMat);
+        screen.position.set(0, 0.96, 1.9);
+        screen.rotation.x = -0.5;
+        ship.add(screen);
+        const headrestGeo = getGeometry('rapier_headrest', () => createLoftGeometry([
+            { z: 2.95, w: 0.22, h: 0.26, y: 0.86 },
+            { z: 3.4, w: 0.16, h: 0.16, y: 0.82 },
+            { z: 3.85, w: 0.05, h: 0.04, y: 0.72 },
+        ], { n: 2.2, belly: 0.3, capEnd: true }));
+        ship.add(new THREE.Mesh(headrestGeo, hullMat));
+
+        // 4. Tow struts: from each engine's rear to the pod's nose.
+        const strutGeo = getGeometry('rapier_strut', () => new THREE.CylinderGeometry(0.05, 0.05, 1, 8));
+        [-1, 1].forEach(dir => {
+            addStrut(strutGeo, nacelleMat,
+                new THREE.Vector3(dir * (engX - 0.3), engY, engFront + engLen - 0.3),
+                new THREE.Vector3(dir * 0.25, 0.36, 1.5));
+        });
+
+    } else if (type === 'sledge') {
+        exhaustScale = 1.0;
+        // --- SLEDGE (design mockup 3: landspeeder) ---
+        // One low, wide slab of a hull with an open cockpit and three turbines
+        // across the tail. Reads as a hover car rather than a plane.
+        // Forward is -Z; hull Z -3.6 .. +2.6, turbines out to +4.0.
+        const mats = protoMats();
+        const { hullMat, trimMat, nacelleMat, intakeMat, canopyMat } = mats;
+
+        // 1. Hull: squared-shoulder slab, flat belly, rounded nose.
+        const hullGeo = getGeometry('sledge_hull', () => createLoftGeometry([
+            { z: -3.6, w: 0.30, h: 0.10, y: 0.30 },
+            { z: -3.0, w: 0.95, h: 0.22, y: 0.32 },
+            { z: -2.0, w: 1.55, h: 0.32, y: 0.36 },
+            { z: -0.8, w: 1.85, h: 0.40, y: 0.40 },
+            { z: 0.6, w: 1.85, h: 0.42, y: 0.42 },
+            { z: 1.8, w: 1.65, h: 0.40, y: 0.44 },
+            { z: 2.6, w: 1.30, h: 0.34, y: 0.46 },
+        ], { n: 3.2, belly: 0.55, capEnd: true }));
+        ship.add(new THREE.Mesh(hullGeo, hullMat));
+
+        // 2. Bonnet stripe (trim ribbon riding just above the hull top) and
+        //    twin light bars at the nose.
+        const stripeGeo = getGeometry('sledge_stripe', () => createLoftGeometry([
+            { z: -3.3, w: 0.10, h: 0.025, y: 0.50 },
+            { z: -3.0, w: 0.18, h: 0.025, y: 0.575 },
+            { z: -2.0, w: 0.22, h: 0.025, y: 0.715 },
+            { z: -1.0, w: 0.22, h: 0.025, y: 0.825 },
+        ], { n: 3.0, belly: 1.0, capStart: true, capEnd: true }));
+        ship.add(new THREE.Mesh(stripeGeo, trimMat));
+        const lightGeo = getGeometry('sledge_light', () => new THREE.BoxGeometry(0.34, 0.06, 0.06));
+        [-0.55, 0.55].forEach(lx => {
+            const light = new THREE.Mesh(lightGeo, glowMaterial);
+            light.position.set(lx, 0.52, -3.08);
+            ship.add(light);
+        });
+
+        // 3. Open cockpit: dark well in the top, raked windscreen, twin headrests.
+        const wellGeo = getGeometry('sledge_well', () => new THREE.BoxGeometry(1.3, 0.1, 1.5));
+        const well = new THREE.Mesh(wellGeo, intakeMat);
+        well.position.set(0, 0.82, 0.1);
+        ship.add(well);
+        const screenGeo = getGeometry('sledge_screen', () => new THREE.BoxGeometry(1.34, 0.4, 0.04));
+        const screen = new THREE.Mesh(screenGeo, canopyMat);
+        screen.position.set(0, 1.0, -0.78);
+        screen.rotation.x = -0.55;
+        ship.add(screen);
+        const headrestGeo = getGeometry('sledge_headrest', () => createLoftGeometry([
+            { z: 0.8, w: 0.18, h: 0.22, y: 0.92 },
+            { z: 1.3, w: 0.16, h: 0.16, y: 0.90 },
+            { z: 1.9, w: 0.06, h: 0.04, y: 0.86 },
+        ], { n: 2.2, belly: 0.4, capEnd: true }));
+        [-0.36, 0.36].forEach(hx => {
+            const headrest = new THREE.Mesh(headrestGeo, hullMat);
+            headrest.position.x = hx;
+            ship.add(headrest);
+        });
+
+        // 4. Three turbines across the tail: a big outer pair and a smaller,
+        //    higher centre unit.
+        [-1.15, 1.15].forEach(ex => {
+            const { pod, glowZ } = makeNacelle('sledge_turbine', 0.5, 2.0, mats);
+            pod.position.set(ex, 0.42, 2.0);
+            ship.add(pod);
+            enginePositions.push(new THREE.Vector3(ex, 0.42, 2.0 + glowZ));
+        });
+        {
+            const { pod, glowZ } = makeNacelle('sledge_turbine_c', 0.4, 1.8, mats);
+            pod.position.set(0, 0.72, 2.2);
+            ship.add(pod);
+            enginePositions.push(new THREE.Vector3(0, 0.72, 2.2 + glowZ));
+        }
+
+        // 5. Side skirts along the lower flanks and a low rear spoiler on struts.
+        const skirtGeo = getGeometry('sledge_skirt', () => new THREE.BoxGeometry(0.12, 0.18, 3.6));
+        [-1.86, 1.86].forEach(sx => {
+            const skirt = new THREE.Mesh(skirtGeo, nacelleMat);
+            skirt.position.set(sx, 0.24, 0.3);
+            ship.add(skirt);
+        });
+        const spoilerGeo = getGeometry('sledge_spoiler', () => new THREE.BoxGeometry(2.3, 0.06, 0.42));
+        const spoiler = new THREE.Mesh(spoilerGeo, trimMat);
+        spoiler.position.set(0, 1.0, 2.2);
+        spoiler.rotation.x = -0.15;
+        ship.add(spoiler);
+        const postGeo = getGeometry('sledge_post', () => new THREE.BoxGeometry(0.08, 0.26, 0.3));
+        [-0.9, 0.9].forEach(px => {
+            const post = new THREE.Mesh(postGeo, nacelleMat);
+            post.position.set(px, 0.88, 2.2);
+            ship.add(post);
+        });
+
+    } else if (type === 'kestrel') {
+        exhaustScale = 1.3;
+        // --- KESTREL (design mockup 4: racing plane) ---
+        // Slim round fuselage with a long bubble canopy, a big swept main wing,
+        // canards, twin canted tails, and one engine buried in the tail fed by
+        // side intakes. The air-racer option.
+        // Forward is -Z; fuselage Z -4.4 .. +3.6, engine nozzle to +4.6.
+        const mats = protoMats();
+        const { hullMat, trimMat, nacelleMat, intakeMat, canopyMat } = mats;
+
+        // 1. Fuselage: round section, long nose, slight taper to the tail.
+        const hullGeo = getGeometry('kestrel_hull', () => createLoftGeometry([
+            { z: -4.4, w: 0.05, h: 0.05, y: 0.45 },
+            { z: -3.6, w: 0.30, h: 0.28, y: 0.46 },
+            { z: -2.4, w: 0.55, h: 0.52, y: 0.48 },
+            { z: -1.0, w: 0.66, h: 0.62, y: 0.50 },
+            { z: 0.6, w: 0.68, h: 0.64, y: 0.52 },
+            { z: 2.0, w: 0.64, h: 0.60, y: 0.54 },
+            { z: 3.2, w: 0.50, h: 0.48, y: 0.56 },
+            { z: 3.6, w: 0.44, h: 0.42, y: 0.56 },
+        ], { n: 2.2, belly: 0.85, capEnd: true }));
+        ship.add(new THREE.Mesh(hullGeo, hullMat));
+        const noseGeo = getGeometry('kestrel_nose_cone', () => new THREE.ConeGeometry(0.11, 0.5, 20));
+        const noseCone = new THREE.Mesh(noseGeo, nacelleMat);
+        noseCone.rotation.x = -Math.PI / 2;
+        noseCone.position.set(0, 0.45, -4.5);
+        ship.add(noseCone);
+
+        // 2. Canopy: a long bubble whose lower half is buried in the fuselage.
+        const canopyGeo = getGeometry('kestrel_canopy', () => createLoftGeometry([
+            { z: -2.9, w: 0.05, h: 0.05, y: 0.74 },
+            { z: -2.2, w: 0.34, h: 0.30, y: 0.80 },
+            { z: -1.2, w: 0.46, h: 0.44, y: 0.96 },
+            { z: -0.2, w: 0.44, h: 0.40, y: 1.00 },
+            { z: 0.8, w: 0.30, h: 0.22, y: 1.00 },
+            { z: 1.4, w: 0.08, h: 0.06, y: 1.00 },
+        ], { n: 2.2, belly: 0.6, capEnd: true }));
+        ship.add(new THREE.Mesh(canopyGeo, canopyMat));
+
+        // 3. Main wing (hull colour, so the mass reads as one) and canards (trim).
+        const wingSettings = { steps: 1, depth: 0.14, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 3 };
+        const canardSettings = { steps: 1, depth: 0.06, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.015, bevelSegments: 2 };
+        ([1, -1] as const).forEach(dir => {
+            const wingGeo = getGeometry(`kestrel_wing_${dir}`, () => new THREE.ExtrudeGeometry(createSweptPanelShape(2.4, 2.8, 1.0, 1.7, dir), wingSettings));
+            const wing = new THREE.Mesh(wingGeo, hullMat);
+            wing.rotation.x = -Math.PI / 2;
+            wing.position.set(dir * 0.5, 0.3, 0.9);
+            ship.add(wing);
+            const canardGeo = getGeometry(`kestrel_canard_${dir}`, () => new THREE.ExtrudeGeometry(createSweptPanelShape(0.9, 0.8, 0.4, 0.4, dir), canardSettings));
+            const canard = new THREE.Mesh(canardGeo, trimMat);
+            canard.rotation.x = -Math.PI / 2;
+            canard.position.set(dir * 0.45, 0.52, -2.6);
+            ship.add(canard);
+        });
+
+        // 4. Side intakes feeding the buried engine, and the engine itself.
+        const intakeBodyGeo = getGeometry('kestrel_intake_body', () => new THREE.BoxGeometry(0.36, 0.5, 1.4));
+        const intakeFaceGeo = getGeometry('kestrel_intake_face', () => new THREE.BoxGeometry(0.3, 0.42, 0.04));
+        [-0.84, 0.84].forEach(ix => {
+            const body = new THREE.Mesh(intakeBodyGeo, nacelleMat);
+            body.position.set(ix, 0.48, 1.0);
+            ship.add(body);
+            const face = new THREE.Mesh(intakeFaceGeo, intakeMat);
+            face.position.set(ix, 0.48, 0.29);
+            ship.add(face);
+        });
+        {
+            const { pod, glowZ } = makeNacelle('kestrel_engine', 0.48, 2.2, mats);
+            pod.position.set(0, 0.52, 2.4);
+            ship.add(pod);
+            enginePositions.push(new THREE.Vector3(0, 0.52, 2.4 + glowZ));
+        }
+
+        // 5. Twin tails canted outward on the wing, plus a small ventral fin.
+        const tailGeo = makeFinGeometry('kestrel_tail', 1.3, 1.0);
+        ([1, -1] as const).forEach(dir => {
+            addFin(tailGeo, trimMat, new THREE.Vector3(dir * 1.35, 0.42, 1.5), -dir * 0.35);
+        });
+        const ventralGeo = makeFinGeometry('kestrel_ventral', 0.8, 0.45);
+        addFin(ventralGeo, trimMat, new THREE.Vector3(0, 0.1, 2.3), Math.PI);
     } else {
         // FIGHTER
         // --- SMOOTHED FIGHTER (capsule body + bullet nose, matching the
