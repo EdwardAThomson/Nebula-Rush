@@ -19,7 +19,8 @@ const ARCHETYPES = [
     { name: 'Winner (avg 1st-2nd)', races: [1, 2, 1, 1, 2], cupRank: 1 },
     { name: 'Podium (avg 3rd)', races: [2, 4, 3, 3, 2], cupRank: 3 },
     { name: 'Front-runner (avg 5th)', races: [4, 6, 5, 5, 6], cupRank: 5 },
-    { name: 'Mid-pack (avg 10th)', races: [9, 11, 10, 10, 10], cupRank: 10 },
+    { name: 'Mid-pack (avg 8th)', races: [7, 9, 8, 8, 8], cupRank: 8 },
+    { name: 'Back-marker (avg 12th)', races: [11, 13, 12, 12, 12], cupRank: 12 },
 ];
 
 // Greedy shopper: always buys the cheapest available next level.
@@ -43,7 +44,7 @@ const perfSlots = PARTS.filter((p) => p.slot !== 'capacitor').length;
 console.log('='.repeat(92));
 console.log('GARAGE ECONOMY');
 console.log('='.repeat(92));
-console.log(`Placement payout (tier 0): 1st ${PLACEMENT_PAYOUT[0]}, 3rd ${PLACEMENT_PAYOUT[2]}, 10th ${PLACEMENT_PAYOUT[9]}, 20th ${PLACEMENT_PAYOUT[19]}`);
+console.log(`Placement payout (tier 0): 1st ${PLACEMENT_PAYOUT[0]}, 3rd ${PLACEMENT_PAYOUT[2]}, 10th ${PLACEMENT_PAYOUT[9]}, 11th+ 0`);
 console.log(`Full garage (all four slots to Mk III): ${fullGarage.toLocaleString()} CR`);
 console.log('Part prices: ' + PARTS.map((p) => `${p.name} ${p.prices.join('/')}`).join(' · '));
 console.log('');
@@ -76,12 +77,12 @@ const cheapest = Math.min(...PARTS.map((p) => p.prices[0]));
 for (const a of ARCHETYPES) {
     let credits = 0;
     let races = 0;
-    while (credits < cheapest && races < 50) {
+    while (credits < cheapest && races < 50 && a.races.some((r) => r <= PLACEMENT_PAYOUT.length)) {
         credits += racePayout(a.races[races % a.races.length], false, 0, true);
         races++;
         if (races % RACES_PER_CUP === 0) credits += cupBonus(a.cupRank, 0);
     }
-    console.log(`${a.name.padEnd(26)} first part after ${races} Nebula race(s)`);
+    console.log(`${a.name.padEnd(26)} ${credits >= cheapest ? `first part after ${races} Nebula race(s)` : 'never paid (outside the top 10)'}`);
 }
 
 // Single Race grinding check: credits per race vs the campaign.

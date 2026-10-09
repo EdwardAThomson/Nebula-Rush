@@ -6,11 +6,9 @@ import { updateProfile } from './profile';
 // the money is, and campaign pays more than replaying one track in Single Race.
 // Tuned with scripts/test-economy.ts; change the tables there first.
 
-// Finishing-position payout in a 20-ship field (index 0 = 1st). A DNF earns 0.
-export const PLACEMENT_PAYOUT = [
-    1000, 800, 650, 550, 480, 430, 390, 350, 320, 290,
-    260, 240, 220, 200, 180, 160, 140, 120, 110, 100,
-];
+// Finishing-position payout (index 0 = 1st). Only the top 10 are paid, tapering
+// steeply after 5th; 11th and below, and a DNF, earn nothing.
+export const PLACEMENT_PAYOUT = [1000, 800, 650, 550, 480, 380, 300, 230, 170, 120];
 
 // Cup podium bonus, paid on the final race of a cup (index 0 = cup winner).
 export const CUP_PODIUM_BONUS = [3000, 2000, 1500];
@@ -38,7 +36,7 @@ export function tierMultiplier(tier: number): number {
 // Credits for one race. Rounded to 10 so the numbers read cleanly.
 export function racePayout(rank: number, retired: boolean, tier: number, isCampaign: boolean): number {
     if (retired || rank < 1) return 0;
-    const base = PLACEMENT_PAYOUT[rank - 1] ?? PLACEMENT_PAYOUT[PLACEMENT_PAYOUT.length - 1];
+    const base = PLACEMENT_PAYOUT[rank - 1] ?? 0;
     const factor = tierMultiplier(tier) * (isCampaign ? 1 : SINGLE_RACE_FACTOR);
     return Math.round((base * factor) / 10) * 10;
 }
