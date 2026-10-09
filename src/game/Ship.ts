@@ -27,7 +27,7 @@ const SHIELD_HEALTHY = new THREE.Color(0x55ddff);
 const SHIELD_LOW = new THREE.Color(0xff3322);
 const SHIELD_CHARGE = new THREE.Color(0x44ff88);
 const SPARK_COUNT = 24;
-const SHIELD_SCALE = new THREE.Vector3(2.9, 1.7, 3.9);
+const SHIELD_SCALE = new THREE.Vector3(3.3, 1.8, 4.9); // sized to enclose the four-ship roster
 
 // Soft round dot for spark points (shared; built once on first use).
 let sparkTexture: THREE.Texture | null = null;
