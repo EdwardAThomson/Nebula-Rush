@@ -531,60 +531,141 @@
   border-radius: 3px;
 }
 
-/* Difficulty: five slanted pips, lit in the card accent. */
-.diff-pips { display: flex; gap: 3px; }
-.diff-pips span {
-  width: 9px;
-  height: 14px;
-  transform: skewX(-20deg);
-  background: rgba(255, 255, 255, 0.1);
+/* Track card stats: boost-pad and hazard counts from the track data. */
+.track-stats { display: flex; flex-direction: column; align-items: flex-end; gap: 0.15rem; flex-shrink: 0; }
+.track-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #e2e8f0;
 }
-.diff-pips span.on {
-  background: var(--card-accent);
-  box-shadow: 0 0 6px var(--card-accent);
-}
+.track-stat .stat-label { font-size: 0.55rem; }
+.track-stat-boost { color: #67e8f9; text-shadow: 0 0 8px rgba(34, 211, 238, 0.6); }
+.track-stat-hazard { color: #fbbf24; text-shadow: 0 0 8px rgba(245, 158, 11, 0.5); }
 
-/* Ship hangar bay behind the 3D preview: an accent spotlight over a floor grid. */
-.ship-bay {
+/* Ship carousel: one hangar stage, a glowing turntable, chevrons either side. */
+.carousel-stage {
   position: relative;
-  height: 12rem;
+  height: clamp(15rem, 38vh, 24rem);
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: 6px;
   background:
-    radial-gradient(ellipse 60% 55% at 50% 38%, color-mix(in srgb, var(--card-accent) 32%, transparent), transparent 72%),
-    linear-gradient(180deg, #060912, #0b1020);
-  border: 1px solid color-mix(in srgb, var(--card-accent) 25%, transparent);
+    radial-gradient(ellipse 55% 60% at 50% 40%, rgba(34, 211, 238, 0.22), transparent 70%),
+    linear-gradient(180deg, #050810, #0a1020);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  box-shadow: 0 0 40px rgba(34, 211, 238, 0.12), inset 0 0 60px rgba(0, 0, 0, 0.6);
 }
-.ship-bay::before {
+.carousel-stage::before {
   content: '';
   position: absolute;
   left: -40%;
   right: -40%;
   bottom: 0;
-  height: 55%;
+  height: 50%;
   background-image:
-    linear-gradient(color-mix(in srgb, var(--card-accent) 30%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--card-accent) 30%, transparent) 1px, transparent 1px);
-  background-size: 26px 26px;
-  transform: perspective(240px) rotateX(58deg);
+    linear-gradient(rgba(34, 211, 238, 0.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.25) 1px, transparent 1px);
+  background-size: 34px 34px;
+  transform: perspective(300px) rotateX(60deg);
   transform-origin: bottom;
   mask-image: linear-gradient(to top, black, transparent 90%);
   -webkit-mask-image: linear-gradient(to top, black, transparent 90%);
   pointer-events: none;
 }
-.ship-bay > * { position: relative; }
+.carousel-turntable {
+  position: absolute;
+  left: 50%;
+  bottom: 14%;
+  width: 52%;
+  height: 18%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  border: 2px solid rgba(103, 232, 249, 0.7);
+  background: radial-gradient(ellipse at center, rgba(34, 211, 238, 0.35), rgba(34, 211, 238, 0.05) 60%, transparent 72%);
+  box-shadow: 0 0 30px rgba(34, 211, 238, 0.45), inset 0 0 24px rgba(34, 211, 238, 0.35);
+  pointer-events: none;
+}
+.carousel-arrow {
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-size: 3rem;
+  line-height: 1;
+  color: #67e8f9;
+  background: rgba(8, 15, 30, 0.7);
+  border: 1px solid rgba(34, 211, 238, 0.45);
+  border-radius: 4px;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.8);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.carousel-arrow:hover { background: rgba(34, 211, 238, 0.2); color: #fff; transform: scale(1.06); }
+.carousel-dot {
+  width: 1.6rem;
+  height: 5px;
+  transform: skewX(-20deg);
+  background: rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.carousel-dot.is-locked { background: rgba(255, 255, 255, 0.06); }
+.carousel-dot.is-active { background: #22d3ee; box-shadow: 0 0 10px rgba(34, 211, 238, 0.8); }
+.carousel-pick {
+  position: absolute;
+  top: 0.9rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.2rem 0.9rem;
+  border-radius: 999px;
+  background: #f59e0b;
+  color: #000;
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.6);
+}
+.carousel-count {
+  position: absolute;
+  top: 0.8rem;
+  right: 1rem;
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: rgba(103, 232, 249, 0.75);
+}
 
 /* Segmented stat bar (ship + pilot cards). */
 .seg-bar { display: flex; gap: 3px; flex: 1; }
 .seg-bar span {
   flex: 1;
-  height: 7px;
+  height: 9px;
   transform: skewX(-20deg);
+  border-radius: 1px;
 }
-/* Unlit only: lit segments take their colour from a Tailwind bg-* class,
-   which this unlayered rule would otherwise override. */
-.seg-bar span:not(.on) { background: rgba(255, 255, 255, 0.08); }
-.seg-bar span.on { filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.35)); }
+/* Unlit: a recessed slot. Only :not(.on), because lit segments take their
+   colour from a Tailwind bg-* class, which this unlayered rule would override. */
+.seg-bar span:not(.on) {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(255, 255, 255, 0.07));
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+/* Lit: a raised bevel. A highlight-to-shade gradient over the bg colour, a
+   bright top edge, a dark bottom lip and a soft glow. */
+.seg-bar span.on {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.12) 45%, rgba(0, 0, 0, 0.3) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    0 2px 0 rgba(0, 0, 0, 0.55),
+    0 0 6px rgba(255, 255, 255, 0.18);
+}
 .stat-label {
   font-family: 'Orbitron', ui-monospace, monospace;
   font-size: 0.62rem;

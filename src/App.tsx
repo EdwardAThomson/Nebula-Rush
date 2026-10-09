@@ -4,6 +4,7 @@ import type { ShipConfig } from './game/Ship';
 import { SHIP_STATS, type ShipType } from './game/ShipFactory';
 import { audioManager } from './game/AudioManager';
 import ShipPreview from './components/ShipPreview';
+import ShipCarousel from './components/ShipCarousel';
 import AttractBackground from './components/AttractBackground';
 import TrackPreview from './components/TrackPreview';
 import TrackAnalysis from './components/TrackAnalysis';
@@ -20,7 +21,7 @@ import type { Pilot } from './game/PilotDefinitions';
 import type { EnvironmentConfig } from './game/EnvironmentManager';
 import { getUnlockedShipTypes, getSignatureShip, getUnlockHint } from './game/unlocks';
 import { isEnvPickerEnabled } from './game/gameSettings';
-import { TRACKS, TUTORIAL_TRACK } from './game/TrackDefinitions';
+import { TRACKS, TUTORIAL_TRACK, type TrackConfig } from './game/TrackDefinitions';
 import { CUPS, resolveCupTracks, getCupForTrack, isCupReady, type Cup } from './game/CupDefinitions';
 import { OpponentManager, type OpponentConfig } from './game/OpponentManager';
 import { markCupCleared, isCupUnlocked } from './game/cupProgress';
@@ -338,20 +339,6 @@ function App() {
     });
   };
 
-  // Small "PAINT" chip overlaid on each ship card. Clicking it opens the paint
-  // customizer for that ship instead of racing immediately.
-  const PaintChip = ({ type, defaultColor }: { type: ShipType, defaultColor: number }) => (
-    <button
-      type="button"
-      onClick={(e) => { e.stopPropagation(); openShipCustomizer(type, defaultColor); }}
-      onMouseEnter={(e) => { e.stopPropagation(); audioManager.playHover(); }}
-      title="Customize paint"
-      className="absolute top-3 right-3 px-3 py-1 bg-gray-900 bg-opacity-80 hover:bg-gray-700 text-xs text-gray-200 font-bold rounded border border-gray-600 transition-colors z-10"
-    >
-      <span aria-hidden="true" className="mr-1">🎨</span>PAINT
-    </button>
-  );
-
   const confirmShipCustomization = () => {
     if (!customizeType) return;
     handleShipSelect({
@@ -549,56 +536,25 @@ function App() {
       {
         screen === 'selection' && (
           <div className="relative z-10 flex flex-col items-center h-full p-8">
-            <div className="mb-8"><h2 className="screen-title">SELECT YOUR SHIP</h2><div className="screen-rule" /></div>
+            <div className="mb-6"><h2 className="screen-title">SELECT YOUR SHIP</h2><div className="screen-rule" /></div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 content-start gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
-              {SHIP_CARDS.map(card => {
-                const locked = !unlockedShips.includes(card.type);
-                const recommended = !locked && card.type === signatureShip;
-                return (
-                  <div
-                    key={card.type}
-                    onClick={() => { if (!locked) selectShipAndRace(card.type, card.color); }}
-                    onMouseEnter={() => { if (!locked) audioManager.playHover(); }}
-                    className={locked
-                      ? 'neon-card neon-card-locked relative p-6 pb-8'
-                      : `neon-card neon-card-live relative p-6 pb-8 hover:z-50 group ${recommended ? 'outline-2 outline-offset-4 outline-amber-400' : ''}`}
-                    style={locked ? undefined : { '--card-accent': numToCss(card.color) } as React.CSSProperties}
-                  >
-                    {!locked && <PaintChip type={card.type} defaultColor={card.color} />}
-                    {recommended && selectedPilot && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-amber-500 text-black text-xs font-extrabold z-10 whitespace-nowrap">
-                        ★ {selectedPilot.name.toUpperCase()}'S PICK
-                      </div>
-                    )}
-                    <div
-                      className="ship-bay mb-4 flex items-center justify-center"
-                      style={locked ? { filter: 'grayscale(1) brightness(0.6)' } : undefined}
-                    >
-                      <ShipPreview color={card.color} type={card.type} />
-                    </div>
-                    {locked && (
-                      <div className="absolute inset-x-0 top-16 flex flex-col items-center z-10 pointer-events-none">
-                        <div className="text-4xl">🔒</div>
-                        <div className="mt-2 px-3 py-1 rounded bg-black/80 text-xs font-bold text-amber-300">
-                          {getUnlockHint('ship', card.type)}
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 mb-6">
-                      <h3 className={`neon-card-title text-2xl ${locked ? 'text-gray-500' : card.titleClass}`}>{card.title}</h3>
-                      {!locked && <InfoTip text={card.info} />}
-                    </div>
-
-                    <div className="space-y-2">
-                      {card.stats.map(s => (
-                        <StatBar key={s.label} label={s.label} value={getDisplayStats(card.type)[s.key]} color={s.barClass} />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <ShipCarousel
+              ships={SHIP_CARDS.map(card => ({
+                type: card.type,
+                title: card.title,
+                color: card.color,
+                info: card.info,
+                locked: !unlockedShips.includes(card.type),
+                unlockHint: getUnlockHint('ship', card.type),
+                stats: card.stats.map(st => ({ label: st.label, value: getDisplayStats(card.type)[st.key], barClass: st.barClass })),
+              }))}
+              initialType={signatureShip}
+              recommendedType={signatureShip}
+              pilotName={selectedPilot?.name}
+              paused={customizeType !== null}
+              onSelect={selectShipAndRace}
+              onPaint={openShipCustomizer}
+            />
 
             <div className="flex space-x-6 mt-8">
               <button
@@ -673,7 +629,7 @@ function App() {
                           </div>
                           <div className="px-5 py-4 flex items-center justify-between gap-3">
                             <h3 className="neon-card-title text-lg text-gray-500">{track.name}</h3>
-                            <DifficultyPips value={track.difficulty} />
+                            <TrackStats track={track} />
                           </div>
                         </div>
                       ) : (
@@ -691,7 +647,7 @@ function App() {
                           </div>
                           <div className="px-5 py-4 flex items-center justify-between gap-3">
                             <h3 className="neon-card-title text-lg text-white">{track.name}</h3>
-                            <DifficultyPips value={track.difficulty} />
+                            <TrackStats track={track} />
                           </div>
                         </div>
                       );
@@ -956,40 +912,17 @@ function App() {
   )
 }
 
-// Small "i" badge that reveals descriptive text on hover. stopPropagation so
-// clicking the badge doesn't trigger the parent card's onClick (ship select).
-function InfoTip({ text }: { text: string }) {
+// Track card stats: boost pads and hazards counted from the track data.
+function TrackStats({ track }: { track: TrackConfig }) {
+  const hazards = track.hazards?.length ?? 0;
   return (
-    <span className="group/tip relative inline-flex" onClick={(e) => e.stopPropagation()}>
-      <span className="w-5 h-5 flex items-center justify-center rounded-full bg-black/60 border border-gray-500 text-gray-300 text-[10px] font-bold cursor-help select-none">i</span>
-      <span className="pointer-events-none absolute left-0 top-7 w-56 p-3 rounded-lg bg-gray-950 bg-opacity-95 border border-cyan-700 text-gray-300 text-xs leading-snug shadow-xl z-30 opacity-0 invisible transition-opacity duration-150 group-hover/tip:opacity-100 group-hover/tip:visible">
-        {text}
+    <div className="track-stats">
+      <span className="track-stat track-stat-boost" title={`${track.pads.length} boost pads`}>
+        {track.pads.length}<span className="stat-label">BOOST</span>
       </span>
-    </span>
-  );
-}
-
-// 0–100 stat as ten slanted segments.
-function StatBar({ label, value, color }: { label: string, value: number, color: string }) {
-  const lit = Math.round(value / 10);
-  return (
-    <div className="flex items-center gap-3">
-      <span className="stat-label w-20">{label}</span>
-      <div className="seg-bar">
-        {Array.from({ length: 10 }, (_, i) => <span key={i} className={i < lit ? `on ${color}` : ''} />)}
-      </div>
-    </div>
-  );
-}
-
-// Track difficulty (1–5) as lit pips in the card's accent colour.
-function DifficultyPips({ value }: { value: number }) {
-  return (
-    <div className="flex items-center gap-2 shrink-0" title={`Difficulty ${value} / 5`}>
-      <span className="stat-label">DIFF</span>
-      <div className="diff-pips">
-        {Array.from({ length: 5 }, (_, i) => <span key={i} className={i < value ? 'on' : ''} />)}
-      </div>
+      <span className={`track-stat ${hazards ? 'track-stat-hazard' : 'text-gray-500'}`} title={`${hazards} hazards`}>
+        {hazards}<span className="stat-label">HAZARD</span>
+      </span>
     </div>
   );
 }
