@@ -1267,7 +1267,7 @@ export const createShip = (color: number = 0xd9531e, type: ShipType = 'lancer', 
         // Two oversized engines out front carrying the paint, a glowing energy
         // binder between them, and a small open-cockpit pod trailing behind on
         // a pair of tow struts. Almost all the mass is engine, by design.
-        // Forward is -Z. Engines Z -4.0 .. +0.4, pod Z +0.9 .. +4.3.
+        // Forward is -Z. Engines Z -4.0 .. +0.4, pod Z +0.9 .. +4.5.
         const mats = protoMats();
         const { hullMat, trimMat, nacelleMat, intakeMat, canopyMat } = mats;
         const engX = 1.75, engY = 0.35, engFront = -4.0, engLen = 4.4, engR = 0.82;
@@ -1321,25 +1321,30 @@ export const createShip = (color: number = 0xd9531e, type: ShipType = 'lancer', 
             { z: 1.4, w: 0.42, h: 0.30, y: 0.34 },
             { z: 2.2, w: 0.55, h: 0.40, y: 0.38 },
             { z: 3.0, w: 0.50, h: 0.42, y: 0.42 },
-            { z: 3.5, w: 0.46, h: 0.39, y: 0.45 },
-            { z: 3.9, w: 0.38, h: 0.33, y: 0.47 },
-            { z: 4.1, w: 0.29, h: 0.26, y: 0.48 },
-            { z: 4.22, w: 0.17, h: 0.16, y: 0.485 },
-            { z: 4.28, w: 0.04, h: 0.04, y: 0.485 },
+            { z: 3.5, w: 0.42, h: 0.36, y: 0.45 },
+            { z: 3.9, w: 0.30, h: 0.26, y: 0.47 },
+            { z: 4.2, w: 0.17, h: 0.15, y: 0.48 },
+            { z: 4.4, w: 0.07, h: 0.06, y: 0.485 },
+            { z: 4.5, w: 0.02, h: 0.02, y: 0.485 },
         ], { n: 2.6, belly: 0.5, capEnd: true }));
         ship.add(new THREE.Mesh(tubGeo, hullMat));
+        // The glass is a near-flat-bottomed bubble (belly 0.15) whose base
+        // ring rides a hair above the hull's top line, so it never skims the
+        // hull as a sliver; the dark coaming under it drops far enough to
+        // meet the hull where the top curves away at the sides.
         const podCanopy: LoftStation[] = [
-            { z: 1.5, w: 0.05, h: 0.04, y: 0.66 },
-            { z: 2.0, w: 0.34, h: 0.26, y: 0.72 },
-            { z: 2.6, w: 0.40, h: 0.32, y: 0.76 },
-            { z: 3.2, w: 0.32, h: 0.24, y: 0.78 },
-            { z: 3.7, w: 0.10, h: 0.06, y: 0.76 },
+            { z: 1.7, w: 0.05, h: 0.05, y: 0.70 },
+            { z: 2.1, w: 0.28, h: 0.21, y: 0.77 },
+            { z: 2.5, w: 0.34, h: 0.28, y: 0.81 },
+            { z: 2.9, w: 0.32, h: 0.25, y: 0.84 },
+            { z: 3.2, w: 0.22, h: 0.16, y: 0.835 },
+            { z: 3.45, w: 0.07, h: 0.05, y: 0.82 },
         ];
-        const podCanopyGeo = getGeometry('rapier_canopy', () => createLoftGeometry(podCanopy, { n: 2.2, belly: 0.6, capEnd: true }));
+        const podCanopyGeo = getGeometry('rapier_canopy', () => createLoftGeometry(podCanopy, { n: 2.2, belly: 0.15, capEnd: true }));
         ship.add(new THREE.Mesh(podCanopyGeo, canopyMat));
         const podSillGeo = getGeometry('rapier_canopy_sill', () => createLoftGeometry(
-            podCanopy.map(s => ({ z: s.z, w: s.w + 0.05, h: Math.max(0.03, s.h * 0.3), y: s.y - 0.02 })),
-            { n: 2.2, belly: 0.6, capEnd: true }
+            podCanopy.map(s => ({ z: s.z, w: s.w + 0.035, h: Math.min(0.055, s.h + 0.01), y: s.y - 0.04 })),
+            { n: 2.2, belly: 1.0, capEnd: true }
         ));
         ship.add(new THREE.Mesh(podSillGeo, nacelleMat));
 

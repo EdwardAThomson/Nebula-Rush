@@ -121,8 +121,14 @@ const presets: Record<string, [THREE.Vector3, THREE.Vector3]> = {
     lineup: [new THREE.Vector3(-3, 7, -21), new THREE.Vector3(0, -0.5, 0)],
 };
 const [camPos, camTarget] = presets[view] || presets.orbit;
-camera.position.copy(camPos);
-camera.lookAt(camTarget);
+// Free camera for close-ups: ?cam=x,y,z&target=x,y,z (ship space, forward -Z)
+// overrides the preset, e.g. cam=4,1.5,7&target=0,0,2.5 for the Rapier's pod.
+const vec = (key: string) => {
+    const v = (params.get(key) || '').split(',').map(Number);
+    return v.length === 3 && v.every(n => Number.isFinite(n)) ? new THREE.Vector3(v[0], v[1] - 0.5, v[2]) : null;
+};
+camera.position.copy(vec('cam') || camPos);
+camera.lookAt(vec('target') || camTarget);
 
 // Drag to spin (orbit view only).
 let dragging = false, lastX = 0, lastY = 0;
