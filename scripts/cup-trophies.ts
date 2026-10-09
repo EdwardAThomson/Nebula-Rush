@@ -33,8 +33,10 @@ function mulberry32(seed: number) {
 
 // ---------------------------------------------------------------- helpers
 
-const metal = (color: number, roughness = 0.2, extra: THREE.MeshPhysicalMaterialParameters = {}) =>
-    new THREE.MeshPhysicalMaterial({ color, metalness: 1, roughness, clearcoat: 0.6, clearcoatRoughness: 0.1, ...extra });
+// Slightly below full metalness so a diffuse light-to-shadow gradient shows across
+// the body; pure mirror chrome under a soft env map reads as a flat cut-out.
+const metal = (color: number, roughness = 0.3, extra: THREE.MeshPhysicalMaterialParameters = {}) =>
+    new THREE.MeshPhysicalMaterial({ color, metalness: 0.85, roughness, clearcoat: 0.5, clearcoatRoughness: 0.15, ...extra });
 
 const glow = (color: number, intensity = 3) =>
     new THREE.MeshStandardMaterial({ color: 0x000000, emissive: color, emissiveIntensity: intensity });
@@ -147,7 +149,7 @@ const NEBULA: TrophySpec = {
     build: (root, scene) => {
         const chrome = metal(0x9fb2c8, 0.1);
         const gun = metal(0x2a3140, 0.35);
-        const cyan = glow(0x00e5ff, 4);
+        const cyan = glow(0x00e5ff, 2.4);
         plinth(root, gun, cyan);
 
         // Slim stem flaring into a tall tulip bowl.
@@ -181,9 +183,9 @@ const NEBULA: TrophySpec = {
         orbit.rotation.set(Math.PI / 2 - 0.35, 0.3, 0);
         root.add(orbit);
 
-        const l1 = new THREE.PointLight(0x00e5ff, 12, 10);
+        const l1 = new THREE.PointLight(0x00e5ff, 6, 10);
         l1.position.set(2, 2.5, 2);
-        const l2 = new THREE.PointLight(0xa050ff, 12, 10);
+        const l2 = new THREE.PointLight(0xa050ff, 6, 10);
         l2.position.set(-2, 1.5, 2);
         scene.add(l1, l2);
     },
@@ -226,7 +228,7 @@ const SUNSCORCH: TrophySpec = {
     build: (root, scene) => {
         const gold = metal(0xf2a93b, 0.22, { flatShading: true });
         const sandstone = new THREE.MeshStandardMaterial({ color: 0x7a3a14, roughness: 0.9, flatShading: true });
-        const orange = glow(0xff8c1a, 4);
+        const orange = glow(0xff8c1a, 2.4);
 
         // Hexagonal sandstone plinth ringed by rock spires.
         plinth(root, sandstone, orange, 6);
@@ -255,8 +257,8 @@ const SUNSCORCH: TrophySpec = {
         // Sun disk crown: glowing core with radiating spikes.
         const sun = new THREE.Group();
         sun.position.y = 2.95;
-        sun.add(new THREE.Mesh(new THREE.SphereGeometry(0.24, 48, 24), glow(0xffb340, 5)));
-        const spikeMat = glow(0xff7a10, 3.5);
+        sun.add(new THREE.Mesh(new THREE.SphereGeometry(0.24, 48, 24), glow(0xffb340, 3.0)));
+        const spikeMat = glow(0xff7a10, 2.1);
         for (let i = 0; i < 12; i++) {
             const a = (i / 12) * Math.PI * 2;
             const len = i % 2 ? 0.22 : 0.36;
@@ -267,9 +269,9 @@ const SUNSCORCH: TrophySpec = {
         }
         root.add(sun);
 
-        const l1 = new THREE.PointLight(0xffa040, 18, 10);
+        const l1 = new THREE.PointLight(0xffa040, 9, 10);
         l1.position.set(1.5, 3.5, 2.5);
-        const l2 = new THREE.PointLight(0xff5010, 10, 10);
+        const l2 = new THREE.PointLight(0xff5010, 5, 10);
         l2.position.set(-2, 1, 2);
         scene.add(l1, l2);
     },
@@ -314,9 +316,9 @@ const SKYLINE: TrophySpec = {
     },
     build: (root, scene) => {
         const chrome = metal(0xb0a4c8, 0.1);
-        const glass = new THREE.MeshPhysicalMaterial({ color: 0x0c0818, metalness: 0.3, roughness: 0.35, clearcoat: 0.4 });
-        const magenta = glow(0xff3df0, 4);
-        const cyan = glow(0x00e5ff, 3);
+        const glass = new THREE.MeshPhysicalMaterial({ color: 0x2a2240, metalness: 0.4, roughness: 0.3, clearcoat: 0.6 });
+        const magenta = glow(0xff3df0, 2.4);
+        const cyan = glow(0x00e5ff, 1.8);
 
         // Square-cut plinth, then a mini city of glass towers around the base.
         plinth(root, glass, magenta, 4);
@@ -355,14 +357,14 @@ const SKYLINE: TrophySpec = {
             return bar;
         }, 0.75, 1.88, root);
 
-        const top = new THREE.Mesh(new THREE.OctahedronGeometry(0.17), glow(0xff3df0, 5));
+        const top = new THREE.Mesh(new THREE.OctahedronGeometry(0.17), glow(0xff3df0, 3.0));
         top.position.y = 3.22;
         top.scale.y = 1.5;
         root.add(top);
 
-        const l1 = new THREE.PointLight(0xff3df0, 16, 10);
+        const l1 = new THREE.PointLight(0xff3df0, 8, 10);
         l1.position.set(-2, 2.2, 2);
-        const l2 = new THREE.PointLight(0x00e5ff, 12, 10);
+        const l2 = new THREE.PointLight(0x00e5ff, 6, 10);
         l2.position.set(2, 1.4, 2);
         scene.add(l1, l2);
     },
@@ -414,7 +416,7 @@ const CRYO: TrophySpec = {
             color: 0xbff4ff, metalness: 0, roughness: 0.05, transmission: 0.85, thickness: 0.6, ior: 1.31,
             emissive: 0x2a8cff, emissiveIntensity: 0.25, flatShading: true,
         });
-        const iceBlue = glow(0x9fe8ff, 3.5);
+        const iceBlue = glow(0x9fe8ff, 2.1);
 
         plinth(root, silver, iceBlue);
         // Frost chunks scattered round the base.
@@ -456,9 +458,9 @@ const CRYO: TrophySpec = {
         core.position.y = 2.2;
         root.add(core);
 
-        const l1 = new THREE.PointLight(0x3dffb0, 10, 10);
+        const l1 = new THREE.PointLight(0x3dffb0, 5, 10);
         l1.position.set(-2, 3, 1.5);
-        const l2 = new THREE.PointLight(0x9fe8ff, 14, 10);
+        const l2 = new THREE.PointLight(0x9fe8ff, 7, 10);
         l2.position.set(2, 1.5, 2.5);
         scene.add(l1, l2);
     },
@@ -501,8 +503,8 @@ const INFERNO: TrophySpec = {
     build: (root, scene) => {
         const obsidian = new THREE.MeshPhysicalMaterial({ color: 0x0a0809, metalness: 0.1, roughness: 0.3, clearcoat: 0.6, flatShading: true });
         const iron = metal(0x3a2a2a, 0.35, { flatShading: true });
-        const lava = glow(0xff4a10, 4);
-        const red = glow(0xff2a4d, 3);
+        const lava = glow(0xff4a10, 2.4);
+        const red = glow(0xff2a4d, 1.8);
 
         // Obsidian plinth on a bed of volcanic rock.
         plinth(root, obsidian, lava, 7);
@@ -529,7 +531,7 @@ const INFERNO: TrophySpec = {
             crack.rotation.z = (rand() - 0.5) * 0.4;
             root.add(crack);
         }
-        const magma = new THREE.Mesh(new THREE.CircleGeometry(0.76, 48), glow(0xff6a10, 5));
+        const magma = new THREE.Mesh(new THREE.CircleGeometry(0.76, 48), glow(0xff6a10, 3.0));
         magma.rotation.x = -Math.PI / 2;
         magma.position.y = 2.15;
         root.add(magma);
@@ -550,16 +552,16 @@ const INFERNO: TrophySpec = {
             root.add(g);
         }
         const centre = new THREE.Group();
-        centre.add(flame(1.0, glow(0xffa030, 5)));
+        centre.add(flame(1.0, glow(0xffa030, 3.0)));
         centre.position.y = 2.15;
         root.add(centre);
 
         // Horn-like handles.
         pair(() => fin([[0, 0], [0.3, 0.1], [0.5, 0.5], [0.55, 1.05], [0.38, 0.6], [0.1, 0.3], [0, 0.28]], 0.06, iron), 0.78, 1.6, root);
 
-        const l1 = new THREE.PointLight(0xff5020, 18, 10);
+        const l1 = new THREE.PointLight(0xff5020, 9, 10);
         l1.position.set(0, 3.2, 1.5);
-        const l2 = new THREE.PointLight(0xff2a4d, 10, 10);
+        const l2 = new THREE.PointLight(0xff2a4d, 5, 10);
         l2.position.set(-2, 1, 2);
         scene.add(l1, l2);
     },
@@ -574,32 +576,53 @@ renderer.setPixelRatio(1);
 renderer.setSize(WIDTH, HEIGHT);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const pmrem = new THREE.PMREMGenerator(renderer);
 const envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
 function renderTrophy(spec: TrophySpec): string {
     const scene = new THREE.Scene();
     scene.environment = envMap;
-    scene.environmentIntensity = 0.4;
+    scene.environmentIntensity = 0.25;
     scene.background = canvasTexture(WIDTH, HEIGHT, (ctx) => spec.background(ctx, WIDTH, HEIGHT, mulberry32(42)));
 
-    const key = new THREE.DirectionalLight(0xffffff, 0.9);
-    key.position.set(3, 5, 4);
-    scene.add(key, new THREE.AmbientLight(0xffffff, 0.15));
+    // Key from upper-left, rim from behind-right, so every surface gets a lit
+    // side, a shadow side and a highlight edge. Key casts shadows onto the plinth.
+    const key = new THREE.DirectionalLight(0xffffff, 1.8);
+    key.position.set(-3.5, 6, 4);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.camera.left = key.shadow.camera.bottom = -2.5;
+    key.shadow.camera.right = key.shadow.camera.top = 2.5;
+    key.shadow.camera.near = 1;
+    key.shadow.camera.far = 20;
+    key.shadow.bias = -0.0005;
+    const rim = new THREE.DirectionalLight(0xffffff, 1.2);
+    rim.position.set(3, 4, -5);
+    scene.add(key, rim, new THREE.AmbientLight(0xffffff, 0.08));
 
     const root = new THREE.Group();
     spec.build(root, scene);
     // Slight turn so the trophy reads as 3D rather than a flat elevation.
     root.rotation.y = -0.35;
+    root.traverse((o) => {
+        if (o instanceof THREE.Mesh) {
+            o.castShadow = true;
+            o.receiveShadow = true;
+        }
+    });
     scene.add(root);
 
     const camera = new THREE.PerspectiveCamera(30, WIDTH / HEIGHT, 0.1, 100);
-    camera.position.set(0, 2.3, 8.6);
-    camera.lookAt(0, 1.62, 0);
+    // Looking slightly down into the bowl shows its opening as an ellipse,
+    // the strongest cue that the cup has depth.
+    camera.position.set(0, 3.6, 8.4);
+    camera.lookAt(0, 1.55, 0);
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-    composer.addPass(new UnrealBloomPass(new THREE.Vector2(WIDTH, HEIGHT), 0.55, 0.5, 0.9));
+    composer.addPass(new UnrealBloomPass(new THREE.Vector2(WIDTH, HEIGHT), 0.35, 0.4, 1.0));
     composer.addPass(new OutputPass());
     composer.render();
     const url = renderer.domElement.toDataURL('image/jpeg', 0.9);
