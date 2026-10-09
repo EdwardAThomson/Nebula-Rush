@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Nebula Rush - Cup Trophy Renderer</title>
+    <!--
+        Renders the per-cup trophy art used on the Cup Selection cards
+        (public/assets/cups/cup_<id>.jpg). Run `npm run dev`, open
+        http://localhost:5173/scripts/render-cup-trophies.html, then click a
+        render to download it (or "Download all") and drop the JPEGs into
+        public/assets/cups/. Scene code lives in cup-trophies.ts.
+    -->
+    <style>
+        body {
+            font-family: monospace;
+            background: #0b0f1a;
+            color: #eee;
+            padding: 20px;
+            margin: 0;
+        }
+
+        #grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        figure {
+            margin: 0;
+        }
+
+        img {
+            width: 480px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button {
+            margin-bottom: 16px;
+            padding: 10px 20px;
+            cursor: pointer;
+            background: #4a4a6a;
+            color: white;
+            border: none;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Cup Trophy Renderer</h1>
+    <button id="download-all">Download all</button>
+    <div id="grid"></div>
+    <script type="module" src="./cup-trophies.ts"></script>
+</body>
+
+</html>

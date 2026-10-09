@@ -48,6 +48,12 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
                                 }`}
                             style={{ borderColor: selectable ? accent : '#374151' }}
                         >
+                            <img
+                                src={cup.imagePath}
+                                alt={`${cup.name} trophy`}
+                                className="-mx-6 -mt-6 mb-4 w-[calc(100%+3rem)] max-w-none aspect-[16/10] object-cover rounded-t-[10px]"
+                            />
+
                             <div
                                 className="absolute top-4 right-4 text-xs font-bold tracking-wider px-2 py-1 rounded"
                                 style={{ color: badge.color, backgroundColor: 'rgba(0,0,0,0.4)' }}
