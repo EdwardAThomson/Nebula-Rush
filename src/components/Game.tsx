@@ -312,8 +312,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
     // Creates Player Ship with Pilot Modifiers
     let finalShipConfig = { ...shipConfig };
-    // Energy (hazard/wall damage, DNF at zero) is player-only and skipped in
-    // the tutorial. AI never enables it — see the note in PhysicsEngine.
+    // Energy (hazard/wall/contact damage, DNF at zero) is skipped in the
+    // tutorial. The AI field always has it (see OpponentManager).
     finalShipConfig.energyEnabled = !tutorial;
     // Engine part level brightens and lengthens the exhaust (Ship.updateVisuals).
     finalShipConfig.engineTune = installedParts.engine;
@@ -566,7 +566,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     // Rivals carry the parts an average player has by this cup (garage.ts).
     const aiPoints = aiPartPoints(getTrackTier(currentTrack.id));
     const tunedRoster = roster.map(config => applyTuning({ ...config }, aiPoints));
-    opponentManager.current = new OpponentManager(scene, trackCurve, tunedRoster, bankTrack, wallLimit, wind.enabled ? wind.lateralForce : undefined);
+    opponentManager.current = new OpponentManager(scene, trackCurve, tunedRoster, bankTrack, wallLimit, wind.enabled ? wind.lateralForce : undefined, currentTrack.recharge);
 
 
 
@@ -575,6 +575,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     // 0..1 boost camera level: snaps up on pad pickup, eases back as the boost
     // fades. Drives the FOV widen + camera pull-back that sell the speed hit.
     let boostCamLevel = 0;
+    // 0..1 camera jolt on an energy hit; decays over a few frames.
+    let hitShake = 0;
 
     const animate = () => {
       animationId = requestAnimationFrame(animate);
@@ -703,9 +705,9 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       // For now, let them drive but ignoring laps.
       playerShip.current.update(dt, inputManager, trackLength, currentTrack.pads, (msg: any) => {
         if (msg === "HAZARD") {
-          setHazardFlash(true);
-          if (hazardFlashTimer.current) clearTimeout(hazardFlashTimer.current);
-          hazardFlashTimer.current = window.setTimeout(() => setHazardFlash(false), 250);
+          // Hit feedback is driven by ship.pendingHit below (energy delta).
+          // With energy off (tutorial) there's no delta, so flag it directly.
+          if (playerShip.current && !playerShip.current.state.energyEnabled) playerShip.current.pendingHit = 0.6;
           return;
         }
         if (msg === "INCREMENT") {
@@ -739,6 +741,23 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         playerFinishGameTime.current = gameTimeRef.current;
         setRaceState('retired');
         audioManager.stopEngineRumble();
+      }
+
+      // Energy hit feedback (blocks, contact): red vignette, camera jolt,
+      // impact thud and a white flash on the energy bar. The shield bubble +
+      // sparks on the ship itself are handled in Ship for every ship.
+      const hit = playerShip.current.pendingHit;
+      if (hit > 0) {
+        playerShip.current.pendingHit = 0;
+        hitShake = Math.max(hitShake, hit);
+        audioManager.playImpact(hit);
+        setHazardFlash(true);
+        if (hazardFlashTimer.current) clearTimeout(hazardFlashTimer.current);
+        hazardFlashTimer.current = window.setTimeout(() => setHazardFlash(false), 120 + 200 * hit);
+        energyFillRef.current?.animate(
+          [{ filter: 'brightness(3)' }, { filter: 'brightness(1)' }],
+          { duration: 350, easing: 'ease-out' }
+        );
       }
 
       // Energy bar (ref-driven, no re-render); % of the ship's own capacity
@@ -779,7 +798,11 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
               ps.velocity.x += side * 2.0;
               opp.state.velocity.x -= side * 1.6;
               ps.velocity.y *= 0.96;
+              // Contact hurts both ships; each shield lights on the facing side.
               if (ps.energyEnabled) ps.energy = Math.max(0, ps.energy - 5);
+              if (opp.state.energyEnabled) opp.state.energy = Math.max(0, opp.state.energy - 5);
+              playerShip.current.setHitDirection(-side, 0, 0);
+              opp.setHitDirection(side, 0, 0);
               break; // one bump per frame is plenty
             }
           }
@@ -974,6 +997,12 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           camera.position.x += (Math.sin(now * 0.031) + Math.sin(now * 0.017 + 1.3)) * 0.55 * buffet;
           camera.position.y += Math.sin(now * 0.023 + 2.1) * 0.45 * buffet;
         }
+        // Hit jolt: a short, sharp shake that dies off over ~1/3 s.
+        if (hitShake > 0.01) {
+          camera.position.x += (Math.random() - 0.5) * 1.2 * hitShake;
+          camera.position.y += (Math.random() - 0.5) * 0.9 * hitShake;
+          hitShake *= Math.pow(0.85, dt);
+        }
       } else {
         camera.position.copy(trackPos.clone().add(normal.multiplyScalar(5)));
       }
@@ -1149,7 +1178,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
         <TutorialOverlay shipRef={playerShip} raceStartedRef={raceStartedRef} onDone={() => onExit?.()} />
       )}
 
-      {/* Hazard hit flash — red vignette when a block clips the player. */}
+      {/* Hit flash — red vignette when the player takes an energy hit. */}
       {hazardFlash && (
         <div
           className="absolute inset-0 z-30 pointer-events-none"

@@ -101,7 +101,7 @@ export function partPoints(levels: Record<PartSlot, number> = getPartLevels()): 
 // would have bought by then, so upgrades keep pace with the cups instead of
 // eroding them. Half a level per cup tier on every performance slot
 // (Nebula stock, Sunscorch 0.5, Skyline 1, Cryo 1.5, Inferno 2).
-// AI never uses energy, so the capacitor isn't mirrored.
+// The capacitor isn't mirrored: rivals keep their hull's stock energy capacity.
 export const AI_LEVEL_PER_TIER = 0.5;
 
 export function aiPartPoints(tier: number): TuningPoints {

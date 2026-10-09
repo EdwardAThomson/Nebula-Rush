@@ -41,13 +41,26 @@ const getDisplayStats = (type: ShipType) => {
   const allStats = SHIP_CARDS.map(c => SHIP_STATS[c.type]);
   const allTopSpeeds = allStats.map(s => s.accelFactor / (1 - s.friction));
   const allAccels = allStats.map(s => s.accelFactor);
-  const allHandling = allStats.map(s => s.turnSpeed + (1 - s.slideFactor) * 0.5); // Combined turn + grip
+  // Handling blends the two things a player can feel: how fast the nose comes
+  // round under Q/E (turnSpeed) and how quickly a sideways slide dies once the
+  // key is released (1 - slideFactor, the grip). Each is put on a 0..1 scale
+  // over the roster first; the raw grip term is tens of times larger than the
+  // turn rate, so summing them made a sharp-steering, loose-tailed ship read as
+  // the worst handler on the grid.
+  const unit = (val: number, arr: number[]) => {
+    const lo = Math.min(...arr), hi = Math.max(...arr);
+    return hi > lo ? (val - lo) / (hi - lo) : 0.5;
+  };
+  const allTurn = allStats.map(s => s.turnSpeed);
+  const allGrip = allStats.map(s => 1 - s.slideFactor);
+  const handlingOf = (s: typeof stats) => 0.5 * unit(s.turnSpeed, allTurn) + 0.5 * unit(1 - s.slideFactor, allGrip);
+  const allHandling = allStats.map(handlingOf);
 
   const minSpeed = Math.min(...allTopSpeeds);
   const maxSpeed = Math.max(...allTopSpeeds);
   const minAccel = Math.min(...allAccels);
   const maxAccel = Math.max(...allAccels);
-  const handling = stats.turnSpeed + (1 - stats.slideFactor) * 0.5;
+  const handling = handlingOf(stats);
   const minHandling = Math.min(...allHandling);
   const maxHandling = Math.max(...allHandling);
 
@@ -61,8 +74,6 @@ const getDisplayStats = (type: ShipType) => {
     speed: normalize(topSpeed, minSpeed, maxSpeed),
     accel: normalize(stats.accelFactor, minAccel, maxAccel),
     handling: normalize(handling, minHandling, maxHandling),
-    // For the Rapier, show drift instead of handling
-    drift: Math.round(50 + (stats.slideFactor - 0.85) / (0.995 - 0.85) * 50),
     energy: normalize(stats.maxEnergy, Math.min(...allEnergy), Math.max(...allEnergy))
   };
 };
@@ -87,7 +98,7 @@ const numToCss = (n: number) => '#' + n.toString(16).padStart(6, '0');
 const SHIP_CARDS: {
   type: ShipType; title: string; color: number; info: string;
   titleClass: string;
-  stats: { label: string; key: 'speed' | 'accel' | 'handling' | 'drift' | 'energy'; barClass: string }[];
+  stats: { label: string; key: 'speed' | 'accel' | 'handling' | 'energy'; barClass: string }[];
 }[] = [
   {
     type: 'lancer', title: 'LANCER', color: 0xd9531e,
@@ -102,12 +113,12 @@ const SHIP_CARDS: {
   },
   {
     type: 'rapier', title: 'RAPIER', color: 0x2e7bd6,
-    info: 'Podracer. Two huge engines towing a tiny pod: brutal launch, sharp turn-in, a tail that hangs out wide, thin plating.',
+    info: 'Podracer. Two huge engines towing a tiny pod: brutal launch, sharp turn-in, keeps sliding after you let go, thin plating.',
     titleClass: 'text-blue-400',
     stats: [
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
-      { label: 'Drift', key: 'drift', barClass: 'bg-pink-500' },
+      { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
       { label: 'Energy', key: 'energy', barClass: 'bg-emerald-400' },
     ],
   },
