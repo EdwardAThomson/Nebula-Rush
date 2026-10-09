@@ -100,15 +100,15 @@ console.log('The issue is that accelFactor and friction BOTH affect top speed.')
 console.log('Higher friction (closer to 1) = higher top speed');
 console.log('Higher accelFactor = higher top speed AND faster acceleration');
 console.log('');
-console.log('To make speedster fastest, you need:');
-console.log('  speedster.accelFactor / (1 - speedster.friction) > fighter.accelFactor / (1 - fighter.friction)');
+console.log('To keep the kestrel fastest, you need:');
+console.log('  kestrel.accelFactor / (1 - kestrel.friction) > lancer.accelFactor / (1 - lancer.friction)');
 console.log('');
 
-// Calculate what speedster friction should be to match fighter top speed
-const fighterTopSpeed = SHIP_STATS.fighter.accelFactor / (1 - SHIP_STATS.fighter.friction);
-const requiredSpeedsterFriction = 1 - (SHIP_STATS.speedster.accelFactor / fighterTopSpeed);
-console.log(`Current fighter top speed: ${fighterTopSpeed.toFixed(2)}`);
-console.log(`Current speedster top speed: ${(SHIP_STATS.speedster.accelFactor / (1 - SHIP_STATS.speedster.friction)).toFixed(2)}`);
+// Calculate what kestrel friction should be to match the lancer's top speed
+const lancerTopSpeed = SHIP_STATS.lancer.accelFactor / (1 - SHIP_STATS.lancer.friction);
+const requiredKestrelFriction = 1 - (SHIP_STATS.kestrel.accelFactor / lancerTopSpeed);
+console.log(`Current lancer top speed: ${lancerTopSpeed.toFixed(2)}`);
+console.log(`Current kestrel top speed: ${(SHIP_STATS.kestrel.accelFactor / (1 - SHIP_STATS.kestrel.friction)).toFixed(2)}`);
 console.log('');
-console.log(`To make speedster MATCH fighter top speed, speedster friction should be: ${requiredSpeedsterFriction.toFixed(4)}`);
-console.log(`To make speedster FASTER, friction should be > ${requiredSpeedsterFriction.toFixed(4)}`);
+console.log(`To make kestrel MATCH lancer top speed, kestrel friction should be: ${requiredKestrelFriction.toFixed(4)}`);
+console.log(`To make kestrel FASTER, friction should be > ${requiredKestrelFriction.toFixed(4)}`);

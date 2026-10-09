@@ -12,7 +12,7 @@ turrets or combat modes.
 ## Shipped
 
 - [x] Custom physics (hover suspension, banking, drifting, air-braking, strafing, braking)
-- [x] 5 ship classes with distinct handling profiles and per-ship energy capacity
+- [x] 4 ship classes with distinct handling profiles and per-ship energy capacity (Lancer, Rapier, Sledgehammer, Kestrel)
 - [x] 8 pilots with stat modifiers and generated avatars
 - [x] 10 procedurally-generated spline tracks across two full cups (Nebula, Sunscorch)
 - [x] Day/night cycle + weather (clear / fog / rain)
@@ -25,7 +25,7 @@ turrets or combat modes.
 - [x] HUD (speed, lap, rank, timer, boost, energy, pilot portrait) + dynamic anti-motion-sickness camera
 - [x] Jukebox (4 music tracks)
 - [x] PBR ships with greebles, exhaust glow, cockpit canopies
-- [x] Smooth ship hulls (capsule bodies, bullet noses, curved/rounded wings)
+- [x] Lofted ship hulls (tapered fuselages, lathe-turned nacelles, aerofoil wings and fins)
 - [x] Per-track surface styling (neon edge rails, centre line, wall accents, boost-pad arrows, checkered start/finish)
 - [x] Boost feedback (afterburner flare + pickup punch) and dynamic flame/exhaust
 - [x] In-race screenshots → results gallery (lightbox, single-zip download)
@@ -57,8 +57,7 @@ Mechanics before economy, economy before the content that showcases it.
        nothing pays out yet), then the shop. Parts map one-to-one onto the decoupled stat knobs
        (engine = top speed, thrusters = convergence, fins = handling, capacitor = energy). Tune
        prices with an economy sim script (like test-pilots), and compensate AI per cup tier so
-       upgrades don't erode difficulty. Bought parts should be visible on the ship (ties into the
-       ship-style refresh below).
+       upgrades don't erode difficulty. Bought parts should be visible on the ship.
 3. [ ] Skyline Cup: tight-corner city tracks that make handling and braking matter (scheduled after
        the garage so handling parts have a market). Track names are already planned in
        `CupDefinitions.ts`.
@@ -66,8 +65,6 @@ Mechanics before economy, economy before the content that showcases it.
 
 Also still queued:
 
-- [ ] Ship-style refresh: stronger silhouettes and brighter exhaust; experimenting with styles
-      (e.g. flat-shaded low-poly) because the current ships read a bit cartoony
 - [ ] More hazards + verticality: jump ramps (reintroduce jump/drift mechanics + tutorial steps;
       the physics keeps a small hop that the tutorial doesn't teach)
 

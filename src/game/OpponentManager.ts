@@ -123,13 +123,13 @@ export class OpponentManager {
         const names = drawRivalNames(count);
 
         for (let i = 0; i < count; i++) {
-            // Select Random Ship Type (all 5 types now included)
-            const shipTypes: ShipType[] = ['fighter', 'speedster', 'tank', 'interceptor', 'corsair'];
+            // Any of the four hulls
+            const shipTypes: ShipType[] = ['lancer', 'rapier', 'sledge', 'kestrel'];
             const type = shipTypes[Math.floor(Math.random() * shipTypes.length)];
 
             // Create Ship with Config
             // We'll calculate base stats for the type, then apply some variance
-            let basetoConfig = {
+            const basetoConfig = {
                 ...SHIP_STATS[type],
                 color: colors[i % colors.length],
                 type: type
