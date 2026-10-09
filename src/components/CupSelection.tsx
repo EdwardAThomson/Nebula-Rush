@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { CUPS, resolveCupTracks, isCupReady, type Cup } from '../game/CupDefinitions';
 import { getClearedCups, isCupUnlocked, isCupSelectable } from '../game/cupProgress';
 import { audioManager } from '../game/AudioManager';
@@ -42,17 +43,19 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
                             key={cup.id}
                             onClick={selectable ? () => { audioManager.playClick(); onSelect(cup); } : undefined}
                             onMouseEnter={selectable ? () => audioManager.playHover() : undefined}
-                            className={`relative p-6 pb-8 rounded-xl border-2 transition-all bg-gray-800 ${selectable
-                                ? 'cursor-pointer hover:bg-gray-700 transform hover:-translate-y-2'
+                            className={`cup-card relative p-6 pb-8 rounded-xl border-2 transition-all bg-gray-800 ${selectable
+                                ? 'cup-card-live cursor-pointer hover:bg-gray-700 transform hover:-translate-y-2'
                                 : 'opacity-50 cursor-not-allowed'
                                 }`}
-                            style={{ borderColor: selectable ? accent : '#374151' }}
+                            style={{ borderColor: selectable ? accent : '#374151', '--accent': accent } as CSSProperties}
                         >
-                            <img
-                                src={cup.imagePath}
-                                alt={`${cup.name} trophy`}
-                                className="-mx-6 -mt-6 mb-4 w-[calc(100%+3rem)] max-w-none aspect-[16/10] object-cover rounded-t-[10px]"
-                            />
+                            <div className="cup-card-art -mx-6 -mt-6 mb-4 rounded-t-[10px]">
+                                <img
+                                    src={cup.imagePath}
+                                    alt={`${cup.name} trophy`}
+                                    className="w-full aspect-[16/10] object-cover"
+                                />
+                            </div>
 
                             <div
                                 className="absolute top-4 right-4 text-xs font-bold tracking-wider px-2 py-1 rounded"
