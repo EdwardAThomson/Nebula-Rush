@@ -71,11 +71,13 @@ class AIInputController implements InputSource {
         }
         lane = Math.max(minL, Math.min(maxL, lane));
 
-        // Blocks: every spotted block in the lookahead window blocks a lateral
-        // interval (its width plus clearance). Take the free lane nearest the
-        // one we want; side-by-side blocks merge into one wall this way, so
-        // the AI finds the real gap instead of bouncing between boxes.
-        const blocked: [number, number][] = [];
+        // Blocks: the NEAREST spotted row of blocks (boxes side by side at the
+        // same spot) blocks lateral intervals (width plus clearance). Take the
+        // free lane nearest the one we want; side-by-side blocks merge into one
+        // wall this way, so the AI finds the real gap. Only the nearest row
+        // counts: slalom rows a short way apart (Sand Hollow) would otherwise
+        // union into a full-width wall with no gap at all.
+        const spottedAhead: { d: number; lo: number; hi: number }[] = [];
         hazards.forEach((h, i) => {
             if (h.type !== 'block') return;
             const d = distAhead(h.trackProgress);
@@ -91,8 +93,12 @@ class AIInputController implements InputSource {
                 this.blockCalls.set(i, spotted);
             }
             const half = h.width / 2 + AI_DODGE_MARGIN;
-            if (spotted) blocked.push([h.lateralPosition - half, h.lateralPosition + half]);
+            if (spotted) spottedAhead.push({ d, lo: h.lateralPosition - half, hi: h.lateralPosition + half });
         });
+        const nearest = Math.min(...spottedAhead.map(b => b.d));
+        const blocked = spottedAhead
+            .filter(b => b.d <= nearest + 2 * HAZARD_BLOCK_DEPTH)
+            .map(b => [b.lo, b.hi] as [number, number]);
         if (blocked.length) {
             const free = (x: number) => x >= minL && x <= maxL && blocked.every(([lo, hi]) => x <= lo || x >= hi);
             if (!free(lane)) {
