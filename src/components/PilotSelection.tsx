@@ -20,7 +20,7 @@ export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK', o
         <div className="relative z-10 flex flex-col items-center h-full p-8">
             <h2 className="text-4xl font-bold text-white mb-8 animate-pulse text-center">CHOOSE YOUR PILOT</h2>
 
-            <div className="flex flex-wrap justify-center gap-6 w-full max-w-7xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
+            <div className="flex flex-wrap justify-center content-start gap-6 w-full max-w-7xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
                 {pilots.map((pilot) => {
                     const locked = !unlockedIds.includes(pilot.id);
                     return (

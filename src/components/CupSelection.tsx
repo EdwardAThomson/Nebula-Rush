@@ -21,7 +21,7 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
             <h2 className="text-4xl font-bold text-white mb-2">SELECT CUP</h2>
             <p className="text-gray-400 text-sm mb-6">Win a cup (finish top 3) to unlock the next.</p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
+            <div className="grid grid-cols-1 md:grid-cols-3 content-start gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
                 {CUPS.map((cup) => {
                     const ready = isCupReady(cup);
                     const unlocked = isCupUnlocked(cup, cleared);

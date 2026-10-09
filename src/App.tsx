@@ -541,7 +541,7 @@ function App() {
           <div className="relative z-10 flex flex-col items-center h-full p-8">
             <h2 className="text-4xl font-bold text-white mb-8">SELECT YOUR SHIP</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
+            <div className="grid grid-cols-1 md:grid-cols-3 content-start gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
               {SHIP_CARDS.map(card => {
                 const locked = !unlockedShips.includes(card.type);
                 const recommended = !locked && card.type === signatureShip;
