@@ -1,7 +1,8 @@
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { CUPS, resolveCupTracks, isCupReady, type Cup } from '../game/CupDefinitions';
 import { getClearedCups, isCupUnlocked, isCupSelectable } from '../game/cupProgress';
 import { audioManager } from '../game/AudioManager';
+import CupTrophyCanvas from './CupTrophyCanvas';
 
 interface CupSelectionProps {
     onSelect: (cup: Cup) => void;
@@ -16,6 +17,8 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
     const cleared = getClearedCups();
     // "Race All" chains every built cup; only worth offering with 2+ ready.
     const readyCupCount = CUPS.filter(isCupReady).length;
+    // The hovered selectable card shows its trophy live in 3D (see CupTrophyCanvas).
+    const [hoveredId, setHoveredId] = useState<string | null>(null);
 
     return (
         <div className="relative z-10 flex flex-col items-center h-full p-8">
@@ -45,7 +48,8 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
                         <div
                             key={cup.id}
                             onClick={selectable ? () => { audioManager.playClick(); onSelect(cup); } : undefined}
-                            onMouseEnter={selectable ? () => audioManager.playHover() : undefined}
+                            onMouseEnter={selectable ? () => { audioManager.playHover(); setHoveredId(cup.id); } : undefined}
+                            onMouseLeave={selectable ? () => setHoveredId((id) => (id === cup.id ? null : id)) : undefined}
                             className={`cup-card relative p-6 pb-8 rounded-xl border-2 transition-all bg-gray-800 ${selectable
                                 ? 'cup-card-live cursor-pointer hover:bg-gray-700 transform hover:-translate-y-2'
                                 : 'opacity-50 cursor-not-allowed'
@@ -58,6 +62,8 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
                                     alt={`${cup.name} trophy`}
                                     className="w-full aspect-[16/10] object-cover"
                                 />
+                                {selectable && <CupTrophyCanvas cupId={cup.id} active={hoveredId === cup.id} className="cup-trophy-live" />}
+                                <div className={`cup-card-ambient cup-ambient-${cup.ambient}`} aria-hidden="true" />
                             </div>
 
                             <div

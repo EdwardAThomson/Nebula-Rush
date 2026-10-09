@@ -163,8 +163,9 @@
 }
 
 /* Cup Selection cards: on hover the trophy art zooms a touch, the border glows
-   in the cup's accent colour (--accent, set inline per card) and a light sweep
-   passes across the art once. Only selectable cards get it. */
+   in the cup's accent colour (--accent, set inline per card), a light sweep
+   passes across the art once, and the live 3D trophy (.cup-trophy-live, see
+   CupTrophyCanvas) fades in over the still. Only selectable cards get it. */
 .cup-card.cup-card-live:hover {
   box-shadow:
     0 0 28px 2px color-mix(in srgb, var(--accent) 55%, transparent),
@@ -174,10 +175,12 @@
   position: relative;
   overflow: hidden;
 }
-.cup-card-art img {
-  transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+.cup-card-art img,
+.cup-card-art .cup-trophy-live {
+  transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.3s;
 }
-.cup-card-live:hover .cup-card-art img {
+.cup-card-live:hover .cup-card-art img,
+.cup-card-live:hover .cup-card-art .cup-trophy-live {
   transform: scale(1.07);
 }
 .cup-card-art::after {
@@ -376,3 +379,124 @@
 .menu-btn-green { --accent: 34, 197, 94; }
 .menu-btn-amber { --accent: 251, 191, 36; }
 .menu-btn-red { --accent: 239, 68, 68; }
+/* Living backdrop: two particle layers drift over the card art (themed per cup
+   via Cup.ambient) and a soft pool of the accent colour pulses under the
+   trophy. The layers only add light (screen blend) so the trophy stays crisp.
+   Each layer is a tiled pattern three times the card size, translated by whole
+   tiles so the loop is seamless, and it's a transform so it composites cheaply. */
+.cup-card-ambient {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(ellipse 55% 40% at 50% 74%, color-mix(in srgb, var(--accent) 38%, transparent), transparent 70%);
+  animation: cup-glow-pulse 3.4s ease-in-out infinite;
+}
+@keyframes cup-glow-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.cup-card-ambient::before,
+.cup-card-ambient::after {
+  content: '';
+  position: absolute;
+  top: -100%;
+  left: -100%;
+  width: 300%;
+  height: 300%;
+  background-repeat: repeat;
+  will-change: transform;
+}
+.cup-card-ambient::before {
+  background-image: var(--p1);
+  background-size: var(--p1-size);
+  animation: cup-drift-a var(--p1-time) linear infinite;
+  opacity: var(--p-opacity, 0.9);
+}
+.cup-card-ambient::after {
+  background-image: var(--p2);
+  background-size: var(--p2-size);
+  animation: cup-drift-b var(--p2-time) linear infinite;
+  opacity: calc(var(--p-opacity, 0.9) * 0.7);
+}
+@keyframes cup-drift-a {
+  to { transform: translate(var(--p1-dx), var(--p1-dy)); }
+}
+@keyframes cup-drift-b {
+  to { transform: translate(var(--p2-dx), var(--p2-dy)); }
+}
+
+/* Stars: tiny white points, barely moving, up and to the right. */
+.cup-ambient-stars {
+  --p1: radial-gradient(1.2px 1.2px at 23px 41px, #fff 60%, transparent),
+        radial-gradient(1px 1px at 97px 13px, #cfe9ff 60%, transparent),
+        radial-gradient(1.4px 1.4px at 151px 88px, #fff 60%, transparent),
+        radial-gradient(1px 1px at 61px 132px, #e8d8ff 60%, transparent),
+        radial-gradient(1px 1px at 184px 161px, #fff 60%, transparent);
+  --p1-size: 200px 200px; --p1-dx: 200px; --p1-dy: -200px; --p1-time: 90s;
+  --p2: radial-gradient(1.8px 1.8px at 44px 109px, #fff 55%, transparent),
+        radial-gradient(1.3px 1.3px at 133px 31px, #bfe6ff 55%, transparent),
+        radial-gradient(1.1px 1.1px at 92px 170px, #fff 55%, transparent);
+  --p2-size: 180px 180px; --p2-dx: 180px; --p2-dy: -180px; --p2-time: 48s;
+  --p-opacity: 0.8;
+}
+
+/* Dust: warm motes streaming sideways on the wind. */
+.cup-ambient-dust {
+  --p1: radial-gradient(2.4px 1.6px at 31px 57px, #ffd9a0 55%, transparent),
+        radial-gradient(1.8px 1.3px at 118px 22px, #ffc27a 55%, transparent),
+        radial-gradient(2.2px 1.4px at 163px 131px, #ffe0b0 55%, transparent),
+        radial-gradient(1.6px 1.2px at 72px 166px, #ffb86a 55%, transparent);
+  --p1-size: 200px 200px; --p1-dx: 400px; --p1-dy: -40px; --p1-time: 14s;
+  --p2: radial-gradient(3.2px 1.8px at 56px 96px, #ffcf8a 55%, transparent),
+        radial-gradient(2.4px 1.5px at 141px 44px, #ffe4bd 55%, transparent),
+        radial-gradient(2px 1.3px at 19px 151px, #ffb86a 55%, transparent);
+  --p2-size: 180px 180px; --p2-dx: 540px; --p2-dy: -60px; --p2-time: 9s;
+  --p-opacity: 0.9;
+}
+
+/* Rain: thin streaks falling fast, leaning with the wind. */
+.cup-ambient-rain {
+  --p1: linear-gradient(170deg, transparent 0 49.2%, rgba(190, 210, 255, 0.55) 49.6% 50.4%, transparent 50.8%);
+  --p1-size: 90px 120px; --p1-dx: -90px; --p1-dy: 480px; --p1-time: 2.6s;
+  --p2: linear-gradient(170deg, transparent 0 49.4%, rgba(220, 235, 255, 0.4) 49.7% 50.3%, transparent 50.6%);
+  --p2-size: 137px 173px; --p2-dx: -137px; --p2-dy: 692px; --p2-time: 3.9s;
+  --p-opacity: 0.45;
+}
+
+/* Snow: soft flakes drifting down with a gentle sideways lean. */
+.cup-ambient-snow {
+  --p1: radial-gradient(2.8px 2.8px at 27px 39px, rgba(240, 250, 255, 0.95) 50%, transparent),
+        radial-gradient(2px 2px at 101px 121px, rgba(230, 245, 255, 0.9) 50%, transparent),
+        radial-gradient(2.4px 2.4px at 158px 71px, #fff 50%, transparent),
+        radial-gradient(1.8px 1.8px at 66px 177px, rgba(230, 245, 255, 0.9) 50%, transparent);
+  --p1-size: 200px 200px; --p1-dx: 100px; --p1-dy: 400px; --p1-time: 22s;
+  --p2: radial-gradient(3.6px 3.6px at 48px 92px, #fff 50%, transparent),
+        radial-gradient(2.6px 2.6px at 139px 23px, rgba(235, 248, 255, 0.95) 50%, transparent),
+        radial-gradient(2.2px 2.2px at 112px 157px, #fff 50%, transparent);
+  --p2-size: 180px 180px; --p2-dx: 90px; --p2-dy: 360px; --p2-time: 15s;
+  --p-opacity: 0.85;
+}
+
+/* Embers: orange sparks rising from below. */
+.cup-ambient-embers {
+  --p1: radial-gradient(2.4px 2.4px at 33px 47px, #ffb347 50%, transparent),
+        radial-gradient(1.8px 1.8px at 117px 128px, #ff7a2a 50%, transparent),
+        radial-gradient(2px 2px at 168px 19px, #ffd27a 50%, transparent),
+        radial-gradient(1.6px 1.6px at 79px 171px, #ff5a1a 50%, transparent);
+  --p1-size: 200px 200px; --p1-dx: 60px; --p1-dy: -400px; --p1-time: 12s;
+  --p2: radial-gradient(3.2px 3.2px at 52px 101px, #ff9a3c 50%, transparent),
+        radial-gradient(2.2px 2.2px at 144px 39px, #ffcf7a 50%, transparent),
+        radial-gradient(1.9px 1.9px at 23px 149px, #ff6a2a 50%, transparent);
+  --p2-size: 180px 180px; --p2-dx: -40px; --p2-dy: -360px; --p2-time: 8s;
+  --p-opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cup-card-ambient,
+  .cup-card-ambient::before,
+  .cup-card-ambient::after {
+    animation: none;
+  }
+}
