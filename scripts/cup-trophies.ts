@@ -3,7 +3,6 @@
 // exported as a JPEG to public/assets/cups/cup_<id>.jpg. See
 // render-cup-trophies.html for how to run it.
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -60,18 +59,25 @@ function cylinder(rTop: number, rBottom: number, h: number, y: number, material:
     return m;
 }
 
-// A swept blade used for handles: extruded 2D outline, centred on its depth.
-function fin(outline: [number, number][], depth: number, material: THREE.Material) {
-    const shape = new THREE.Shape(outline.map(([x, y]) => new THREE.Vector2(x, y)));
-    const geo = new THREE.ExtrudeGeometry(shape, {
-        depth,
-        bevelEnabled: true,
-        bevelThickness: 0.02,
-        bevelSize: 0.02,
-        bevelSegments: 3,
-    });
-    geo.translate(0, 0, -depth / 2);
-    return new THREE.Mesh(geo, material);
+// A real loop handle: a tube swept along a path in the XY plane, starting and
+// ending inside the bowl surface so it reads as attached, with an open gap a
+// hand could fit through. `smooth` rounds the path; off, it keeps hard corners.
+function loopHandle(
+    points: [number, number][],
+    radius: number,
+    material: THREE.Material,
+    opts: { smooth?: boolean; sides?: number } = {},
+) {
+    const v = points.map(([x, y]) => new THREE.Vector3(x, y, 0));
+    let path: THREE.Curve<THREE.Vector3>;
+    if (opts.smooth ?? true) {
+        path = new THREE.CatmullRomCurve3(v, false, 'centripetal');
+    } else {
+        const cp = new THREE.CurvePath<THREE.Vector3>();
+        for (let i = 0; i < v.length - 1; i++) cp.add(new THREE.LineCurve3(v[i], v[i + 1]));
+        path = cp;
+    }
+    return new THREE.Mesh(new THREE.TubeGeometry(path, 64, radius, opts.sides ?? 12, false), material);
 }
 
 // Mirror a handle onto both sides of the trophy.
@@ -147,7 +153,7 @@ const NEBULA: TrophySpec = {
         halo(ctx, w, h, 'rgba(0,229,255,0.12)');
     },
     build: (root, scene) => {
-        const chrome = metal(0x9fb2c8, 0.1);
+        const chrome = metal(0x7f93ab, 0.12);
         const gun = metal(0x2a3140, 0.35);
         const cyan = glow(0x00e5ff, 2.4);
         plinth(root, gun, cyan);
@@ -159,9 +165,20 @@ const NEBULA: TrophySpec = {
         root.add(bowl);
         root.add(ring(0.73, 0.025, 2.5, cyan));
         root.add(ring(0.765, 0.018, 2.05, cyan));
+        // Raised ribs down the bowl: each catches the key light differently, so
+        // the curvature reads even where the smooth surface is a flat tone.
+        for (let i = 0; i < 12; i++) {
+            const a = (i / 12) * Math.PI * 2 + Math.PI / 12;
+            const rib = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.62, 0.05), chrome);
+            rib.position.set(Math.cos(a) * 0.745, 1.93, Math.sin(a) * 0.745);
+            rib.rotation.y = -a;
+            rib.rotation.z = Math.cos(a) * -0.22;
+            rib.rotation.x = Math.sin(a) * 0.22;
+            root.add(rib);
+        }
 
-        // Swept-back wing handles.
-        pair(() => fin([[0, 0], [0.35, 0.15], [0.62, 0.75], [0.5, 0.95], [0.25, 0.45], [0, 0.35]], 0.05, chrome), 0.66, 1.65, root);
+        // Swept loop handles, open enough to put a hand through.
+        pair(() => loopHandle([[0.06, 0.4], [0.5, 0.5], [0.72, 0.2], [0.62, -0.25], [0.2, -0.45], [-0.22, -0.3]], 0.045, chrome), 0.7, 1.95, root);
 
         // Floating nebula orb with a tilted orbit ring.
         const orbTex = canvasTexture(256, 128, (c) => {
@@ -251,8 +268,8 @@ const SUNSCORCH: TrophySpec = {
         root.add(bowl);
         root.add(ring(0.79, 0.025, 2.42, orange));
 
-        // Angular blade handles.
-        pair(() => fin([[0, 0], [0.3, 0.02], [0.55, 0.35], [0.62, 0.95], [0.45, 0.6], [0.2, 0.32], [0, 0.3]], 0.06, gold), 0.75, 1.65, root);
+        // Angular loop handles, square in section to match the faceted bowl.
+        pair(() => loopHandle([[0.02, 0.38], [0.5, 0.46], [0.66, 0.05], [0.5, -0.32], [-0.22, -0.32]], 0.055, gold, { smooth: false, sides: 4 }), 0.8, 2.0, root);
 
         // Sun disk crown: glowing core with radiating spikes.
         const sun = new THREE.Group();
@@ -350,12 +367,12 @@ const SKYLINE: TrophySpec = {
         root.add(spire);
         [0.9, 1.8, 2.45].forEach((y, i) => root.add(ring(0.4 - i * 0.07, 0.018, y, i % 2 ? cyan : magenta)));
 
-        // Neon "wings" that read as skyline handles.
-        pair(() => fin([[0, 0], [0.5, 0.25], [0.5, 1.0], [0.38, 1.0], [0.38, 0.35], [0, 0.18]], 0.04, chrome), 0.28, 1.25, root);
+        // Chrome loop arms off the spire, each framing a neon bar.
+        pair(() => loopHandle([[0.0, 0.0], [0.55, 0.12], [0.68, 0.6], [0.5, 1.0], [-0.1, 0.95]], 0.04, chrome), 0.3, 1.3, root);
         pair(() => {
             const bar = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.62, 0.06), magenta);
             return bar;
-        }, 0.75, 1.88, root);
+        }, 0.78, 1.88, root);
 
         const top = new THREE.Mesh(new THREE.OctahedronGeometry(0.17), glow(0xff3df0, 3.0));
         top.position.y = 3.22;
@@ -556,8 +573,8 @@ const INFERNO: TrophySpec = {
         centre.position.y = 2.15;
         root.add(centre);
 
-        // Horn-like handles.
-        pair(() => fin([[0, 0], [0.3, 0.1], [0.5, 0.5], [0.55, 1.05], [0.38, 0.6], [0.1, 0.3], [0, 0.28]], 0.06, iron), 0.78, 1.6, root);
+        // Horn-like loop handles curling up from the bowl.
+        pair(() => loopHandle([[0.0, 0.3], [0.45, 0.6], [0.72, 0.2], [0.6, -0.28], [-0.2, -0.38]], 0.055, iron, { sides: 6 }), 0.84, 1.9, root);
 
         const l1 = new THREE.PointLight(0xff5020, 9, 10);
         l1.position.set(0, 3.2, 1.5);
@@ -578,13 +595,43 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// A dark studio with a few distinct soft-box strips. Metal needs structured
+// reflections to read as curved; a uniformly bright room makes it look flat.
+function studioEnvironment() {
+    const env = new THREE.Scene();
+    env.add(new THREE.Mesh(new THREE.SphereGeometry(50, 16, 8), new THREE.MeshBasicMaterial({ color: 0x06070c, side: THREE.BackSide })));
+    const strip = (w: number, h: number, color: THREE.ColorRepresentation, pos: [number, number, number], look: [number, number, number]) => {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color }));
+        m.position.set(...pos);
+        m.lookAt(...look);
+        env.add(m);
+    };
+    strip(24, 3, new THREE.Color(5, 5, 5.5), [0, 14, 2], [0, 0, 0]);           // long overhead strip
+    strip(2.5, 16, new THREE.Color(3.5, 3.8, 4.5), [-14, 4, 4], [0, 2, 0]);   // tall cool strip, left
+    strip(4, 7, new THREE.Color(2.2, 1.8, 1.4), [13, 3, -5], [0, 2, 0]);      // smaller warm strip, right
+    strip(40, 40, new THREE.Color(0.12, 0.12, 0.14), [0, -6, 0], [0, 0, 0]);  // dark floor
+    return env;
+}
 const pmrem = new THREE.PMREMGenerator(renderer);
-const envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+const envMap = pmrem.fromScene(studioEnvironment(), 0.04).texture;
 
-function renderTrophy(spec: TrophySpec): string {
+// Camera for a render. The card art uses CARD_VIEW; close-ups for checking a
+// model are rendered through window.renderCupView with their own view.
+interface View {
+    position: [number, number, number];
+    target: [number, number, number];
+    fov?: number;
+    yaw?: number; // trophy rotation about Y
+}
+
+// Looking slightly down into the bowl shows its opening as an ellipse, the
+// strongest cue that the cup has depth. Slight yaw so it isn't a flat elevation.
+const CARD_VIEW: View = { position: [0, 3.6, 8.4], target: [0, 1.55, 0], fov: 30, yaw: -0.35 };
+
+function renderTrophy(spec: TrophySpec, view: View = CARD_VIEW): string {
     const scene = new THREE.Scene();
     scene.environment = envMap;
-    scene.environmentIntensity = 0.25;
+    scene.environmentIntensity = 0.7;
     scene.background = canvasTexture(WIDTH, HEIGHT, (ctx) => spec.background(ctx, WIDTH, HEIGHT, mulberry32(42)));
 
     // Key from upper-left, rim from behind-right, so every surface gets a lit
@@ -604,8 +651,7 @@ function renderTrophy(spec: TrophySpec): string {
 
     const root = new THREE.Group();
     spec.build(root, scene);
-    // Slight turn so the trophy reads as 3D rather than a flat elevation.
-    root.rotation.y = -0.35;
+    root.rotation.y = view.yaw ?? 0;
     root.traverse((o) => {
         if (o instanceof THREE.Mesh) {
             o.castShadow = true;
@@ -614,11 +660,9 @@ function renderTrophy(spec: TrophySpec): string {
     });
     scene.add(root);
 
-    const camera = new THREE.PerspectiveCamera(30, WIDTH / HEIGHT, 0.1, 100);
-    // Looking slightly down into the bowl shows its opening as an ellipse,
-    // the strongest cue that the cup has depth.
-    camera.position.set(0, 3.6, 8.4);
-    camera.lookAt(0, 1.55, 0);
+    const camera = new THREE.PerspectiveCamera(view.fov ?? 30, WIDTH / HEIGHT, 0.1, 100);
+    camera.position.set(...view.position);
+    camera.lookAt(...view.target);
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
@@ -656,5 +700,8 @@ for (const spec of TROPHIES) {
 
 document.getElementById('download-all')!.onclick = () => results.forEach((r) => download(r.id, r.url));
 
-// Exposed for headless capture (e.g. a Playwright script reading the data URLs).
-(window as unknown as { cupTrophies: typeof results }).cupTrophies = results;
+// Exposed for headless capture (e.g. a Playwright script reading the data URLs)
+// and for close-up checks of a single trophy from any angle.
+const w = window as unknown as { cupTrophies: typeof results; renderCupView: (id: string, view: View) => string };
+w.cupTrophies = results;
+w.renderCupView = (id, view) => renderTrophy(TROPHIES.find((t) => t.id === id)!, view);
