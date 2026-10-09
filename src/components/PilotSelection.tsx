@@ -18,7 +18,7 @@ export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK', o
 
     return (
         <div className="relative z-10 flex flex-col items-center h-full p-8">
-            <h2 className="text-4xl font-bold text-white mb-8 animate-pulse text-center">CHOOSE YOUR PILOT</h2>
+            <div className="mb-8"><h2 className="screen-title">CHOOSE YOUR PILOT</h2><div className="screen-rule" /></div>
 
             <div className="flex flex-wrap justify-center content-start gap-6 w-full max-w-7xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
                 {pilots.map((pilot) => {
@@ -29,12 +29,11 @@ export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK', o
                         onClick={() => { if (locked) return; audioManager.playClick(); onSelect(pilot); }}
                         onMouseEnter={() => { if (!locked) audioManager.playHover(); }}
                         className={locked
-                            ? 'relative bg-gray-900 bg-opacity-80 rounded-xl w-64 border-2 flex flex-col border-gray-800 opacity-60 cursor-default'
-                            : `relative bg-gray-900 bg-opacity-80 rounded-xl cursor-pointer transition-all transform hover:scale-105
-                               w-64 border-2 flex flex-col border-gray-700 hover:border-gray-500 hover:shadow-[0_0_20px_rgba(34,211,238,0.3)]`}
+                            ? 'neon-card neon-card-locked relative w-64 flex flex-col'
+                            : 'neon-card neon-card-live group relative w-64 flex flex-col'}
                     >
                         {/* Image */}
-                        <div className="h-64 w-full overflow-hidden rounded-t-xl">
+                        <div className="h-64 w-full overflow-hidden rounded-t-[4px]">
                             <img
                                 src={pilot.imagePath}
                                 alt={pilot.name}
@@ -68,7 +67,7 @@ export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK', o
 
                         {/* Info */}
                         <div className="p-5 pb-6 flex-1 flex flex-col">
-                            <h3 className={`text-xl font-bold mb-8 ${locked ? 'text-gray-500' : 'text-white group-hover:text-cyan-400'}`}>
+                            <h3 className={`neon-card-title text-lg mb-8 ${locked ? 'text-gray-500' : 'text-white group-hover:text-cyan-400'}`}>
                                 {pilot.name}
                             </h3>
 
@@ -92,7 +91,7 @@ export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK', o
                 <button
                     onClick={() => { audioManager.playClick(); onBack(); }}
                     onMouseEnter={() => audioManager.playHover()}
-                    className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
+                    className="menu-btn menu-btn-back"
                 >
                     {backLabel}
                 </button>
@@ -100,7 +99,7 @@ export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK', o
                     <button
                         onClick={() => { audioManager.playClick(); onMainMenu(); }}
                         onMouseEnter={() => audioManager.playHover()}
-                        className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
+                        className="menu-btn menu-btn-back"
                     >
                         MAIN MENU
                     </button>

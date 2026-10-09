@@ -392,8 +392,8 @@ function App() {
   return (
     <div className="w-full h-screen bg-black text-white font-mono overflow-hidden relative">
 
-      {/* BACKGROUND (Simple for now) */}
-      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-slate-900 z-0"></div>
+      {/* BACKGROUND: nebula backdrop shared by every menu (see .screen-bg) */}
+      <div className="screen-bg absolute inset-0 z-0 overflow-hidden"></div>
 
       {/* LOADING OVERLAY */}
       {isLoading && (
@@ -549,7 +549,7 @@ function App() {
       {
         screen === 'selection' && (
           <div className="relative z-10 flex flex-col items-center h-full p-8">
-            <h2 className="text-4xl font-bold text-white mb-8">SELECT YOUR SHIP</h2>
+            <div className="mb-8"><h2 className="screen-title">SELECT YOUR SHIP</h2><div className="screen-rule" /></div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 content-start gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
               {SHIP_CARDS.map(card => {
@@ -561,8 +561,9 @@ function App() {
                     onClick={() => { if (!locked) selectShipAndRace(card.type, card.color); }}
                     onMouseEnter={() => { if (!locked) audioManager.playHover(); }}
                     className={locked
-                      ? 'relative bg-gray-800 bg-opacity-60 p-6 pb-8 rounded-xl border-2 border-gray-700 opacity-70 cursor-default'
-                      : `relative bg-gray-800 bg-opacity-80 p-6 pb-8 rounded-xl border-2 ${card.borderClass} hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 hover:z-50 group ${recommended ? 'ring-2 ring-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.25)]' : ''}`}
+                      ? 'neon-card neon-card-locked relative p-6 pb-8'
+                      : `neon-card neon-card-live relative p-6 pb-8 hover:z-50 group ${recommended ? 'outline-2 outline-offset-4 outline-amber-400' : ''}`}
+                    style={locked ? undefined : { '--card-accent': numToCss(card.color) } as React.CSSProperties}
                   >
                     {!locked && <PaintChip type={card.type} defaultColor={card.color} />}
                     {recommended && selectedPilot && (
@@ -585,7 +586,7 @@ function App() {
                       </div>
                     )}
                     <div className="flex items-center gap-2 mb-6">
-                      <h3 className={`text-2xl font-bold ${locked ? 'text-gray-500' : card.titleClass}`}>{card.title}</h3>
+                      <h3 className={`neon-card-title text-2xl ${locked ? 'text-gray-500' : card.titleClass}`}>{card.title}</h3>
                       {!locked && <InfoTip text={card.info} />}
                     </div>
 
@@ -603,14 +604,14 @@ function App() {
               <button
                 onClick={() => { audioManager.playClick(); handleBackFromShipSelect(); }}
                 onMouseEnter={() => audioManager.playHover()}
-                className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
+                className="menu-btn menu-btn-back"
               >
                 BACK TO PILOT
               </button>
               <button
                 onClick={() => { audioManager.playClick(); setScreen('start'); }}
                 onMouseEnter={() => audioManager.playHover()}
-                className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
+                className="menu-btn menu-btn-back"
               >
                 MAIN MENU
               </button>
@@ -630,7 +631,7 @@ function App() {
       {
         screen === 'track_selection' && (
           <div className="relative z-10 flex flex-col items-center h-full p-8">
-            <h2 className="text-4xl font-bold text-white mb-8">SELECT TRACK</h2>
+            <div className="mb-8"><h2 className="screen-title">SELECT TRACK</h2><div className="screen-rule" /></div>
 
             <div className="w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide space-y-10">
               {[
@@ -650,7 +651,7 @@ function App() {
                   <div className="flex items-center gap-4 mb-5">
                     <div className="h-0.5 flex-1 rounded" style={{ backgroundColor: numToCss(group.accent), opacity: 0.4 }} />
                     <div className="text-center px-2">
-                      <div className="text-xl font-extrabold" style={{ color: numToCss(group.accent), opacity: group.locked ? 0.5 : 1 }}>{group.label}</div>
+                      <div className="neon-card-title text-xl font-extrabold" style={{ color: numToCss(group.accent), opacity: group.locked ? 0.5 : 1 }}>{group.label}</div>
                       <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500">{group.sub}</div>
                       {group.locked && (
                         <div className="text-xs font-bold text-amber-300 mt-1">🔒 {group.unlockHint}</div>
@@ -665,12 +666,12 @@ function App() {
                       return group.locked ? (
                         <div
                           key={track.id}
-                          className="bg-gray-800 bg-opacity-50 p-6 rounded-xl border-2 border-gray-700 opacity-60 cursor-default"
+                          className="neon-card neon-card-locked p-6"
                         >
                           <div className="h-48 bg-black bg-opacity-50 rounded mb-4 flex items-center justify-center overflow-hidden border border-gray-700 relative" style={{ filter: 'grayscale(1) brightness(0.6)' }}>
                             <TrackPreview points={track.points} />
                           </div>
-                          <h3 className="text-2xl font-bold mb-2 text-gray-500">{track.name}</h3>
+                          <h3 className="neon-card-title text-xl mb-2 text-gray-500">{track.name}</h3>
                           <p className="text-gray-600 text-sm">{track.description}</p>
                         </div>
                       ) : (
@@ -678,13 +679,13 @@ function App() {
                           key={track.id}
                           onClick={() => { audioManager.playClick(); handleTrackSelect(index); }}
                           onMouseEnter={() => audioManager.playHover()}
-                          className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
-                          style={{ borderColor: numToCss(group.accent) }}
+                          className="neon-card neon-card-live p-6 group"
+                          style={{ '--card-accent': numToCss(group.accent) } as React.CSSProperties}
                         >
                           <div className="h-48 bg-black bg-opacity-50 rounded mb-4 flex items-center justify-center overflow-hidden border border-gray-700">
                             <TrackPreview points={track.points} />
                           </div>
-                          <h3 className="text-2xl font-bold mb-2" style={{ color: numToCss(group.accent) }}>{track.name}</h3>
+                          <h3 className="neon-card-title text-xl mb-2" style={{ color: numToCss(group.accent) }}>{track.name}</h3>
                           <p className="text-gray-400 text-sm">{track.description}</p>
                         </div>
                       );
@@ -698,7 +699,7 @@ function App() {
               <button
                 onClick={() => { audioManager.playClick(); setScreen('start'); }}
                 onMouseEnter={() => audioManager.playHover()}
-                className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
+                className="menu-btn menu-btn-back"
               >
                 BACK TO MENU
               </button>
@@ -822,13 +823,13 @@ function App() {
       {/* HELP MODAL */}
       {
         showHelp && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90">
-            <div className="bg-gray-800 p-8 rounded-lg max-w-lg w-full max-h-[85vh] overflow-y-auto border border-gray-600">
-              <h2 className="text-3xl font-bold text-white mb-6">HOW TO PLAY</h2>
+          <div className="neon-modal-backdrop absolute inset-0 z-50 flex items-center justify-center">
+            <div className="neon-modal p-8 max-w-lg w-full max-h-[85vh] overflow-y-auto">
+              <h2 className="screen-title mb-6">HOW TO PLAY</h2>
 
               <div className="space-y-5 text-gray-300">
                 <div>
-                  <strong className="text-cyan-400 block mb-2">CONTROLS</strong>
+                  <strong className="neon-label text-cyan-400 block mb-2">Controls</strong>
                   <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
                     <span className="text-white font-mono">W&nbsp;/&nbsp;↑</span><span>Accelerate</span>
                     <span className="text-white font-mono">Q&nbsp;/&nbsp;E&nbsp;·&nbsp;←&nbsp;/&nbsp;→</span><span>Steer left / right</span>
@@ -840,7 +841,7 @@ function App() {
                 </div>
 
                 <div>
-                  <strong className="text-purple-400 block mb-2">TIPS</strong>
+                  <strong className="neon-label text-purple-400 block mb-2">Tips</strong>
                   <ul className="list-disc pl-5 space-y-1 text-sm">
                     <li>Launch the instant the start lights turn <span className="text-green-400">green</span>.</li>
                     <li>Drive through the glowing <span className="text-cyan-300">boost arrows</span> for a speed burst.</li>
@@ -851,11 +852,11 @@ function App() {
                 </div>
 
                 <div>
-                  <strong className="text-yellow-400 block mb-2">GOAL</strong>
+                  <strong className="neon-label text-yellow-400 block mb-2">Goal</strong>
                   <p className="text-sm">Finish 5 laps and beat the rival pilots to top the leaderboard.</p>
                 </div>
 
-                <div className="pt-4 border-t border-gray-700 text-xs text-gray-500">
+                <div className="pt-4 border-t border-white/10 text-xs text-gray-500">
                   <p>© 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)</p>
                   <p>Website: <a href="https://edthomson.com" className="text-blue-400 hover:underline">edthomson.com</a></p>
                 </div>
@@ -863,13 +864,13 @@ function App() {
 
               <button
                 onClick={handleTutorial}
-                className="mt-8 w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded uppercase tracking-wide"
+                className="menu-btn menu-btn-indigo mt-8 w-full uppercase"
               >
                 ▶ Start the interactive tutorial
               </button>
               <button
                 onClick={() => setShowHelp(false)}
-                className="mt-3 w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded"
+                className="menu-btn menu-btn-back mt-3 w-full"
               >
                 CLOSE
               </button>
@@ -885,10 +886,10 @@ function App() {
 
       {/* PAINT CUSTOMIZER */}
       {customizeType && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-4">
-          <div className="bg-gray-800 p-8 rounded-lg max-w-lg w-full border border-gray-600">
-            <h2 className="text-3xl font-bold text-white mb-2">CUSTOMIZE PAINT</h2>
-            <p className="text-gray-400 text-sm mb-4">{customizeType.toUpperCase()} — drag to rotate</p>
+        <div className="neon-modal-backdrop absolute inset-0 z-50 flex items-center justify-center p-4">
+          <div className="neon-modal p-8 max-w-lg w-full">
+            <h2 className="screen-title mb-2">CUSTOMIZE PAINT</h2>
+            <p className="screen-subtitle mb-4">{customizeType} — drag to rotate</p>
 
             <div className="h-64 bg-black bg-opacity-50 rounded mb-6 flex items-center justify-center overflow-hidden border border-gray-700">
               <ShipPreview color={primaryColor} accentColor={accentColor} type={customizeType} interactive />
@@ -896,7 +897,7 @@ function App() {
 
             <div className="space-y-4 mb-6">
               <div>
-                <div className="text-gray-300 mb-2">Primary (Body)</div>
+                <div className="neon-label text-gray-300 mb-2">Primary (Body)</div>
                 <div className="flex flex-wrap gap-2">
                   {PAINT_PALETTE.map(({ name, value }) => (
                     <button
@@ -911,7 +912,7 @@ function App() {
                 </div>
               </div>
               <div>
-                <div className="text-gray-300 mb-2">Secondary (Wings / Trim)</div>
+                <div className="neon-label text-gray-300 mb-2">Secondary (Wings / Trim)</div>
                 <div className="flex flex-wrap gap-2">
                   {PAINT_PALETTE.map(({ name, value }) => (
                     <button
@@ -930,13 +931,13 @@ function App() {
             <div className="flex gap-4">
               <AudioButton
                 onClick={() => setCustomizeType(null)}
-                className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded"
+                className="menu-btn menu-btn-back flex-1 min-w-0"
               >
                 CANCEL
               </AudioButton>
               <AudioButton
                 onClick={confirmShipCustomization}
-                className="flex-1 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded"
+                className="menu-btn menu-btn-primary flex-1"
               >
                 RACE
               </AudioButton>

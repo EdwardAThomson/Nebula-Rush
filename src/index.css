@@ -196,3 +196,183 @@
 .cup-card-live:hover .cup-card-art::after {
   animation: cup-card-shine 0.9s ease-out forwards;
 }
+
+/* ---- Menu screens (shared) ---------------------------------------------
+   One look for every menu after the start screen: a nebula backdrop, an
+   Orbitron chrome heading, glass cards with a coloured edge, and the same
+   .menu-btn buttons as the start screen. */
+
+/* Backdrop behind all menus: two soft nebula glows over deep space, a faint
+   perspective grid along the bottom, and a scatter of stars. */
+.screen-bg {
+  background:
+    radial-gradient(ellipse 60% 50% at 15% 10%, rgba(34, 211, 238, 0.16), transparent 70%),
+    radial-gradient(ellipse 55% 45% at 90% 85%, rgba(217, 70, 239, 0.16), transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 120%, rgba(99, 102, 241, 0.18), transparent 70%),
+    linear-gradient(180deg, #05060f 0%, #070a1a 55%, #0a0618 100%);
+}
+.screen-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 12% 22%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 33% 68%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1.5px 1.5px at 58% 14%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 72% 44%, rgba(255, 255, 255, 0.55), transparent),
+    radial-gradient(1px 1px at 86% 26%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1.5px 1.5px at 22% 82%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 46% 38%, rgba(255, 255, 255, 0.45), transparent),
+    radial-gradient(1px 1px at 94% 62%, rgba(255, 255, 255, 0.5), transparent);
+  background-size: 420px 420px;
+  opacity: 0.8;
+}
+.screen-bg::after {
+  content: '';
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  bottom: 0;
+  height: 38%;
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.18) 1px, transparent 1px);
+  background-size: 60px 60px;
+  transform: perspective(500px) rotateX(62deg);
+  transform-origin: bottom;
+  mask-image: linear-gradient(to top, black, transparent 85%);
+  -webkit-mask-image: linear-gradient(to top, black, transparent 85%);
+}
+
+/* Screen heading: the start-screen chrome treatment at section size. */
+.screen-title {
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 900;
+  font-size: clamp(1.8rem, 4vw, 2.75rem);
+  line-height: 1.1;
+  letter-spacing: 0.12em;
+  text-align: center;
+  transform: skewX(-8deg);
+  background: linear-gradient(180deg, #ffffff 0%, #d9faff 40%, #67e8f9 52%, #0891b2 53%, #22d3ee 80%, #a5f3fc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 2px rgba(34, 211, 238, 0.8)) drop-shadow(0 0 16px rgba(34, 211, 238, 0.4));
+}
+/* Thin cyan-to-magenta rule; put it right after a .screen-title. */
+.screen-rule {
+  width: min(28rem, 70vw);
+  height: 2px;
+  margin: 0.6rem auto 0;
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.9) 20%, rgba(217, 70, 239, 0.9) 80%, transparent);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.45);
+}
+.screen-subtitle {
+  font-size: 0.8rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(165, 243, 252, 0.6);
+  text-align: center;
+}
+/* Section label inside a screen (e.g. TIME OF DAY). */
+.screen-section {
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.3em;
+  color: rgba(203, 213, 225, 0.85);
+  text-align: center;
+}
+
+/* Glass card with a coloured edge. Set --card-accent (any CSS colour) inline
+   or via a variant; defaults to cyan. Add .neon-card-live for hover lift. */
+.neon-card {
+  --card-accent: #22d3ee;
+  position: relative;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--card-accent) 14%, transparent), transparent 45%),
+    rgba(10, 14, 28, 0.78);
+  border: 1px solid color-mix(in srgb, var(--card-accent) 45%, transparent);
+  border-top: 2px solid var(--card-accent);
+  border-radius: 6px;
+  box-shadow: inset 0 0 24px color-mix(in srgb, var(--card-accent) 8%, transparent), 0 10px 30px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  transition: transform 180ms ease, box-shadow 220ms ease, border-color 220ms ease, background 220ms ease;
+}
+.neon-card-live { cursor: pointer; }
+.neon-card-live:hover {
+  transform: translateY(-6px);
+  border-color: var(--card-accent);
+  box-shadow:
+    inset 0 0 30px color-mix(in srgb, var(--card-accent) 16%, transparent),
+    0 0 26px color-mix(in srgb, var(--card-accent) 45%, transparent),
+    0 16px 32px rgba(0, 0, 0, 0.55);
+}
+.neon-card-locked {
+  --card-accent: #475569;
+  opacity: 0.6;
+  cursor: default;
+}
+.neon-card-title {
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* Back / navigation buttons along the bottom of a menu. */
+.menu-btn-back {
+  --accent: 148, 163, 184;
+  min-width: 13rem;
+  padding: 0.8rem 2rem;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+.menu-btn-gold { --accent: 251, 191, 36; color: #fff7d6; }
+/* A selectable option button (environment picker): dim until chosen. */
+.menu-btn-option {
+  padding: 0.95rem 1.25rem;
+  font-size: 0.95rem;
+  color: #94a3b8;
+  text-shadow: none;
+  background: rgba(10, 14, 28, 0.72);
+  border-color: rgba(var(--accent), 0.3);
+}
+.menu-btn-option.is-selected {
+  color: #fff;
+  text-shadow: 0 0 10px rgba(var(--accent), 0.7);
+  background: linear-gradient(100deg, rgba(var(--accent), 0.55), rgba(var(--accent), 0.15) 75%);
+  border-color: rgb(var(--accent));
+  box-shadow: inset 0 0 24px rgba(var(--accent), 0.35), 0 0 18px rgba(var(--accent), 0.35);
+}
+.menu-btn-cyan { --accent: 34, 211, 238; }
+
+/* Modal panel (Help, Settings, Paint): a neon card that doesn't lift. */
+.neon-modal-backdrop {
+  background: rgba(2, 4, 12, 0.82);
+  backdrop-filter: blur(4px);
+}
+.neon-modal {
+  --card-accent: #22d3ee;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--card-accent) 12%, transparent), transparent 40%),
+    rgba(8, 11, 24, 0.94);
+  border: 1px solid color-mix(in srgb, var(--card-accent) 45%, transparent);
+  border-top: 2px solid var(--card-accent);
+  border-radius: 6px;
+  box-shadow: 0 0 40px color-mix(in srgb, var(--card-accent) 22%, transparent), 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+.neon-label {
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.menu-btn-sm {
+  padding: 0.6rem 0.5rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+}
+.menu-btn-green { --accent: 34, 197, 94; }
+.menu-btn-amber { --accent: 251, 191, 36; }
+.menu-btn-red { --accent: 239, 68, 68; }
