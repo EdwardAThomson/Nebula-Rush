@@ -88,7 +88,7 @@ export class Ship {
 
         // Initialize Visuals
         const color = config?.color !== undefined ? config.color : 0xcc0000;
-        const type = config?.type || 'fighter';
+        const type = config?.type || 'lancer';
         const { mesh, glows, beams } = createShip(color, type, config?.accentColor);
         this.mesh = mesh;
         this.glows = glows;

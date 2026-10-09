@@ -12,10 +12,10 @@ import type { ShipType } from './ShipFactory';
 // the hard-to-drive speed option). The FORGIVING speed pilots (Jax, Lyra:
 // +2 velocity with decent launch) stay campaign rewards.
 const BASE_PILOTS = ['echo_7', 'orion_reinhardt', 'dennis_grimshaw', 'nova_starling'];
-// lancer / rapier / sledge / kestrel are design mockups, unlocked from the
-// start so they can be raced and compared; fold the keepers into the cup
-// rewards once a look is settled.
-const BASE_SHIPS: ShipType[] = ['fighter', 'interceptor', 'lancer', 'rapier', 'sledge', 'kestrel'];
+// Lancer is the all-rounder and the Rapier the hard-charging, loose-tailed
+// option; the grip hull (Sledgehammer) and the top-speed hull (Kestrel) are
+// campaign rewards.
+const BASE_SHIPS: ShipType[] = ['lancer', 'rapier'];
 
 // Rewards granted when a cup is cleared. Later cups aren't authored yet, so a
 // full pass of today's campaign intentionally does NOT unlock everything —
@@ -24,23 +24,23 @@ const CUP_REWARDS: Record<string, { pilots?: string[]; ships?: ShipType[] }> = {
     // Escalating desirability (65 → 68 → 72 → 72-but-hard top speed), and each
     // pilot fits their cup: outer-rim Darius in the desert, city hotshot Jax
     // under the Skyline neon, icy Lyra in Cryo.
-    nebula: { pilots: ['zara_qel'], ships: ['tank'] },
-    sunscorch: { pilots: ['darius_wraith'], ships: ['corsair'] },
-    skyline: { pilots: ['jax_ace_strider'], ships: ['speedster'] },
+    nebula: { pilots: ['zara_qel'], ships: ['sledge'] },
+    sunscorch: { pilots: ['darius_wraith'] },
+    skyline: { pilots: ['jax_ace_strider'], ships: ['kestrel'] },
     cryo: { pilots: ['lyra_vane'] },
 };
 
 // Each pilot's signature ship — preselected/recommended on the ship screen so
-// the default path is one click. Falls back to the fighter while locked.
+// the default path is one click. Falls back to the Lancer while locked.
 const PILOT_SIGNATURE_SHIP: Record<string, ShipType> = {
-    echo_7: 'fighter',
-    orion_reinhardt: 'interceptor',
-    jax_ace_strider: 'speedster',
-    nova_starling: 'tank',
-    zara_qel: 'interceptor',
-    lyra_vane: 'speedster',
-    darius_wraith: 'corsair',
-    dennis_grimshaw: 'fighter',
+    echo_7: 'lancer',
+    orion_reinhardt: 'rapier',      // precision pilot, sharpest-turning hull
+    jax_ace_strider: 'kestrel',     // speed pilot, fastest hull (both Skyline rewards)
+    nova_starling: 'sledge',        // acceleration pilot; Lancer until the Nebula Cup is cleared
+    zara_qel: 'rapier',
+    lyra_vane: 'kestrel',
+    darius_wraith: 'rapier',        // the drift option
+    dennis_grimshaw: 'lancer',
 };
 
 export function getUnlockedPilotIds(cleared: string[] = getClearedCups()): string[] {
@@ -56,8 +56,8 @@ export function getUnlockedShipTypes(cleared: string[] = getClearedCups()): Ship
 }
 
 export function getSignatureShip(pilotId: string, unlockedShips: ShipType[] = getUnlockedShipTypes()): ShipType {
-    const sig = PILOT_SIGNATURE_SHIP[pilotId] ?? 'fighter';
-    return unlockedShips.includes(sig) ? sig : 'fighter';
+    const sig = PILOT_SIGNATURE_SHIP[pilotId] ?? 'lancer';
+    return unlockedShips.includes(sig) ? sig : 'lancer';
 }
 
 // "Clear the Nebula Cup" — shown on locked pilot/ship cards.

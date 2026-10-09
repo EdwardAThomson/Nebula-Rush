@@ -9,7 +9,7 @@ Inspired by F-Zero / Wipeout. The README Roadmap section is the source plan.
 ## Shipped
 
 - [x] Custom physics (hover suspension, banking, drifting, air-braking, strafing)
-- [x] 5 ship classes with distinct handling profiles
+- [x] 4 ship classes with distinct handling profiles (Lancer, Rapier, Sledgehammer, Kestrel)
 - [x] 8 pilots with stat modifiers and generated avatars
 - [x] 5 procedurally-generated spline tracks (loops, banked turns, verticality)
 - [x] Day/night cycle + weather (clear / fog / rain)
@@ -22,7 +22,7 @@ Inspired by F-Zero / Wipeout. The README Roadmap section is the source plan.
 - [x] HUD (speed, lap, rank, timer, boost) + dynamic anti-motion-sickness camera
 - [x] Jukebox (4 music tracks)
 - [x] PBR ships with greebles, exhaust glow, cockpit canopies
-- [x] Smooth ship hulls (capsule bodies, bullet noses, curved/rounded wings)
+- [x] Lofted ship hulls (tapered fuselages, lathe-turned nacelles, aerofoil wings and fins)
 - [x] Per-track surface styling (neon edge rails, centre line, wall accents, boost-pad arrows, checkered start/finish)
 - [x] Boost feedback (afterburner flare + pickup punch) and dynamic flame/exhaust
 - [x] In-race screenshots → results gallery (lightbox, single-zip download)

@@ -55,7 +55,7 @@ const getDisplayStats = (type: ShipType) => {
     speed: normalize(topSpeed, minSpeed, maxSpeed),
     accel: normalize(stats.accelFactor, minAccel, maxAccel),
     handling: normalize(handling, minHandling, maxHandling),
-    // For corsair, show drift instead of handling
+    // For the Rapier, show drift instead of handling
     drift: Math.round(50 + (stats.slideFactor - 0.85) / (0.995 - 0.85) * 50),
     energy: normalize(stats.maxEnergy, Math.min(...allEnergy), Math.max(...allEnergy))
   };
@@ -83,12 +83,9 @@ const SHIP_CARDS: {
   titleClass: string; borderClass: string; bgClass: string;
   stats: { label: string; key: 'speed' | 'accel' | 'handling' | 'drift' | 'energy'; barClass: string }[];
 }[] = [
-  // Design mockups (lofted hulls, lathe-turned nacelles). Listed first and
-  // unlocked from the start so the looks can be raced and compared; all share
-  // balanced placeholder stats.
   {
     type: 'lancer', title: 'LANCER', color: 0xd9531e,
-    info: 'Mockup: single lofted hull with twin outboard nacelles and a V-tail.',
+    info: 'The all-rounder. One lofted hull, twin outboard nacelles, a V-tail. Nothing to learn, nothing to exploit.',
     titleClass: 'text-orange-400', borderClass: 'border-orange-500', bgClass: 'bg-orange-900',
     stats: [
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
@@ -99,18 +96,18 @@ const SHIP_CARDS: {
   },
   {
     type: 'rapier', title: 'RAPIER', color: 0x2e7bd6,
-    info: 'Mockup: podracer layout. Two huge engines out front, open pod towed behind.',
+    info: 'Podracer. Two huge engines towing a tiny pod: brutal launch, sharp turn-in, a tail that hangs out wide, thin plating.',
     titleClass: 'text-blue-400', borderClass: 'border-blue-500', bgClass: 'bg-blue-900',
     stats: [
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
-      { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
+      { label: 'Drift', key: 'drift', barClass: 'bg-pink-500' },
       { label: 'Energy', key: 'energy', barClass: 'bg-emerald-400' },
     ],
   },
   {
     type: 'sledge', title: 'SLEDGEHAMMER', color: 0xc8a34a,
-    info: 'Mockup: landspeeder. Low wide slab, open cockpit, three turbines across the tail.',
+    info: 'Landspeeder. A low, wide slab on three turbines: grip and armour over top speed.',
     titleClass: 'text-amber-400', borderClass: 'border-amber-500', bgClass: 'bg-amber-900',
     stats: [
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
@@ -121,63 +118,8 @@ const SHIP_CARDS: {
   },
   {
     type: 'kestrel', title: 'KESTREL', color: 0x9b1b3c,
-    info: 'Mockup: air racer. Slim fuselage, big swept wing, twin tails, buried engine.',
+    info: 'Air racer. Slim fuselage and a big wing: the highest top speed, slow off the line, slippery in the corners.',
     titleClass: 'text-rose-400', borderClass: 'border-rose-500', bgClass: 'bg-rose-900',
-    stats: [
-      { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
-      { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
-      { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
-      { label: 'Energy', key: 'energy', barClass: 'bg-emerald-400' },
-    ],
-  },
-  {
-    type: 'fighter', title: 'FIGHTER', color: 0xcc0000,
-    info: 'Perfectly balanced stats. Good for beginners and pros alike.',
-    titleClass: 'text-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-900',
-    stats: [
-      { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
-      { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
-      { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
-      { label: 'Energy', key: 'energy', barClass: 'bg-emerald-400' },
-    ],
-  },
-  {
-    type: 'interceptor', title: 'INTERCEPTOR', color: 0x00ff00,
-    info: 'Bi-plane design. Best-in-class acceleration and turning.',
-    titleClass: 'text-green-500', borderClass: 'border-green-500', bgClass: 'bg-green-900',
-    stats: [
-      { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
-      { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
-      { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
-      { label: 'Energy', key: 'energy', barClass: 'bg-emerald-400' },
-    ],
-  },
-  {
-    type: 'tank', title: 'TANK', color: 0xcccc00,
-    info: 'Incredible acceleration and grip, but lower top speed.',
-    titleClass: 'text-yellow-500', borderClass: 'border-yellow-500', bgClass: 'bg-yellow-900',
-    stats: [
-      { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
-      { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
-      { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
-      { label: 'Energy', key: 'energy', barClass: 'bg-emerald-400' },
-    ],
-  },
-  {
-    type: 'corsair', title: 'CORSAIR', color: 0x5500aa,
-    info: 'Aggressive styling. High speed and extreme drift capabilities.',
-    titleClass: 'text-purple-500', borderClass: 'border-purple-500', bgClass: 'bg-purple-900',
-    stats: [
-      { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
-      { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
-      { label: 'Drift', key: 'drift', barClass: 'bg-pink-500' },
-      { label: 'Energy', key: 'energy', barClass: 'bg-emerald-400' },
-    ],
-  },
-  {
-    type: 'speedster', title: 'SPEEDSTER', color: 0x00ccff,
-    info: 'High top speed, but slower acceleration. Built for long straights.',
-    titleClass: 'text-cyan-400', borderClass: 'border-cyan-500', bgClass: 'bg-cyan-900',
     stats: [
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
@@ -242,13 +184,13 @@ function App() {
     friction: 0.99,
     strafeSpeed: 0.01,
     slideFactor: 0.95,
-    type: 'fighter'
+    type: 'lancer'
   });
 
   // Roster gating: recomputed each render (cheap) so a just-cleared cup's
   // unlocks show up as soon as the player returns to the menus.
   const unlockedShips = getUnlockedShipTypes();
-  const signatureShip = selectedPilot ? getSignatureShip(selectedPilot.id, unlockedShips) : 'fighter';
+  const signatureShip = selectedPilot ? getSignatureShip(selectedPilot.id, unlockedShips) : 'lancer';
 
   // Paint customizer state (modal on the ship-select screen)
   const [customizeType, setCustomizeType] = useState<ShipType | null>(null);
@@ -827,7 +769,7 @@ function App() {
             trackOverride={TUTORIAL_TRACK}
             opponentCount={0}
             isCampaign={false}
-            shipConfig={{ color: 0xcc0000, accentColor: 0xeeeeee, ...SHIP_STATS.fighter, type: 'fighter' }}
+            shipConfig={{ color: 0xd9531e, accentColor: 0xeeeeee, ...SHIP_STATS.lancer, type: 'lancer' }}
             forcedEnvironment={{ timeOfDay: 'day', weather: 'clear' }}
             onExit={() => setScreen('start')}
             onReady={() => setIsLoading(false)}

@@ -51,40 +51,38 @@ export const SHIP_STATS: Record<ShipType, { accelFactor: number, turnSpeed: numb
         slideFactor: 0.995, // Ice Skater (Extreme Drift)
         maxEnergy: 90
     },
-    // Visual-design mockups (lofted hulls + lathe-turned nacelles). All four
-    // share fighter-like placeholder stats until a look is chosen; they are
-    // unlocked from the start for evaluation and are not in the AI pool.
-    lancer: {
-        accelFactor: 0.58,
+    // Four hulls, four handling roles (top speed = accelFactor / (1 - friction)).
+    lancer: {               // All-rounder: nothing to learn, nothing to exploit.
+        accelFactor: 0.56,
         turnSpeed: 0.0011,
-        friction: 0.9916,       // Top speed ~62.8
-        strafeSpeed: 0.012,
-        slideFactor: 0.94,
+        friction: 0.9914,       // Top speed ~65.1
+        strafeSpeed: 0.011,
+        slideFactor: 0.95,
         maxEnergy: 100
     },
-    rapier: {
-        accelFactor: 0.58,
-        turnSpeed: 0.0011,
-        friction: 0.9916,
+    rapier: {               // Podracer: launches hardest and turns sharpest, but the
+        accelFactor: 0.72,  // towed pod hangs out wide in corners and the plating is thin.
+        turnSpeed: 0.0014,
+        friction: 0.9890,       // Top speed ~65.5
         strafeSpeed: 0.012,
-        slideFactor: 0.94,
-        maxEnergy: 100
+        slideFactor: 0.985,     // Big drift
+        maxEnergy: 80
     },
-    sledge: {
-        accelFactor: 0.58,
+    sledge: {               // Landspeeder: grip and armour, slowest on the straights.
+        accelFactor: 0.74,
         turnSpeed: 0.0011,
-        friction: 0.9916,
-        strafeSpeed: 0.012,
-        slideFactor: 0.94,
-        maxEnergy: 100
+        friction: 0.9884,       // Top speed ~63.8
+        strafeSpeed: 0.018,
+        slideFactor: 0.92,      // Snappy
+        maxEnergy: 140
     },
-    kestrel: {
-        accelFactor: 0.58,
-        turnSpeed: 0.0011,
-        friction: 0.9916,
-        strafeSpeed: 0.012,
-        slideFactor: 0.94,
-        maxEnergy: 100
+    kestrel: {              // Air racer: highest top speed, slow off the line, slippery.
+        accelFactor: 0.46,
+        turnSpeed: 0.0009,
+        friction: 0.9931,       // Top speed ~66.7
+        strafeSpeed: 0.009,
+        slideFactor: 0.975,
+        maxEnergy: 90
     }
 };
 

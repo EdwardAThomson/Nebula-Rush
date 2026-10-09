@@ -7,7 +7,7 @@ interface ShipDemoProps {
 }
 
 export default function ShipDemo({ onBack }: ShipDemoProps) {
-    const shipTypes: ShipType[] = ['lancer', 'rapier', 'sledge', 'kestrel', 'speedster', 'fighter', 'tank', 'interceptor', 'corsair'];
+    const shipTypes: ShipType[] = ['lancer', 'rapier', 'sledge', 'kestrel'];
     const [currentIndex, setCurrentIndex] = useState(0);
 
     const currentType = shipTypes[currentIndex];
