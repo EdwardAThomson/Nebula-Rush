@@ -18,7 +18,7 @@ import { DebugLightingPanel } from './DebugLightingPanel';
 import { audioManager } from '../game/AudioManager';
 import { PLAYER_START_T } from '../game/PhysicsEngine';
 import { addCredits, cupBonus, getTrackTier, racePayout } from '../game/economy';
-import { aiPartPoints, partPoints } from '../game/garage';
+import { aiPartPoints, ENERGY_PER_LEVEL, getPartLevels, partPoints } from '../game/garage';
 import { addPoints, applyTuning } from '../game/tuning';
 import type { CreditReward } from './Leaderboard';
 
@@ -97,6 +97,9 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
   // Results State
   const [raceResults, setRaceResults] = useState<RaceResult[]>([]);
+  // Installed garage parts the HUD and exhaust show (stock in the tutorial).
+  const [installedParts] = useState(() => tutorial ? { engine: 0, capacitor: 0 } : { ...getPartLevels() });
+  const capacitorLevel = installedParts.capacitor;
   // Credits banked for this race (shown on the results screen); null = none.
   const [creditReward, setCreditReward] = useState<CreditReward | null>(null);
 
@@ -312,6 +315,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     // Energy (hazard/wall damage, DNF at zero) is player-only and skipped in
     // the tutorial. AI never enables it — see the note in PhysicsEngine.
     finalShipConfig.energyEnabled = !tutorial;
+    // Engine part level brightens and lengthens the exhaust (Ship.updateVisuals).
+    finalShipConfig.engineTune = installedParts.engine;
 
     if (pilot) {
       finalShipConfig.name = pilot.name;
@@ -1273,10 +1278,16 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
                       {pilot.name}
                     </div>
                   )}
-                  <div className="w-40 h-2.5 rounded bg-gray-900 overflow-hidden border border-gray-600">
+                  {/* A bigger Capacitor (garage) draws a longer bar with a green edge. */}
+                  <div
+                    className={`h-2.5 rounded bg-gray-900 overflow-hidden border ${capacitorLevel > 0 ? 'border-green-400/70' : 'border-gray-600'}`}
+                    style={{ width: `${10 * (1 + ENERGY_PER_LEVEL * capacitorLevel)}rem`, boxShadow: capacitorLevel > 0 ? `0 0 ${3 * capacitorLevel}px rgba(34,197,94,0.7)` : undefined }}
+                  >
                     <div ref={energyFillRef} className="h-full" style={{ width: '100%', backgroundColor: '#22c55e' }} />
                   </div>
-                  <div className="text-[10px] text-gray-400 font-bold tracking-widest">ENERGY</div>
+                  <div className="text-[10px] text-gray-400 font-bold tracking-widest">
+                    ENERGY{capacitorLevel > 0 && <span className="text-green-400"> +{Math.round(ENERGY_PER_LEVEL * capacitorLevel * 100)}%</span>}
+                  </div>
                 </div>
               </div>
             )}

@@ -107,52 +107,69 @@ function buildEngine(level: number, m: Mats): THREE.Group {
     return g;
 }
 
-// --- Thrusters: a cluster of vectoring bells on a rounded mount. Stock and
-// Mk I have one pair, Mk II three, Mk III four plus vanes. Nozzles point +Z.
+// --- Thrusters: ONE vectoring thruster, refined per level rather than
+// multiplied (a ship would only ever carry one). Stock / Mk I: a plain bell
+// on a combustion chamber. Mk II: a bigger bell with cooling rings. Mk III:
+// vectoring vanes round the lip and a brighter, double-ringed throat.
+// The thrust axis runs along Z, nozzle exit at +Z.
 function buildThrusters(level: number, m: Mats): THREE.Group {
     const g = new THREE.Group();
-    const count = [2, 2, 3, 4][level];
-    const spread = count === 2 ? 0.42 : 0.5;
-    const mount = new THREE.Mesh(createLoftGeometry([
-        { z: -0.55, w: 0.25, h: 0.25, y: 0 },
-        { z: -0.3, w: 0.75, h: 0.62, y: 0 },
-        { z: 0.05, w: 0.88, h: 0.74, y: 0 },
-        { z: 0.15, w: 0.86, h: 0.72, y: 0 },
-    ], { n: 3, belly: 1, capEnd: true }), m.metal);
-    g.add(mount);
-    const bell = lathe([[0.1, 0.0], [0.13, 0.1], [0.2, 0.4], [0.3, 0.72], [0.32, 0.76], [0.28, 0.76], [0.18, 0.42], [0.11, 0.12], [0.0, 0.12]], 32);
-    for (let i = 0; i < count; i++) {
-        const a = (i / count) * Math.PI * 2 + (count === 2 ? 0 : Math.PI / 2);
-        const nz = new THREE.Group();
-        nz.position.set(Math.cos(a) * spread, Math.sin(a) * spread * (count === 2 ? 0 : 1), 0.12);
-        const b = new THREE.Mesh(bell, m.metal);
-        b.rotation.x = Math.PI / 2;           // lathe +Y -> +Z
-        nz.add(b);
-        const throat = new THREE.Mesh(new THREE.CircleGeometry(0.12, 24), m.glow);
-        throat.position.z = 0.14;
-        nz.add(throat);
-        const lip = new THREE.Mesh(new THREE.TorusGeometry(0.31, 0.022, 8, 32), level > 0 ? m.trim : m.metal);
-        lip.position.z = 0.76;
-        nz.add(lip);
-        g.add(nz);
-    }
-    // Mk III: vector vanes between the bells.
+    const flare = level >= 2 ? 1.18 : 1;           // Mk II+ bell is wider at the exit
+    const turned = new THREE.Group();              // lathe +Y -> +Z
+    turned.rotation.x = Math.PI / 2;
+    // Combustion chamber: rounded dome, cylinder, then the throat neck.
+    turned.add(new THREE.Mesh(lathe([
+        [0.0, -0.95], [0.18, -0.92], [0.3, -0.82], [0.36, -0.65], [0.37, -0.35], [0.34, -0.2], [0.22, -0.08], [0.17, 0.0],
+    ]), m.metal));
+    // Bell: outer skin and a dark inner wall, so the exit reads as hollow.
+    const outer: [number, number][] = [[0.17, 0.0], [0.2, 0.12], [0.3 * flare, 0.42], [0.46 * flare, 0.78], [0.52 * flare, 0.92]];
+    turned.add(new THREE.Mesh(lathe(outer), m.metal));
+    turned.add(new THREE.Mesh(lathe([[0.49 * flare, 0.92], [0.43 * flare, 0.78], [0.27 * flare, 0.42], [0.17, 0.12], [0.0, 0.1]]), m.dark));
+    // Lit throat deep in the bell; Mk III adds a second, wider ring.
+    const throat = new THREE.Mesh(new THREE.CircleGeometry(level >= 3 ? 0.17 : 0.13, 28), m.glow);
+    throat.rotation.x = -Math.PI / 2;
+    throat.position.y = 0.12;
+    turned.add(throat);
     if (level >= 3) {
-        const vane = createAerofoilGeometry({ span: 0.3, rootChord: 0.45, tipChord: 0.25, sweep: 0.12, thickness: 0.12, tipRound: 0.5 });
+        const halo = new THREE.Mesh(new THREE.TorusGeometry(0.25 * flare, 0.02, 8, 40), m.glow);
+        halo.rotation.x = Math.PI / 2;
+        halo.position.y = 0.36;
+        turned.add(halo);
+    }
+    // Exit lip.
+    const lip = new THREE.Mesh(new THREE.TorusGeometry(0.505 * flare, 0.028, 10, 48), level > 0 ? m.trim : m.metal);
+    lip.rotation.x = Math.PI / 2;
+    lip.position.y = 0.92;
+    turned.add(lip);
+    // Mk II+: cooling rings round the chamber and bell.
+    if (level >= 2) {
+        for (const [y, r] of [[-0.6, 0.375], [-0.4, 0.38], [0.55, 0.36 * flare]] as const) {
+            const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.024, 8, 40), m.trim);
+            ring.rotation.x = Math.PI / 2;
+            ring.position.y = y;
+            turned.add(ring);
+        }
+    }
+    // Mount flange behind the chamber.
+    const flange = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.08, 40), m.metal);
+    flange.position.y = -0.7;
+    turned.add(flange);
+    g.add(turned);
+    // Mk III: four vectoring vanes standing off the lip, angled into the exhaust.
+    if (level >= 3) {
+        const vane = createAerofoilGeometry({ span: 0.34, rootChord: 0.36, tipChord: 0.22, sweep: 0.08, thickness: 0.12, tipRound: 0.5 });
         for (let k = 0; k < 4; k++) {
             const pivot = new THREE.Group();
-            pivot.rotation.z = k * Math.PI / 2;
+            pivot.rotation.z = k * Math.PI / 2 + Math.PI / 4;
             const v = new THREE.Mesh(vane, m.trim);
-            v.position.set(0.82, 0, 0.2);
+            // Span radial (+X) from just outside the lip, chord along the axis.
+            v.position.set(0.5 * flare, 0, 1.02);
+            v.rotation.y = -0.25;              // toe the trailing edge inward
             pivot.add(v);
             g.add(pivot);
         }
     }
-    // Centre the cluster front-to-back.
-    g.position.z = -0.25;
-    const holder = new THREE.Group();
-    holder.add(g);
-    return holder;
+    return g;
 }
 
 // --- Fins: aerofoil stabilisers on a pylon. One fin, a canted pair, then a
