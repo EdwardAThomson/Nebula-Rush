@@ -29,7 +29,7 @@ I originally started building this game for free using Claude in the web browser
 -   **Campaign Mode**:
     -   Cups of 5 races with cumulative points; clearing a cup unlocks the next one plus new pilots, ships and tracks.
 -   **Ship & Pilot Selection**:
-    -   **4 Ship Classes**: *Lancer* (Balanced), *Rapier* (Acceleration & Drift), *Sledgehammer* (Grip & Armour), *Kestrel* (Top Speed).
+    -   **4 Ship Classes**: *Lancer* (Balanced), *Rapier* (Acceleration & Agility), *Sledgehammer* (Grip & Armour), *Kestrel* (Top Speed).
     -   **Ship paint customization**: primary + secondary colours with a live preview.
     -   **8 Unique Pilots**: Generated avatars with unique modifiers for Acceleration, Handling, and Velocity.
 -   **Dynamic Environments**:

@@ -19,6 +19,11 @@ export interface GameState {
     throttle: number;
     throttleRate?: number; // unset in the real game (defaults 0.05); physics-test-page hook
     friction: number; // NEW: Air drag
+    // Fraction of lateral (cross-track) velocity kept each frame. Corners are
+    // on rails, so this is not cornering drift: it sets how long a strafe or
+    // steer keeps sliding sideways after the key is released (0.92 stops in a
+    // few frames, 0.985 coasts for about a second) and the sideways top speed,
+    // strafeSpeed / (1 - slideFactor).
     slideFactor: number;
     accelFactor: number;
     turnSpeed: number;
@@ -58,7 +63,7 @@ export const INITIAL_GAME_STATE: GameState = {
     gravity: -0.015, // Stronger gravity for "heavy" feel
     throttle: 0,
     friction: 0.99, // Default Air Drag
-    slideFactor: 0.99, // what is this really doing?
+    slideFactor: 0.99, // lateral momentum kept per frame; see GameState.slideFactor
     accelFactor: 0.5,
     turnSpeed: 0.001,  // turn speed 0.02 was too fast
     strafeSpeed: 0.01, // 0.01 best
