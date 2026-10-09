@@ -25,6 +25,8 @@ import { TRACKS, TUTORIAL_TRACK, type TrackConfig } from './game/TrackDefinition
 import { CUPS, resolveCupTracks, getCupForTrack, isCupReady, type Cup } from './game/CupDefinitions';
 import { OpponentManager, type OpponentConfig } from './game/OpponentManager';
 import { markCupCleared, isCupUnlocked } from './game/cupProgress';
+import { getProfile } from './game/profile';
+import { formatCredits } from './game/economy';
 
 // Calculate display stats (0-100) dynamically from SHIP_STATS
 const getDisplayStats = (type: ShipType) => {
@@ -388,6 +390,11 @@ function App() {
           {/* Live attract-mode race, dimmed so the menu stays readable. */}
           <AttractBackground className="z-0" />
           <div className="absolute inset-0 z-0 pointer-events-none menu-scrim" />
+
+          {/* Credit balance (earned from race placement, spent in the Garage) */}
+          <div className="absolute top-6 right-6 z-10 credit-chip" title="Credits: earned from race placement">
+            {formatCredits(getProfile().credits)}
+          </div>
 
           <div className="relative z-10 flex flex-col items-center">
           <h1 className="menu-title mb-14" aria-label="Nebula Rush">

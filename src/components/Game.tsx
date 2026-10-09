@@ -17,6 +17,8 @@ import type { Pilot } from '../game/PilotDefinitions';
 import { DebugLightingPanel } from './DebugLightingPanel';
 import { audioManager } from '../game/AudioManager';
 import { PLAYER_START_T } from '../game/PhysicsEngine';
+import { addCredits, cupBonus, getTrackTier, racePayout } from '../game/economy';
+import type { CreditReward } from './Leaderboard';
 
 interface GameProps {
   shipConfig: ShipConfig;
@@ -93,6 +95,8 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
   // Results State
   const [raceResults, setRaceResults] = useState<RaceResult[]>([]);
+  // Credits banked for this race (shown on the results screen); null = none.
+  const [creditReward, setCreditReward] = useState<CreditReward | null>(null);
 
   const minimapRef = useRef<HTMLDivElement>(null);
 
@@ -897,6 +901,13 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           setCampaignScores(updatedScores);
           setRaceResults(results);
 
+          // Credits for the player's placement (garage currency, economy.ts).
+          // The tutorial pays nothing; a cup podium adds a bonus on the last race.
+          const tier = getTrackTier(currentTrack.id);
+          const playerIndex = allShips.findIndex(s => s.isPlayer);
+          const racePay = tutorial ? 0 : racePayout(playerIndex + 1, playerShip.current.retired, tier, isCampaign);
+          let podiumPay = 0;
+
           // Cup complete: on the final race, rank everyone by cumulative cup
           // points and report whether the player placed top 3 (unlocks next cup).
           if (isCampaign && currentTrackIndex === tracks.length - 1 && onCupComplete) {
@@ -908,7 +919,13 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
               .map(s => ({ isPlayer: s.isPlayer, total: (updatedScores[s.id] || 0) - (base[s.id] || 0) }))
               .sort((a, b) => b.total - a.total);
             const playerCupRank = standings.findIndex(s => s.isPlayer) + 1;
+            podiumPay = cupBonus(playerCupRank, tier);
             onCupComplete(playerCupRank >= 1 && playerCupRank <= 3, updatedScores);
+          }
+
+          if (!tutorial) {
+            const balance = addCredits(racePay + podiumPay);
+            setCreditReward({ race: racePay, cupBonus: podiumPay, balance });
           }
         }
       }
@@ -1125,6 +1142,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       setRaceState('intro');
       setCountdown(7);
       setRaceResults([]);
+      setCreditReward(null);
       raceStartedRef.current = false;
       raceFinishedRef.current = false;
       allFinishedRef.current = false;
@@ -1239,6 +1257,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
               onDownloadPhoto={downloadPhoto}
               onDownloadAll={downloadAllPhotos}
               onTutorial={onTutorial}
+              credits={creditReward}
               showTutorialHint={finalRank !== null && opponentCount >= 3 && finalRank >= opponentCount + 1 - 2}
             />
           </div>

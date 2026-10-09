@@ -694,3 +694,46 @@
   z-index: 1;
   text-shadow: 0 0 12px rgba(0, 0, 0, 0.9);
 }
+
+/* Credits (garage currency): results-screen strip and the menu balance chip. */
+.credit-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-left: 3px solid #fbbf24;
+  border-radius: 4px;
+  background: linear-gradient(100deg, rgba(251, 191, 36, 0.14), transparent 70%), rgba(10, 14, 28, 0.7);
+}
+.credit-amount {
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: #fde68a;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.55);
+}
+.credit-bonus { color: #fcd34d; font-size: 1rem; }
+.credit-balance {
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #fff7d6;
+}
+.credit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.9rem;
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: #fde68a;
+  background: rgba(10, 14, 28, 0.75);
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  border-radius: 4px;
+  box-shadow: 0 0 14px rgba(251, 191, 36, 0.2);
+  backdrop-filter: blur(6px);
+}

@@ -1,4 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { formatCredits } from '../game/economy';
+
+// Credits banked for the race just run (see economy.ts).
+export interface CreditReward {
+    race: number;       // placement payout
+    cupBonus: number;   // cup podium bonus (final race of a cup only)
+    balance: number;    // profile balance after banking
+}
 
 export interface RaceResult {
     id: string;
@@ -22,9 +30,10 @@ interface LeaderboardProps {
     onDownloadAll?: () => void;
     onTutorial?: () => void;
     showTutorialHint?: boolean;
+    credits?: CreditReward | null;
 }
 
-export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, onNextRace, onNextCup, onExit, isCampaign = false, photos, onDownloadPhoto, onDownloadAll, onTutorial, showTutorialHint }) => {
+export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, onNextRace, onNextCup, onExit, isCampaign = false, photos, onDownloadPhoto, onDownloadAll, onTutorial, showTutorialHint, credits }) => {
     const [viewMode, setViewMode] = useState<'race' | 'campaign'>('race');
     const [preview, setPreview] = useState<number | null>(null); // photo lightbox index
 
@@ -143,6 +152,22 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ results, onRestart, on
                                     <img src={p.url} alt={`Race photo ${i + 1}`} className="h-16 rounded" />
                                 </button>
                             ))}
+                        </div>
+                    </div>
+                )}
+
+                {credits && (
+                    <div className="credit-strip mb-6">
+                        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+                            <span className="neon-label text-amber-300">Credits earned</span>
+                            <span className="credit-amount">+{formatCredits(credits.race)}</span>
+                            {credits.cupBonus > 0 && (
+                                <span className="credit-amount credit-bonus">+{formatCredits(credits.cupBonus)} <span className="stat-label">cup podium</span></span>
+                            )}
+                        </div>
+                        <div className="text-right">
+                            <div className="stat-label">Balance</div>
+                            <div className="credit-balance">{formatCredits(credits.balance)}</div>
                         </div>
                     </div>
                 )}
