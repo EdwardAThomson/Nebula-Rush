@@ -413,11 +413,12 @@ function App() {
           <div className="absolute inset-0 z-0 pointer-events-none menu-scrim" />
 
           <div className="relative z-10 flex flex-col items-center">
-          <h1 className="menu-title text-6xl md:text-8xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 via-sky-400 to-fuchsia-500 mb-12">
-            NEBULA RUSH
+          <h1 className="menu-title mb-14" aria-label="Nebula Rush">
+            <span className="menu-title-word menu-title-nebula" data-text="NEBULA">NEBULA</span>
+            <span className="menu-title-word menu-title-rush" data-text="RUSH">RUSH</span>
           </h1>
 
-          <div className="flex flex-col gap-3 w-72">
+          <div className="flex flex-col gap-4 w-[22rem] max-w-[86vw]">
             <AudioButton
               onClick={handleNewGame}
               className="menu-btn menu-btn-primary"
@@ -481,7 +482,7 @@ function App() {
               TRACK ANALYSIS
             </AudioButton>
 */}
-            <div className="grid grid-cols-2 gap-3 mt-2">
+            <div className="grid grid-cols-2 gap-4 mt-2">
               <AudioButton
                 onClick={() => setShowHelp(true)}
                 className="menu-btn menu-btn-ghost"

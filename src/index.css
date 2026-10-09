@@ -24,10 +24,64 @@
   backdrop-filter: blur(1px) saturate(1.15);
 }
 
+/* Title: Orbitron, italicised by skew, chrome-gradient letters with a hard
+   horizon line (cyan for NEBULA, magenta for RUSH), neon glow, speed streaks
+   trailing off the left, and a periodic light glint across the letters. */
 .menu-title {
-  filter: drop-shadow(0 0 18px rgba(34, 211, 238, 0.45)) drop-shadow(0 0 40px rgba(217, 70, 239, 0.25));
-  letter-spacing: 0.04em;
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 0.32em;
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 900;
+  font-size: clamp(3rem, 9vw, 8rem);
+  line-height: 1;
+  letter-spacing: 0.06em;
+  transform: skewX(-10deg);
+  /* Thin neon rule under the title, cyan to magenta. */
+  padding-bottom: 0.18em;
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.9) 20%, rgba(217, 70, 239, 0.9) 80%, transparent) bottom / 100% 2px no-repeat;
 }
+.menu-title-word {
+  --glow: 34, 211, 238;
+  background:
+    linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, 0.95) 50%, transparent 58%) no-repeat,
+    var(--chrome);
+  background-size: 300% 100%, 100% 100%;
+  background-position: 150% 0, 0 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 2px rgba(var(--glow), 0.9)) drop-shadow(0 0 22px rgba(var(--glow), 0.55));
+  animation: menu-title-glint 7s ease-in-out infinite;
+}
+.menu-title-nebula {
+  --chrome: linear-gradient(180deg, #ffffff 0%, #d9faff 38%, #67e8f9 50%, #0891b2 51%, #22d3ee 78%, #a5f3fc 100%);
+}
+.menu-title-rush {
+  --glow: 217, 70, 239;
+  --chrome: linear-gradient(180deg, #ffffff 0%, #fae8ff 38%, #f0abfc 50%, #a21caf 51%, #d946ef 78%, #f5d0fe 100%);
+  animation-delay: 0.25s;
+}
+@keyframes menu-title-glint {
+  0%, 70% { background-position: 150% 0, 0 0; }
+  85%, 100% { background-position: -50% 0, 0 0; }
+}
+/* Speed streaks trailing off the left of the title. */
+.menu-title::before,
+.menu-title::after {
+  content: '';
+  position: absolute;
+  right: 100%;
+  margin-right: 0.25em;
+  height: 0.05em;
+  border-radius: 999px;
+  background: linear-gradient(to left, rgba(34, 211, 238, 0.9), transparent);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.6);
+}
+.menu-title::before { top: 38%; width: 1.8em; }
+.menu-title::after { top: 62%; width: 1.1em; opacity: 0.7; }
+
 
 /* Neon menu buttons: dark glass, an angled cut corner, coloured edge + glow.
    Each variant just sets --accent. */
@@ -35,14 +89,16 @@
   --accent: 34, 211, 238;
   position: relative;
   overflow: hidden;
-  padding: 0.8rem 1.5rem;
+  padding: 1.05rem 1.5rem;
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-size: 1.05rem;
   font-weight: 700;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.2em;
   color: #e6f6ff;
   background: linear-gradient(100deg, rgba(var(--accent), 0.22), rgba(10, 14, 28, 0.72) 55%);
   border: 1px solid rgba(var(--accent), 0.55);
   border-left: 3px solid rgb(var(--accent));
-  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
   box-shadow: inset 0 0 18px rgba(var(--accent), 0.12);
   backdrop-filter: blur(6px);
   text-shadow: 0 0 10px rgba(var(--accent), 0.6);
@@ -77,22 +133,23 @@
 
 .menu-btn-primary {
   --accent: 34, 211, 238;
-  padding-top: 1.05rem;
-  padding-bottom: 1.05rem;
-  font-size: 1.1rem;
+  padding-top: 1.35rem;
+  padding-bottom: 1.35rem;
+  font-size: 1.3rem;
 }
 .menu-btn-indigo { --accent: 129, 140, 248; }
 .menu-btn-fuchsia { --accent: 217, 70, 239; }
 .menu-btn-ghost {
   --accent: 148, 163, 184;
-  padding: 0.6rem 0.75rem;
-  font-size: 0.8rem;
+  padding: 0.85rem 0.75rem;
+  font-size: 0.9rem;
   letter-spacing: 0.15em;
   color: #cbd5e1;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .menu-btn, .menu-btn::after { transition: none; }
+  .menu-title-word { animation: none; }
 }
 
 /* The tutorial nudge's outer glow is clipped by the cut corners, so on menu
