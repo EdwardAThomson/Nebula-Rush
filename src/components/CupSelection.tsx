@@ -21,7 +21,7 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
             <h2 className="text-4xl font-bold text-white mb-2">SELECT CUP</h2>
             <p className="text-gray-400 text-sm mb-6">Win a cup (finish top 3) to unlock the next.</p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
+            <div className="grid grid-cols-1 md:grid-cols-3 content-start gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
                 {CUPS.map((cup) => {
                     const ready = isCupReady(cup);
                     const unlocked = isCupUnlocked(cup, cleared);
@@ -42,7 +42,7 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
                             key={cup.id}
                             onClick={selectable ? () => { audioManager.playClick(); onSelect(cup); } : undefined}
                             onMouseEnter={selectable ? () => audioManager.playHover() : undefined}
-                            className={`relative p-6 rounded-xl border-2 transition-all bg-gray-800 ${selectable
+                            className={`relative p-6 pb-8 rounded-xl border-2 transition-all bg-gray-800 ${selectable
                                 ? 'cursor-pointer hover:bg-gray-700 transform hover:-translate-y-2'
                                 : 'opacity-50 cursor-not-allowed'
                                 }`}
@@ -59,7 +59,7 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
                                 {cup.theme}
                             </div>
                             <h3 className="text-2xl font-bold text-white mb-2">{cup.name}</h3>
-                            <p className="text-gray-400 text-sm mb-4 h-10">{cup.description}</p>
+                            <p className="text-gray-400 text-sm mb-6 min-h-10">{cup.description}</p>
 
                             <ol className="space-y-1">
                                 {trackNames.map((name, i) => (
