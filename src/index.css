@@ -500,3 +500,116 @@
     animation: none;
   }
 }
+
+/* ---- Selection cards ---------------------------------------------------- */
+
+/* Track map well: dark inset the neon track line glows in. */
+.track-map {
+  position: relative;
+  height: 12rem;
+  background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--card-accent) 12%, transparent), transparent 70%), #04060d;
+  border-bottom: 1px solid color-mix(in srgb, var(--card-accent) 30%, transparent);
+  border-radius: 5px 5px 0 0;
+  overflow: hidden;
+}
+.track-map canvas { transition: filter 220ms ease, transform 400ms ease; }
+.neon-card-live:hover .track-map canvas { filter: brightness(1.35) saturate(1.2); transform: scale(1.04); }
+
+/* Small corner tag (track number in its cup, etc.). */
+.card-tag {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  padding: 0.15rem 0.5rem;
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--card-accent);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid color-mix(in srgb, var(--card-accent) 45%, transparent);
+  border-radius: 3px;
+}
+
+/* Difficulty: five slanted pips, lit in the card accent. */
+.diff-pips { display: flex; gap: 3px; }
+.diff-pips span {
+  width: 9px;
+  height: 14px;
+  transform: skewX(-20deg);
+  background: rgba(255, 255, 255, 0.1);
+}
+.diff-pips span.on {
+  background: var(--card-accent);
+  box-shadow: 0 0 6px var(--card-accent);
+}
+
+/* Ship hangar bay behind the 3D preview: an accent spotlight over a floor grid. */
+.ship-bay {
+  position: relative;
+  height: 12rem;
+  overflow: hidden;
+  border-radius: 4px;
+  background:
+    radial-gradient(ellipse 60% 55% at 50% 38%, color-mix(in srgb, var(--card-accent) 32%, transparent), transparent 72%),
+    linear-gradient(180deg, #060912, #0b1020);
+  border: 1px solid color-mix(in srgb, var(--card-accent) 25%, transparent);
+}
+.ship-bay::before {
+  content: '';
+  position: absolute;
+  left: -40%;
+  right: -40%;
+  bottom: 0;
+  height: 55%;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--card-accent) 30%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--card-accent) 30%, transparent) 1px, transparent 1px);
+  background-size: 26px 26px;
+  transform: perspective(240px) rotateX(58deg);
+  transform-origin: bottom;
+  mask-image: linear-gradient(to top, black, transparent 90%);
+  -webkit-mask-image: linear-gradient(to top, black, transparent 90%);
+  pointer-events: none;
+}
+.ship-bay > * { position: relative; }
+
+/* Segmented stat bar (ship + pilot cards). */
+.seg-bar { display: flex; gap: 3px; flex: 1; }
+.seg-bar span {
+  flex: 1;
+  height: 7px;
+  transform: skewX(-20deg);
+}
+/* Unlit only: lit segments take their colour from a Tailwind bg-* class,
+   which this unlayered rule would otherwise override. */
+.seg-bar span:not(.on) { background: rgba(255, 255, 255, 0.08); }
+.seg-bar span.on { filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.35)); }
+.stat-label {
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+/* Pilot portrait: name sits on a fade at the bottom of the image. */
+.pilot-portrait { position: relative; height: 16rem; overflow: hidden; border-radius: 5px 5px 0 0; }
+.pilot-portrait::after {
+  content: '';
+  position: absolute;
+  inset: 45% 0 0 0;
+  background: linear-gradient(to bottom, transparent, rgba(10, 14, 28, 0.96));
+  pointer-events: none;
+}
+.pilot-portrait img { transition: transform 500ms ease; }
+.neon-card-live:hover .pilot-portrait img { transform: scale(1.08); }
+.pilot-name {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 0.7rem;
+  z-index: 1;
+  text-shadow: 0 0 12px rgba(0, 0, 0, 0.9);
+}

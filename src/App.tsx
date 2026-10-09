@@ -81,13 +81,13 @@ const numToCss = (n: number) => '#' + n.toString(16).padStart(6, '0');
 // once. Class strings stay literal (Tailwind needs them scannable).
 const SHIP_CARDS: {
   type: ShipType; title: string; color: number; info: string;
-  titleClass: string; borderClass: string; bgClass: string;
+  titleClass: string;
   stats: { label: string; key: 'speed' | 'accel' | 'handling' | 'drift' | 'energy'; barClass: string }[];
 }[] = [
   {
     type: 'fighter', title: 'FIGHTER', color: 0xcc0000,
     info: 'Perfectly balanced stats. Good for beginners and pros alike.',
-    titleClass: 'text-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-900',
+    titleClass: 'text-red-500',
     stats: [
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
@@ -98,7 +98,7 @@ const SHIP_CARDS: {
   {
     type: 'interceptor', title: 'INTERCEPTOR', color: 0x00ff00,
     info: 'Bi-plane design. Best-in-class acceleration and turning.',
-    titleClass: 'text-green-500', borderClass: 'border-green-500', bgClass: 'bg-green-900',
+    titleClass: 'text-green-500',
     stats: [
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
@@ -109,7 +109,7 @@ const SHIP_CARDS: {
   {
     type: 'tank', title: 'TANK', color: 0xcccc00,
     info: 'Incredible acceleration and grip, but lower top speed.',
-    titleClass: 'text-yellow-500', borderClass: 'border-yellow-500', bgClass: 'bg-yellow-900',
+    titleClass: 'text-yellow-500',
     stats: [
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
@@ -120,7 +120,7 @@ const SHIP_CARDS: {
   {
     type: 'corsair', title: 'CORSAIR', color: 0x5500aa,
     info: 'Aggressive styling. High speed and extreme drift capabilities.',
-    titleClass: 'text-purple-500', borderClass: 'border-purple-500', bgClass: 'bg-purple-900',
+    titleClass: 'text-purple-500',
     stats: [
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
@@ -131,7 +131,7 @@ const SHIP_CARDS: {
   {
     type: 'speedster', title: 'SPEEDSTER', color: 0x00ccff,
     info: 'High top speed, but slower acceleration. Built for long straights.',
-    titleClass: 'text-cyan-400', borderClass: 'border-cyan-500', bgClass: 'bg-cyan-900',
+    titleClass: 'text-cyan-400',
     stats: [
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
@@ -572,7 +572,7 @@ function App() {
                       </div>
                     )}
                     <div
-                      className={`h-48 ${locked ? 'bg-gray-900' : card.bgClass} bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden relative`}
+                      className="ship-bay mb-4 flex items-center justify-center"
                       style={locked ? { filter: 'grayscale(1) brightness(0.6)' } : undefined}
                     >
                       <ShipPreview color={card.color} type={card.type} />
@@ -661,32 +661,38 @@ function App() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {group.tracks.map(track => {
+                    {group.tracks.map((track, i) => {
                       const index = TRACKS.indexOf(track);
                       return group.locked ? (
                         <div
                           key={track.id}
-                          className="neon-card neon-card-locked p-6"
+                          className="neon-card neon-card-locked"
                         >
-                          <div className="h-48 bg-black bg-opacity-50 rounded mb-4 flex items-center justify-center overflow-hidden border border-gray-700 relative" style={{ filter: 'grayscale(1) brightness(0.6)' }}>
-                            <TrackPreview points={track.points} />
+                          <div className="track-map" style={{ filter: 'grayscale(1) brightness(0.6)' }}>
+                            <TrackPreview points={track.points} color="#64748b" />
                           </div>
-                          <h3 className="neon-card-title text-xl mb-2 text-gray-500">{track.name}</h3>
-                          <p className="text-gray-600 text-sm">{track.description}</p>
+                          <div className="px-5 py-4 flex items-center justify-between gap-3">
+                            <h3 className="neon-card-title text-lg text-gray-500">{track.name}</h3>
+                            <DifficultyPips value={track.difficulty} />
+                          </div>
                         </div>
                       ) : (
                         <div
                           key={track.id}
                           onClick={() => { audioManager.playClick(); handleTrackSelect(index); }}
                           onMouseEnter={() => audioManager.playHover()}
-                          className="neon-card neon-card-live p-6 group"
+                          className="neon-card neon-card-live group"
                           style={{ '--card-accent': numToCss(group.accent) } as React.CSSProperties}
+                          title={track.description}
                         >
-                          <div className="h-48 bg-black bg-opacity-50 rounded mb-4 flex items-center justify-center overflow-hidden border border-gray-700">
-                            <TrackPreview points={track.points} />
+                          <div className="track-map">
+                            <TrackPreview points={track.points} color={numToCss(group.accent)} />
+                            <span className="card-tag">{String(i + 1).padStart(2, '0')}</span>
                           </div>
-                          <h3 className="neon-card-title text-xl mb-2" style={{ color: numToCss(group.accent) }}>{track.name}</h3>
-                          <p className="text-gray-400 text-sm">{track.description}</p>
+                          <div className="px-5 py-4 flex items-center justify-between gap-3">
+                            <h3 className="neon-card-title text-lg text-white">{track.name}</h3>
+                            <DifficultyPips value={track.difficulty} />
+                          </div>
                         </div>
                       );
                     })}
@@ -963,12 +969,26 @@ function InfoTip({ text }: { text: string }) {
   );
 }
 
+// 0–100 stat as ten slanted segments.
 function StatBar({ label, value, color }: { label: string, value: number, color: string }) {
+  const lit = Math.round(value / 10);
   return (
-    <div className="flex items-center text-xs">
-      <span className="w-16 text-gray-400">{label}</span>
-      <div className="flex-1 h-2 bg-gray-900 rounded overflow-hidden">
-        <div className={`h-full ${color}`} style={{ width: `${value}%` }}></div>
+    <div className="flex items-center gap-3">
+      <span className="stat-label w-20">{label}</span>
+      <div className="seg-bar">
+        {Array.from({ length: 10 }, (_, i) => <span key={i} className={i < lit ? `on ${color}` : ''} />)}
+      </div>
+    </div>
+  );
+}
+
+// Track difficulty (1–5) as lit pips in the card's accent colour.
+function DifficultyPips({ value }: { value: number }) {
+  return (
+    <div className="flex items-center gap-2 shrink-0" title={`Difficulty ${value} / 5`}>
+      <span className="stat-label">DIFF</span>
+      <div className="diff-pips">
+        {Array.from({ length: 5 }, (_, i) => <span key={i} className={i < value ? 'on' : ''} />)}
       </div>
     </div>
   );

@@ -32,15 +32,18 @@ export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK', o
                             ? 'neon-card neon-card-locked relative w-64 flex flex-col'
                             : 'neon-card neon-card-live group relative w-64 flex flex-col'}
                     >
-                        {/* Image */}
-                        <div className="h-64 w-full overflow-hidden rounded-t-[4px]">
+                        {/* Portrait, with the name on a fade along its bottom edge */}
+                        <div className="pilot-portrait">
                             <img
                                 src={pilot.imagePath}
                                 alt={pilot.name}
                                 className={locked
                                     ? 'w-full h-full object-cover grayscale brightness-50'
-                                    : 'w-full h-full object-cover transition-transform duration-500 hover:scale-110'}
+                                    : 'w-full h-full object-cover'}
                             />
+                            <h3 className={`pilot-name neon-card-title text-lg ${locked ? 'text-gray-500' : 'text-white group-hover:text-cyan-300'}`}>
+                                {pilot.name}
+                            </h3>
                         </div>
 
                         {/* Locked overlay: how to earn this pilot */}
@@ -66,13 +69,9 @@ export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK', o
                         )}
 
                         {/* Info */}
-                        <div className="p-5 pb-6 flex-1 flex flex-col">
-                            <h3 className={`neon-card-title text-lg mb-8 ${locked ? 'text-gray-500' : 'text-white group-hover:text-cyan-400'}`}>
-                                {pilot.name}
-                            </h3>
-
+                        <div className="px-5 pt-4 pb-5 flex-1 flex flex-col">
                             {/* Stats */}
-                            <div className="space-y-2 mt-auto">
+                            <div className="space-y-2.5 mt-auto">
                                 <StatRow label="VEL" value={pilot.stats.velocity} color="bg-cyan-500" />
                                 <StatRow label="ACC" value={pilot.stats.acceleration} color="bg-yellow-500" />
                                 <StatRow label="HND" value={pilot.stats.handling} color="bg-purple-500" />
@@ -124,14 +123,11 @@ function StatRow({ label, value, color }: { label: string, value: number, color:
     const filledCount = value + 3;
 
     return (
-        <div className="flex items-center text-xs">
-            <span className="w-8 font-bold text-gray-500">{label}</span>
-            <div className="flex-1 flex space-x-1">
+        <div className="flex items-center gap-3">
+            <span className="stat-label w-8">{label}</span>
+            <div className="seg-bar">
                 {[...Array(5)].map((_, i) => (
-                    <div
-                        key={i}
-                        className={`h-2 flex-1 rounded-sm ${i < filledCount ? color : 'bg-gray-800'}`}
-                    />
+                    <span key={i} className={i < filledCount ? `on ${color}` : ''} />
                 ))}
             </div>
         </div>
