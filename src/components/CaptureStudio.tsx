@@ -7,13 +7,17 @@ import { TRACKS } from '../game/TrackDefinitions';
 
 // Dev-only studio that renders real Three.js exhibits and downloads each as a
 // PNG (transparent or dark) for blog/vlog visuals.
-//   - Ships: the current ship models.
+//   - Ships: the current smooth ship models.
+//   - Wing bug: the real fighter with its left wing built the buggy way
+//     (180° rotation flips the chord -> curve at the back) vs the fix.
 //   - Track surface: a real track's road with the neon markings + checkered start.
 
 interface CaptureStudioProps { onBack: () => void; }
 
-const SHIP_TYPES: ShipType[] = ['lancer', 'rapier', 'sledge', 'kestrel'];
+// The roster first, then the retired capsule-era ships.
+const SHIP_TYPES: ShipType[] = ['lancer', 'rapier', 'sledge', 'kestrel', 'fighter', 'speedster', 'tank', 'interceptor', 'corsair'];
 const SHIP_COLORS: Record<ShipType, number> = {
+    fighter: 0xcc0000, speedster: 0x00ccff, tank: 0xcccc00, interceptor: 0x00ff00, corsair: 0x5500aa,
     lancer: 0xd9531e, rapier: 0x2e7bd6, sledge: 0xc8a34a, kestrel: 0x9b1b3c,
 };
 
@@ -41,7 +45,7 @@ const naiveStretchTexture = (accent: number) => {
     return t;
 };
 
-type Kind = 'ship' | 'track';
+type Kind = 'ship' | 'wing' | 'track';
 
 export default function CaptureStudio({ onBack }: CaptureStudioProps) {
     const mountRef = useRef<HTMLDivElement>(null);
@@ -53,6 +57,7 @@ export default function CaptureStudio({ onBack }: CaptureStudioProps) {
 
     const [kind, setKind] = useState<Kind>('ship');
     const [shipIndex, setShipIndex] = useState(0);
+    const [buggy, setBuggy] = useState(true);
     const [trackIndex, setTrackIndex] = useState(0);
     const [trackBefore, setTrackBefore] = useState(true);
     const [transparent, setTransparent] = useState(true);
@@ -60,7 +65,8 @@ export default function CaptureStudio({ onBack }: CaptureStudioProps) {
     const shipType = SHIP_TYPES[shipIndex];
     const captureName =
         kind === 'ship' ? `nebula_rush_${shipType}`
-            : `track_surface_${TRACKS[trackIndex].id}_${trackBefore ? 'stretched' : 'clean'}`;
+            : kind === 'wing' ? (buggy ? 'wing_bug_before' : 'wing_bug_after')
+                : `track_surface_${TRACKS[trackIndex].id}_${trackBefore ? 'stretched' : 'clean'}`;
 
     useEffect(() => {
         const container = mountRef.current;
@@ -91,6 +97,9 @@ export default function CaptureStudio({ onBack }: CaptureStudioProps) {
         if (kind === 'ship') {
             scene.add(createShip(SHIP_COLORS[shipType], shipType).mesh);
             o.target.set(0, 0.4, 0.5); o.radius = 11; o.theta = 0.7; o.phi = 1.1; o.up.set(0, 1, 0);
+        } else if (kind === 'wing') {
+            scene.add(createShip(SHIP_COLORS.fighter, 'fighter', 0xeeeeee, buggy).mesh);
+            o.target.set(0, 0.4, 0.5); o.radius = 9; o.theta = 0.0001; o.phi = 0.2; o.up.set(0, 0, -1); // top-down, forward up
         } else {
             const track = TRACKS[trackIndex];
             const curve = createTrackCurve(track.points);
@@ -156,7 +165,7 @@ export default function CaptureStudio({ onBack }: CaptureStudioProps) {
             scene.environment?.dispose();
             renderer.dispose();
         };
-    }, [kind, shipType, trackIndex, trackBefore, transparent]);
+    }, [kind, shipType, buggy, trackIndex, trackBefore, transparent]);
 
     const download = () => {
         const r = rendererRef.current, s = sceneRef.current, c = cameraRef.current;
@@ -194,6 +203,7 @@ export default function CaptureStudio({ onBack }: CaptureStudioProps) {
             <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
                 <div className="flex gap-2">
                     <button className={btn(kind === 'ship')} onClick={() => setKind('ship')}>Ships</button>
+                    <button className={btn(kind === 'wing')} onClick={() => setKind('wing')}>Wing bug</button>
                     <button className={btn(kind === 'track')} onClick={() => setKind('track')}>Track surface</button>
                 </div>
 
@@ -202,6 +212,12 @@ export default function CaptureStudio({ onBack }: CaptureStudioProps) {
                         <button className={btn(false)} onClick={() => setShipIndex(i => (i - 1 + SHIP_TYPES.length) % SHIP_TYPES.length)}>‹</button>
                         <span className="w-28 text-center text-white font-bold uppercase">{shipType}</span>
                         <button className={btn(false)} onClick={() => setShipIndex(i => (i + 1) % SHIP_TYPES.length)}>›</button>
+                    </div>
+                )}
+                {kind === 'wing' && (
+                    <div className="flex gap-2">
+                        <button className={btn(buggy)} onClick={() => setBuggy(true)}>Before (buggy)</button>
+                        <button className={btn(!buggy)} onClick={() => setBuggy(false)}>After (fixed)</button>
                     </div>
                 )}
                 {kind === 'track' && (

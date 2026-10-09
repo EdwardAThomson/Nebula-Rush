@@ -31,8 +31,9 @@ const getDisplayStats = (type: ShipType) => {
   // Calculate top speed from friction: topSpeed = accelFactor / (1 - friction)
   const topSpeed = stats.accelFactor / (1 - stats.friction);
 
-  // Get min/max across all ships for normalization
-  const allStats = Object.values(SHIP_STATS);
+  // Get min/max across the roster (the ship cards) for normalization; the
+  // retired ships still in SHIP_STATS must not stretch the bars.
+  const allStats = SHIP_CARDS.map(c => SHIP_STATS[c.type]);
   const allTopSpeeds = allStats.map(s => s.accelFactor / (1 - s.friction));
   const allAccels = allStats.map(s => s.accelFactor);
   const allHandling = allStats.map(s => s.turnSpeed + (1 - s.slideFactor) * 0.5); // Combined turn + grip
