@@ -17,6 +17,7 @@ import ShipDemo from './components/ShipDemo';
 import PhysicsTest from './components/PhysicsTest';
 import CaptureStudio from './components/CaptureStudio';
 import SettingsMenu from './components/SettingsMenu';
+import Garage from './components/Garage';
 import type { Pilot } from './game/PilotDefinitions';
 import type { EnvironmentConfig } from './game/EnvironmentManager';
 import { getUnlockedShipTypes, getSignatureShip, getUnlockHint } from './game/unlocks';
@@ -157,7 +158,7 @@ const AudioButton = ({
 );
 
 function App() {
-  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'cup_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo' | 'capture' | 'tutorial' | 'physics_test'>('start');
+  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'cup_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo' | 'capture' | 'tutorial' | 'physics_test' | 'garage'>('start');
   const [gameMode, setGameMode] = useState<'campaign' | 'single_race'>('campaign');
   const [isLoading, setIsLoading] = useState(false); // NEW: Loading state
   const [showHelp, setShowHelp] = useState(false);
@@ -421,6 +422,12 @@ function App() {
             >
               SINGLE RACE
             </AudioButton>
+            <AudioButton
+              onClick={() => setScreen('garage')}
+              className="menu-btn menu-btn-gold"
+            >
+              GARAGE
+            </AudioButton>
             {/* Capture Studio (dev/vlog tool) — delinked from the menu; re-enable
                 this button or call setScreen('capture') to reach it.
             <button
@@ -570,6 +577,13 @@ function App() {
               </button>
             </div>
           </div>
+        )
+      }
+
+      {/* GARAGE (spend credits on parts) */}
+      {
+        screen === 'garage' && (
+          <Garage onBack={() => setScreen('start')} />
         )
       }
 

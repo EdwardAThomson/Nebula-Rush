@@ -18,6 +18,8 @@ import { DebugLightingPanel } from './DebugLightingPanel';
 import { audioManager } from '../game/AudioManager';
 import { PLAYER_START_T } from '../game/PhysicsEngine';
 import { addCredits, cupBonus, getTrackTier, racePayout } from '../game/economy';
+import { aiPartPoints, partPoints } from '../game/garage';
+import { addPoints, applyTuning } from '../game/tuning';
 import type { CreditReward } from './Leaderboard';
 
 interface GameProps {
@@ -314,38 +316,15 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     if (pilot) {
       finalShipConfig.name = pilot.name;
       finalShipConfig.id = pilot.id;
-
-      // Apply Stats — the "decoupled" mapping, chosen by playtest on the
-      // Physics Test page (Aug 2026). Each stat owns exactly what its name
-      // says; top speed = accelFactor/(1-friction) at full throttle.
-      //
-      // Velocity → friction: SOLE owner of top speed (±0.0004/pt ≈ ±5%/pt).
-      // Applied first — the accel co-scaling below builds on the result.
-      if (pilot.stats.velocity !== 0) {
-        finalShipConfig.friction += (pilot.stats.velocity * 0.0004);
-      }
-
-      // Acceleration → thrust AND drag scaled together (×1.15/pt), so the
-      // ship converges on the SAME top speed proportionally faster, spools
-      // throttle quicker, and surges harder onto boosts. Off-throttle it also
-      // sheds speed faster (responsive vs floaty). Never changes top speed —
-      // the old accelFactor-only multiplier made accel a stronger top-speed
-      // stat than velocity itself.
-      if (pilot.stats.acceleration !== 0) {
-        const k = 1 + (pilot.stats.acceleration * 0.15);
-        finalShipConfig.accelFactor *= k;
-        finalShipConfig.friction = 1 - (1 - finalShipConfig.friction) * k;
-        finalShipConfig.throttleRate = 0.05 * k;
-      }
-
-      // Handling: +/- 10% per point to turnSpeed
-      if (pilot.stats.handling !== 0) {
-        const modifier = 1 + (pilot.stats.handling * 0.1);
-        finalShipConfig.turnSpeed *= modifier;
-        // Also affect strafe speed slightly?
-        finalShipConfig.strafeSpeed *= modifier;
-      }
     }
+
+    // Pilot stats plus installed garage parts, through the shared decoupled
+    // mapping (tuning.ts). The tutorial races a stock ship.
+    const zeroPoints = { velocity: 0, acceleration: 0, handling: 0 };
+    applyTuning(finalShipConfig, addPoints(
+      pilot ? pilot.stats : zeroPoints,
+      tutorial ? zeroPoints : partPoints(),
+    ));
 
     // Initialize Player Ship
     playerShip.current = new Ship(scene, true, finalShipConfig);
@@ -579,7 +558,10 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
     // Opponent Manager
     // Always create a new manager because 'scene' is new on every mount/effect run.
-    opponentManager.current = new OpponentManager(scene, trackCurve, roster, bankTrack, wallLimit, wind.enabled ? wind.lateralForce : undefined);
+    // Rivals carry the parts an average player has by this cup (garage.ts).
+    const aiPoints = aiPartPoints(getTrackTier(currentTrack.id));
+    const tunedRoster = roster.map(config => applyTuning({ ...config }, aiPoints));
+    opponentManager.current = new OpponentManager(scene, trackCurve, tunedRoster, bankTrack, wallLimit, wind.enabled ? wind.lateralForce : undefined);
 
 
 
