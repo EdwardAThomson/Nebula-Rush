@@ -3,6 +3,7 @@ import { audioManager } from '../game/AudioManager';
 import { formatCredits } from '../game/economy';
 import { PARTS, buyPart, getPartLevels, nextPrice, ENERGY_PER_LEVEL, POINTS_PER_LEVEL, MAX_PART_LEVEL, type PartDef } from '../game/garage';
 import { getProfile } from '../game/profile';
+import PartModelCanvas from './PartModelCanvas';
 
 interface GarageProps {
     onBack: () => void;
@@ -24,6 +25,8 @@ export default function Garage({ onBack }: GarageProps) {
     // counter to re-render rather than copying it into state).
     const [, setRevision] = useState(0);
     const [flash, setFlash] = useState<string | null>(null);
+    // Hovering a card previews the next part on its turntable.
+    const [hovered, setHovered] = useState<string | null>(null);
     const credits = getProfile().credits;
     const levels = getPartLevels();
 
@@ -50,16 +53,24 @@ export default function Garage({ onBack }: GarageProps) {
                     const price = nextPrice(part.slot, level);
                     const maxed = price === null;
                     const affordable = !maxed && credits >= price;
+                    const previewing = hovered === part.slot && !maxed;
                     return (
                         <div
                             key={part.slot}
-                            className={`neon-card garage-card w-60 flex flex-col p-5 ${flash === part.slot ? 'garage-card-flash' : ''}`}
+                            className={`neon-card garage-card w-64 flex flex-col p-5 ${flash === part.slot ? 'garage-card-flash' : ''}`}
                             style={{ ['--card-accent' as string]: part.accent }}
+                            onMouseEnter={() => setHovered(part.slot)}
+                            onMouseLeave={() => setHovered(null)}
                         >
                             <div className="neon-label" style={{ color: part.accent }}>{part.name}</div>
                             <div className="stat-label mt-1">{part.stat}</div>
 
-                            <div className="neon-card-title text-white text-base mt-4 min-h-[3rem]">
+                            <div className="part-stage mt-3">
+                                <PartModelCanvas slot={part.slot} level={previewing ? level + 1 : level} accent={part.accent} />
+                                {previewing && <span className="card-tag">PREVIEW · MK {'I'.repeat(level + 1)}</span>}
+                            </div>
+
+                            <div className="neon-card-title text-white text-base mt-3 min-h-[3rem]">
                                 {level > 0 ? part.levelNames[level - 1] : 'Stock'}
                             </div>
 

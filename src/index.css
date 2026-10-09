@@ -754,3 +754,15 @@
   box-shadow: none;
 }
 .menu-btn:disabled::after { display: none; }
+
+/* Garage turntable: the 3D part sits on a lit floor glow in the card accent. */
+.part-stage {
+  position: relative;
+  height: 10.5rem;
+  margin-left: -0.5rem;
+  margin-right: -0.5rem;
+  border-radius: 4px;
+  background:
+    radial-gradient(ellipse 60% 22% at 50% 88%, color-mix(in srgb, var(--card-accent) 35%, transparent), transparent 70%),
+    radial-gradient(ellipse 70% 60% at 50% 45%, color-mix(in srgb, var(--card-accent) 10%, transparent), transparent 75%);
+}
