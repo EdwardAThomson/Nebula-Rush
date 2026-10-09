@@ -38,25 +38,20 @@ export default function EnvironmentSelection({ onSelect, onBack, onMainMenu, isS
 
     return (
         <div className="flex flex-col items-center justify-center h-full relative z-10">
-            <h1 className="text-4xl md:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500 mb-12">
-                ENVIRONMENT
-            </h1>
+<div className="mb-12"><h2 className="screen-title">ENVIRONMENT</h2><div className="screen-rule" /></div>
 
             <div className="flex space-x-12 mb-12">
 
                 {/* TIME SELECTION */}
                 <div className="flex flex-col space-y-4">
-                    <h2 className="text-2xl font-bold text-gray-400 text-center mb-4">TIME OF DAY</h2>
+                    <h2 className="screen-section mb-4">TIME OF DAY</h2>
                     <div className="grid grid-cols-1 gap-4 w-64">
                         {TIMES.map((time) => (
                             <button
                                 key={time}
                                 onClick={() => { audioManager.playClick(); setSelectedTime(time); }}
                                 onMouseEnter={() => audioManager.playHover()}
-                                className={`px-6 py-4 rounded-lg font-bold uppercase transition-all transform hover:scale-105 ${selectedTime === time
-                                        ? 'bg-cyan-600 text-white shadow-[0_0_15px_rgba(8,145,178,0.5)] border-2 border-cyan-400'
-                                        : 'bg-gray-800 text-gray-400 border-2 border-transparent hover:bg-gray-700'
-                                    }`}
+                                className={`menu-btn menu-btn-option menu-btn-cyan uppercase ${selectedTime === time ? 'is-selected' : ''}`}
                             >
                                 {time}
                             </button>
@@ -66,10 +61,10 @@ export default function EnvironmentSelection({ onSelect, onBack, onMainMenu, isS
 
                 {/* WEATHER SELECTION — hidden on space tracks, where it has no effect */}
                 <div className="flex flex-col space-y-4">
-                    <h2 className="text-2xl font-bold text-gray-400 text-center mb-4">WEATHER</h2>
+                    <h2 className="screen-section mb-4">WEATHER</h2>
                     {isSpaceTrack ? (
                         <div className="grid grid-cols-1 gap-4 w-64">
-                            <div className="px-6 py-4 rounded-lg font-bold uppercase bg-gray-800 text-gray-500 border-2 border-transparent text-center">
+                            <div className="menu-btn menu-btn-option menu-btn-fuchsia uppercase text-center cursor-default">
                                 Clear (vacuum)
                             </div>
                             <p className="text-sm text-gray-500 text-center px-2">
@@ -83,10 +78,7 @@ export default function EnvironmentSelection({ onSelect, onBack, onMainMenu, isS
                                     key={weather}
                                     onClick={() => { audioManager.playClick(); setSelectedWeather(weather); }}
                                     onMouseEnter={() => audioManager.playHover()}
-                                    className={`px-6 py-4 rounded-lg font-bold uppercase transition-all transform hover:scale-105 ${effectiveWeather === weather
-                                            ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(147,51,234,0.5)] border-2 border-purple-400'
-                                            : 'bg-gray-800 text-gray-400 border-2 border-transparent hover:bg-gray-700'
-                                        }`}
+                                    className={`menu-btn menu-btn-option menu-btn-fuchsia uppercase ${effectiveWeather === weather ? 'is-selected' : ''}`}
                                 >
                                     {weather}
                                 </button>
@@ -107,7 +99,7 @@ export default function EnvironmentSelection({ onSelect, onBack, onMainMenu, isS
                 <button
                     onClick={() => { audioManager.playClick(); onBack(); }}
                     onMouseEnter={() => audioManager.playHover()}
-                    className="px-8 py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 font-bold rounded shadow-lg transition-all"
+                    className="menu-btn menu-btn-back"
                 >
                     BACK TO TRACK
                 </button>
@@ -115,7 +107,7 @@ export default function EnvironmentSelection({ onSelect, onBack, onMainMenu, isS
                     <button
                         onClick={() => { audioManager.playClick(); onMainMenu(); }}
                         onMouseEnter={() => audioManager.playHover()}
-                        className="px-8 py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 font-bold rounded shadow-lg transition-all"
+                        className="menu-btn menu-btn-back"
                     >
                         MAIN MENU
                     </button>
@@ -123,7 +115,7 @@ export default function EnvironmentSelection({ onSelect, onBack, onMainMenu, isS
                 <button
                     onClick={() => { audioManager.playClick(); handleConfirm(); }}
                     onMouseEnter={() => audioManager.playHover()}
-                    className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-cyan-700 hover:from-cyan-400 hover:to-cyan-600 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all border border-cyan-400"
+                    className="menu-btn menu-btn-primary min-w-[13rem]"
                 >
                     CONFIRM
                 </button>

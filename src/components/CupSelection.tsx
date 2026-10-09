@@ -1,6 +1,8 @@
+import { useState, type CSSProperties } from 'react';
 import { CUPS, resolveCupTracks, isCupReady, type Cup } from '../game/CupDefinitions';
 import { getClearedCups, isCupUnlocked, isCupSelectable } from '../game/cupProgress';
 import { audioManager } from '../game/AudioManager';
+import CupTrophyCanvas from './CupTrophyCanvas';
 
 interface CupSelectionProps {
     onSelect: (cup: Cup) => void;
@@ -15,13 +17,18 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
     const cleared = getClearedCups();
     // "Race All" chains every built cup; only worth offering with 2+ ready.
     const readyCupCount = CUPS.filter(isCupReady).length;
+    // The hovered selectable card shows its trophy live in 3D (see CupTrophyCanvas).
+    const [hoveredId, setHoveredId] = useState<string | null>(null);
 
     return (
         <div className="relative z-10 flex flex-col items-center h-full p-8">
-            <h2 className="text-4xl font-bold text-white mb-2">SELECT CUP</h2>
-            <p className="text-gray-400 text-sm mb-6">Win a cup (finish top 3) to unlock the next.</p>
+            <div className="mb-6">
+                <h2 className="screen-title">SELECT CUP</h2>
+                <div className="screen-rule" />
+                <p className="screen-subtitle mt-3">Win a cup (finish top 3) to unlock the next</p>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
+            <div className="grid grid-cols-1 md:grid-cols-3 content-start gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
                 {CUPS.map((cup) => {
                     const ready = isCupReady(cup);
                     const unlocked = isCupUnlocked(cup, cleared);
@@ -41,13 +48,24 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
                         <div
                             key={cup.id}
                             onClick={selectable ? () => { audioManager.playClick(); onSelect(cup); } : undefined}
-                            onMouseEnter={selectable ? () => audioManager.playHover() : undefined}
-                            className={`relative p-6 rounded-xl border-2 transition-all bg-gray-800 ${selectable
-                                ? 'cursor-pointer hover:bg-gray-700 transform hover:-translate-y-2'
+                            onMouseEnter={selectable ? () => { audioManager.playHover(); setHoveredId(cup.id); } : undefined}
+                            onMouseLeave={selectable ? () => setHoveredId((id) => (id === cup.id ? null : id)) : undefined}
+                            className={`cup-card relative p-6 pb-8 rounded-xl border-2 transition-all bg-gray-800 ${selectable
+                                ? 'cup-card-live cursor-pointer hover:bg-gray-700 transform hover:-translate-y-2'
                                 : 'opacity-50 cursor-not-allowed'
                                 }`}
-                            style={{ borderColor: selectable ? accent : '#374151' }}
+                            style={{ borderColor: selectable ? accent : '#374151', '--accent': accent } as CSSProperties}
                         >
+                            <div className="cup-card-art -mx-6 -mt-6 mb-4 rounded-t-[10px]">
+                                <img
+                                    src={cup.imagePath}
+                                    alt={`${cup.name} trophy`}
+                                    className="w-full aspect-[16/10] object-cover"
+                                />
+                                {selectable && <CupTrophyCanvas cupId={cup.id} active={hoveredId === cup.id} className="cup-trophy-live" />}
+                                <div className={`cup-card-ambient cup-ambient-${cup.ambient}`} aria-hidden="true" />
+                            </div>
+
                             <div
                                 className="absolute top-4 right-4 text-xs font-bold tracking-wider px-2 py-1 rounded"
                                 style={{ color: badge.color, backgroundColor: 'rgba(0,0,0,0.4)' }}
@@ -59,7 +77,7 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
                                 {cup.theme}
                             </div>
                             <h3 className="text-2xl font-bold text-white mb-2">{cup.name}</h3>
-                            <p className="text-gray-400 text-sm mb-4 h-10">{cup.description}</p>
+                            <p className="text-gray-400 text-sm mb-6 min-h-10">{cup.description}</p>
 
                             <ol className="space-y-1">
                                 {trackNames.map((name, i) => (
@@ -82,7 +100,7 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
                 <button
                     onClick={() => { audioManager.playClick(); onBack(); }}
                     onMouseEnter={() => audioManager.playHover()}
-                    className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
+                    className="menu-btn menu-btn-back"
                 >
                     BACK TO MENU
                 </button>
@@ -90,7 +108,7 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
                     <button
                         onClick={() => { audioManager.playClick(); onRaceAll(); }}
                         onMouseEnter={() => audioManager.playHover()}
-                        className="px-8 py-3 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold rounded shadow-lg transition-all transform hover:scale-105"
+                        className="menu-btn menu-btn-back menu-btn-gold"
                         title="Race every built cup back-to-back"
                     >
                         🏆 RACE ALL

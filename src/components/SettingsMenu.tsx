@@ -53,14 +53,14 @@ export default function SettingsMenu({ onClose }: SettingsMenuProps) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80">
-            <div className="bg-gray-900 border-2 border-cyan-500 rounded-xl p-8 w-full max-w-md shadow-[0_0_30px_rgba(34,211,238,0.3)]">
-                <h2 className="text-3xl font-bold text-cyan-400 mb-8 text-center">SETTINGS</h2>
+        <div className="neon-modal-backdrop fixed inset-0 z-50 flex items-center justify-center">
+            <div className="neon-modal p-8 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                <h2 className="screen-title mb-8">SETTINGS</h2>
 
                 {/* SFX Section */}
                 <div className="mb-6">
                     <div className="flex items-center justify-between mb-2">
-                        <label className="text-white font-bold">Sound Effects</label>
+                        <label className="neon-label text-white">Sound Effects</label>
                         <button
                             onClick={handleSfxToggle}
                             onMouseEnter={() => audioManager.playHover()}
@@ -97,7 +97,7 @@ export default function SettingsMenu({ onClose }: SettingsMenuProps) {
                 {/* Music Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between mb-2">
-                        <label className="text-white font-bold">Music</label>
+                        <label className="neon-label text-white">Music</label>
                         <button
                             onClick={handleMusicToggle}
                             onMouseEnter={() => audioManager.playHover()}
@@ -126,7 +126,7 @@ export default function SettingsMenu({ onClose }: SettingsMenuProps) {
                 {/* Gameplay Section */}
                 <div className="mb-8">
                     <div className="flex items-center justify-between mb-1">
-                        <label className="text-white font-bold">Environment Picker</label>
+                        <label className="neon-label text-white">Environment Picker</label>
                         <button
                             onClick={() => {
                                 audioManager.playClick();
@@ -150,7 +150,7 @@ export default function SettingsMenu({ onClose }: SettingsMenuProps) {
 
                 {/* Jukebox Section */}
                 <div className="mb-8">
-                    <label className="text-white font-bold block mb-4">Music Preview 🎵</label>
+                    <label className="neon-label text-white block mb-4">Music Preview</label>
 
                     {/* Now Playing Info */}
                     <div className="bg-gray-800 p-3 rounded mb-3 border border-gray-700">
@@ -181,7 +181,7 @@ export default function SettingsMenu({ onClose }: SettingsMenuProps) {
                         <button
                             onClick={() => audioManager.resumeMusic()}
                             onMouseEnter={() => audioManager.playHover()}
-                            className="flex-1 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded shadow transition-all flex items-center justify-center"
+                            className="menu-btn menu-btn-sm menu-btn-green flex-1 flex items-center justify-center"
                         >
                             <span className="mr-2">▶</span> RESUME
                         </button>
@@ -190,7 +190,7 @@ export default function SettingsMenu({ onClose }: SettingsMenuProps) {
                         <button
                             onClick={() => audioManager.pauseMusic()}
                             onMouseEnter={() => audioManager.playHover()}
-                            className="flex-1 py-2 bg-yellow-400 hover:bg-yellow-300 text-black font-bold rounded shadow transition-all flex items-center justify-center"
+                            className="menu-btn menu-btn-sm menu-btn-amber flex-1 flex items-center justify-center"
                         >
                             {/* Custom Wide Pause Icon */}
                             <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
@@ -204,7 +204,7 @@ export default function SettingsMenu({ onClose }: SettingsMenuProps) {
                         <button
                             onClick={() => audioManager.stopMusic()}
                             onMouseEnter={() => audioManager.playHover()}
-                            className="flex-1 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded shadow transition-all flex items-center justify-center"
+                            className="menu-btn menu-btn-sm menu-btn-red flex-1 flex items-center justify-center"
                         >
                             <span className="mr-2">⏹</span> STOP
                         </button>
@@ -215,7 +215,7 @@ export default function SettingsMenu({ onClose }: SettingsMenuProps) {
                 <button
                     onClick={() => { audioManager.playClick(); onClose(); }}
                     onMouseEnter={() => audioManager.playHover()}
-                    className="w-full px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded shadow-lg transition-all"
+                    className="menu-btn menu-btn-back w-full"
                 >
                     CLOSE
                 </button>
