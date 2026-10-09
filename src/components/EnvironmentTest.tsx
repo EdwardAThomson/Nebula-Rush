@@ -54,7 +54,7 @@ export default function EnvironmentTest({ onBack }: EnvironmentTestProps) {
 
         // Ship Model for scale/reflection check
         // We'll just instantiate a ship but not update its physics, just render it.
-        const ship = new Ship(scene, true, { ...SHIP_STATS.fighter, color: 0xcc0000, type: 'fighter' });
+        const ship = new Ship(scene, true, { ...SHIP_STATS.lancer, color: 0xd9531e, type: 'lancer' });
         // Raise it slightly
         ship.mesh.position.y = 5;
 

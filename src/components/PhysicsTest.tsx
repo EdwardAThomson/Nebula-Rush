@@ -39,13 +39,13 @@ const VARIANTS: { id: VariantId; name: string; blurb: string }[] = [
     },
 ];
 
-// Apply a pilot's stats to the fighter baseline under the chosen mapping.
+// Apply a pilot's stats to the Lancer baseline under the chosen mapping.
 function buildConfig(variant: VariantId, pilot: Pilot): ShipConfig {
     const cfg: ShipConfig = {
-        color: 0xcc0000,
+        color: 0xd9531e,
         accentColor: 0xeeeeee,
-        ...SHIP_STATS.fighter,
-        type: 'fighter',
+        ...SHIP_STATS.lancer,
+        type: 'lancer',
         id: pilot.id,
         name: pilot.name,
     };

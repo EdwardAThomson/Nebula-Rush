@@ -971,7 +971,7 @@ function buildButtes(): void {
 buildButtes();
 
 // --- Player ship -----------------------------------------------------------
-const shipConfig = { ...SHIP_STATS.fighter, color: 0xcc0000, type: 'fighter' as const };
+const shipConfig = { ...SHIP_STATS.lancer, color: 0xd9531e, type: 'lancer' as const };
 let player = new Ship(scene, true, shipConfig);
 
 const keysDown: Record<string, boolean> = {};
@@ -1008,7 +1008,7 @@ function placeFlat(ship: Ship): void {
 
 // --- AI opponents (flat frame + shared clamp + gorge-aware target lane) -----
 const AI_COLORS = [0x00cc00, 0x0000cc, 0xcccc00, 0xcc00cc, 0x00cccc, 0xff8800];
-const AI_TYPES = ['fighter', 'speedster', 'tank', 'interceptor', 'corsair'] as const;
+const AI_TYPES = ['lancer', 'rapier', 'sledge', 'kestrel'] as const;
 interface AICar { ship: Ship; keys: Record<string, boolean>; controller: { isKeyPressed(k: string): boolean }; baseLane: number; }
 const aiCars: AICar[] = [];
 for (let i = 0; i < 19; i++) {

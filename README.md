@@ -24,23 +24,23 @@ I originally started building this game for free using Claude in the web browser
 -   **High-Speed Anti-Gravity Physics**: specialized handling model featuring hovering, banking, drifting, and air-braking.
 -   **Procedural Track Generation**:
     -   Complex 3D spline-based tracks with loops, banked turns, and verticality.
-    -   Five unique tracks: *The Awakening*, *Asteroid Slalom*, *Nebula Complex*, *Hyperion Raceway*, *Stellar Vortex*.
+    -   Ten tracks across two cups: the *Nebula Cup* (deep space) and the *Sunscorch Cup* (desert canyons).
     -   Dynamic mesh generation for track surfaces and walls, with per-track neon surface styling (glowing edge rails, centre line, checkered start/finish).
 -   **Campaign Mode**:
-    -   Multi-race championship with cumulative points.
-    -   Unlockable tracks (planned).
+    -   Cups of 5 races with cumulative points; clearing a cup unlocks the next one plus new pilots, ships and tracks.
 -   **Ship & Pilot Selection**:
-    -   **5 Ship Classes**: *Fighter* (Balanced), *Speedster* (Top Speed), *Tank* (Grip), *Interceptor* (Agile), *Corsair* (Drift).
+    -   **4 Ship Classes**: *Lancer* (Balanced), *Rapier* (Acceleration & Drift), *Sledgehammer* (Grip & Armour), *Kestrel* (Top Speed).
     -   **Ship paint customization**: primary + secondary colours with a live preview.
     -   **8 Unique Pilots**: Generated avatars with unique modifiers for Acceleration, Handling, and Velocity.
 -   **Dynamic Environments**:
-    -   Day/Night cycles and Weather effects (Rain/Snow/Fog) that affect visibility.
+    -   Day/Night cycles and Weather effects (Rain/Fog) that affect visibility.
     -   Runtime environment selection for testing.
 -   **19 Opponent AI**: Competitive AI agents that race alongside you, complete with lane-switching logic.
--   **Combat & Speed mechanics**:
+-   **Racing mechanics**:
     -   **Boost Pads**: Drivers must hit energized zones for speed bursts.
     -   **Strafing**: dedicated side-thrusters for tight cornering.
-    -   **Jumping**: Vertical thrusters to hop over obstacles or cut corners.
+    -   **Energy**: hazards, wall scrapes and rival bumps drain your ship's energy; top up on the green recharge strip, or get destroyed at zero.
+    -   **Hazards**: obstacle blocks and slip/slow patches on the track.
 -   **Full Race Loop**:
     -   Start sequence with functional traffic lights.
     -   5-Lap races with lap timing.
@@ -54,73 +54,21 @@ I originally started building this game for free using Claude in the web browser
 
 ## Roadmap
 
-Planned work — open to reordering as priorities shift.
-
-**Sequencing note**: Backend & Accounts is the unblocker for several other sections. Online leaderboards, cross-device saves, multiplayer lobbies, and unlock persistence all sit on top of it. Cups depend on having enough tracks (one cup = 5 races on 5 *unique* tracks, so each new cup requires designing 5 new tracks).
-
-### Difficulty
--   **Opponent stat boost**: AI is currently too easy to beat; bump opponent acceleration / top speed / handling so winning takes real driving.
--   **Track obstacles**: Add hazards beyond curve geometry (debris, gates, moving objects) so layout isn't the only difficulty lever.
-
-### Progression
--   **Cups (Campaign)**: Group tracks into cups of **5 races on 5 unique tracks**, classic-racer style. Win a cup to unlock the next. Implication: every new cup requires 5 new tracks to be designed — that ongoing content work needs to be planned for.
--   **Unlocks**:
-    -   Roughly half of the pilots locked at the start; unlock by progressing through cups.
-    -   Tracks gated behind cups; the existing "Track Select" entry from the main menu becomes free-play across only the *unlocked* tracks.
--   **Onboarding / tutorial**: with cups, upgrades, currency, and (eventually) multiplayer layered on, a brand-new player hits a lot of concepts at once. Add at least a one-screen first-run prompt covering controls and race flow, ideally extending as new systems land.
-
-### Ships & Customization
--   ~~**Metallic ship finish** with **customizable paint** (primary/secondary colors)~~ — **done** (PBR metallic ships + live paint preview); **decals** still planned.
--   **Ship damage**: visual + (optionally) handling consequences when hitting walls / obstacles / other ships.
-
-### Economy & Upgrades
--   **Credits / points**: in-game currency earned by finishing races and winning cups.
--   **Upgrade screen**: dedicated screen for spending credits on engine and ship part upgrades (acceleration, top speed, handling, braking, etc.) — adds a progression loop beyond unlocks.
--   **Open question**: upgrades per-ship vs. global (decide before implementing the screen).
-
-### Visuals
--   ~~**Track surface detail**: replace the flat-colored road with texture / pattern / panel lines / glow strips.~~ — **done**: per-track neon edge rails, centre line, wall accents, boost-pad arrows, and a checkered start/finish.
--   **Background art**: each track currently sits inside a plain sky — give each one a distinct backdrop (nebula, station, asteroid field, etc.) matching its name.
-
-### Audio
--   **Engine pitch tied to speed**: continuously varying engine note instead of a fixed rumble.
--   **Opponent engine audio**: 3D-positioned engine noise from rival ships so you can hear them closing in.
--   **Impact / collision SFX**: distinct sounds for wall hits, ship-on-ship contact, and (eventually) damage events.
-
-### Backend & Accounts
--   **Shared backend**: self-hosted Postgres on a Hetzner box, shared across multiple games via a common account / auth system.
--   **Cross-device saves**: profile, ship/pilot choices, unlock state, and settings persist via the account so progress follows the player across devices.
--   **Online leaderboards**: per-track (and eventually per-cup) global leaderboards, surfaced in-game.
--   **Registered vs. unregistered runs**: only authenticated runs on the production build count toward leaderboards / unlock progress. Local-dev builds and unauthenticated play do not get saved to the database or registered at all.
--   **Anti-cheat / server-authoritative scoring**: client-reported lap times are trivially spoofable from devtools, so a global leaderboard is meaningless without verification. Decide on a strategy (deterministic replays sent for server-side validation, server-side simulation, or input recording + re-sim) before going live with ranked leaderboards.
--   **Production build hardening**: hide cheat keys (`F` / `G`) *and* dev tools (Track Analysis, Lighting Playground, Environment Test, Ship Demo) from production builds. Registered runs must come from a hardened build.
-
-### Multiplayer
--   **Lobby system**: open / matchmade lobbies for online races. Depends on the account system.
--   **Real-time multiplayer races**: race against other players over the network, with the same physics and tracks as single-player.
-
-### Supplemental
-
-Nice-to-have ideas; not blocking.
-
--   **Time Trial mode** with personal-best ghosts.
--   **Controller / gamepad support** (currently keyboard-only).
--   **Replay or photo mode** (extending the existing screenshot key).
--   **Mobile / touch support** (or an explicit "desktop only" decision).
--   **Achievements / stats tracking** (wins per pilot, fastest laps, etc.).
+See [ROADMAP.md](./ROADMAP.md) for what has shipped and what's next.
 
 ## Controls
 
 | Action | Primary Key | Secondary Key |
 | :--- | :--- | :--- |
 | **Accelerate** | `W` | `Arrow Up` |
-| **Steer Left/Right** | `Q` / `E` | `←` / `→` |
-| **Strafe (Side Thrust)** | `A` / `D` | - |
-| **Jump** | `Space` | `S` / `↓` |
+| **Brake** | `B` | - |
+| **Steer Left/Right** | `Q` / `E` | - |
+| **Strafe (Side Thrust)** | `A` / `D` | `←` / `→` |
+| **Hop** | `Space` | `S` / `↓` |
 | **Screenshot** | `P` | - |
 | **Toggle HUD** | `H` | - |
-| **Cheat: Instant Win** | `F` | - |
-| **Cheat: Finish Opponents** | `G` | - |
+| **Exit Race** | `Esc`, `Esc` | - |
+| **Cheat: Finish Opponents** | `L` | - |
 
 > **Pro Tip**: Combine *Steer* and *Strafe* to drift through tight corners without losing speed!
 
