@@ -11,6 +11,8 @@ export interface Cup {
     description: string;
     accent: number;         // UI tint (hex)
     imagePath: string;      // Card art: themed trophy (scripts/render-cup-trophies.html)
+    // Ambient particle layer drifting over the card art (CSS, see index.css).
+    ambient: 'stars' | 'dust' | 'rain' | 'snow' | 'embers';
     // Ordered track ids. Ids not yet present in TRACKS are simply unbuilt; a cup
     // is only playable once all of them resolve (see isCupReady).
     trackIds: string[];
@@ -35,6 +37,7 @@ export const CUPS: Cup[] = [
         description: 'Flowing tracks through open space. Where every pilot earns their wings.',
         accent: 0x00e5ff,
         imagePath: '/assets/cups/cup_nebula.jpg',
+        ambient: 'stars',
         trackIds: ['track_1', 'track_2', 'track_3', 'track_4', 'track_5'],
         // Deep-space dressing on every race; clear skies so the nebula reads.
         envBias: { weather: 'clear', space: true },
@@ -46,6 +49,7 @@ export const CUPS: Cup[] = [
         description: 'Threading rock spires and gorges through blinding dust storms.',
         accent: 0xff8c1a,
         imagePath: '/assets/cups/cup_sunscorch.jpg',
+        ambient: 'dust',
         // All five built — race order = difficulty ramp: Dune Sprint opener → Mesa
         // → Sand Hollow → Sandstorm Pass → Solstice Classic finale. Playable as a
         // full campaign in New Campaign.
@@ -59,6 +63,7 @@ export const CUPS: Cup[] = [
         description: 'Rain-slicked streets and towering skylines under perpetual night.',
         accent: 0xff3df0,
         imagePath: '/assets/cups/cup_skyline.jpg',
+        ambient: 'rain',
         trackIds: [],
         plannedTracks: ['Downtown Dash', 'Tower Spiral', 'Rainfront', 'Maglev Crossover', 'Grid Central'],
     },
@@ -69,6 +74,7 @@ export const CUPS: Cup[] = [
         description: 'Black ice and frozen caverns beneath a shimmering aurora.',
         accent: 0x9fe8ff,
         imagePath: '/assets/cups/cup_cryo.jpg',
+        ambient: 'snow',
         trackIds: [],
         plannedTracks: ['Frostbite Flats', 'Glacier Caverns', 'Aurora Ridge', 'Black Ice', 'Subzero Spiral'],
     },
@@ -79,6 +85,7 @@ export const CUPS: Cup[] = [
         description: 'Lava channels and ash storms. Only champions survive the firestorm.',
         accent: 0xff2a4d,
         imagePath: '/assets/cups/cup_inferno.jpg',
+        ambient: 'embers',
         trackIds: [],
         plannedTracks: ['Ashfall', 'Magma Veins', 'Caldera Rim', 'Pyroclasm', 'Firestorm Finale'],
     },

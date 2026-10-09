@@ -60,6 +60,7 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
                                     className="w-full aspect-[16/10] object-cover"
                                 />
                                 {selectable && <CupTrophyCanvas cupId={cup.id} active={hoveredId === cup.id} className="cup-trophy-live" />}
+                                <div className={`cup-card-ambient cup-ambient-${cup.ambient}`} aria-hidden="true" />
                             </div>
 
                             <div
