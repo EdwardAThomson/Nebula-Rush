@@ -196,6 +196,19 @@ export class Ship {
             this.finishTime = Number.MAX_SAFE_INTEGER;
         }
 
+        this.updateVisuals(dt);
+    }
+
+    // Kick off the boost-pickup punch (flame flare + aura flash) without going
+    // through physics — used by the start-screen attract mode, which moves its
+    // ships kinematically. Pair it with setting state.boostTimer.
+    public triggerBoostFlash() {
+        this.boostFlash = 1;
+    }
+
+    // Engine flame / boost aura animation, driven by state.throttle,
+    // state.boostTimer and the pickup flash. dt is in 60fps frames.
+    public updateVisuals(dt: number) {
         // Visual Updates — a steady "circle of light" at each engine, a gently
         // flickering saturated cyan flame, and a hot near-white inner core.
         // Boost expands the circle, grows/brightens the core, and bumps the

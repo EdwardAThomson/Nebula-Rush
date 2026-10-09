@@ -4,6 +4,8 @@ import type { ShipConfig } from './game/Ship';
 import { SHIP_STATS, type ShipType } from './game/ShipFactory';
 import { audioManager } from './game/AudioManager';
 import ShipPreview from './components/ShipPreview';
+import ShipCarousel from './components/ShipCarousel';
+import AttractBackground from './components/AttractBackground';
 import TrackPreview from './components/TrackPreview';
 import TrackAnalysis from './components/TrackAnalysis';
 import EnvironmentTest from './components/EnvironmentTest';
@@ -19,7 +21,7 @@ import type { Pilot } from './game/PilotDefinitions';
 import type { EnvironmentConfig } from './game/EnvironmentManager';
 import { getUnlockedShipTypes, getSignatureShip, getUnlockHint } from './game/unlocks';
 import { isEnvPickerEnabled } from './game/gameSettings';
-import { TRACKS, TUTORIAL_TRACK } from './game/TrackDefinitions';
+import { TRACKS, TUTORIAL_TRACK, type TrackConfig } from './game/TrackDefinitions';
 import { CUPS, resolveCupTracks, getCupForTrack, isCupReady, type Cup } from './game/CupDefinitions';
 import { OpponentManager, type OpponentConfig } from './game/OpponentManager';
 import { markCupCleared, isCupUnlocked } from './game/cupProgress';
@@ -80,13 +82,13 @@ const numToCss = (n: number) => '#' + n.toString(16).padStart(6, '0');
 // once. Class strings stay literal (Tailwind needs them scannable).
 const SHIP_CARDS: {
   type: ShipType; title: string; color: number; info: string;
-  titleClass: string; borderClass: string; bgClass: string;
+  titleClass: string;
   stats: { label: string; key: 'speed' | 'accel' | 'handling' | 'drift' | 'energy'; barClass: string }[];
 }[] = [
   {
     type: 'fighter', title: 'FIGHTER', color: 0xcc0000,
     info: 'Perfectly balanced stats. Good for beginners and pros alike.',
-    titleClass: 'text-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-900',
+    titleClass: 'text-red-500',
     stats: [
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
@@ -97,7 +99,7 @@ const SHIP_CARDS: {
   {
     type: 'interceptor', title: 'INTERCEPTOR', color: 0x00ff00,
     info: 'Bi-plane design. Best-in-class acceleration and turning.',
-    titleClass: 'text-green-500', borderClass: 'border-green-500', bgClass: 'bg-green-900',
+    titleClass: 'text-green-500',
     stats: [
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
@@ -108,7 +110,7 @@ const SHIP_CARDS: {
   {
     type: 'tank', title: 'TANK', color: 0xcccc00,
     info: 'Incredible acceleration and grip, but lower top speed.',
-    titleClass: 'text-yellow-500', borderClass: 'border-yellow-500', bgClass: 'bg-yellow-900',
+    titleClass: 'text-yellow-500',
     stats: [
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
@@ -119,7 +121,7 @@ const SHIP_CARDS: {
   {
     type: 'corsair', title: 'CORSAIR', color: 0x5500aa,
     info: 'Aggressive styling. High speed and extreme drift capabilities.',
-    titleClass: 'text-purple-500', borderClass: 'border-purple-500', bgClass: 'bg-purple-900',
+    titleClass: 'text-purple-500',
     stats: [
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
@@ -130,7 +132,7 @@ const SHIP_CARDS: {
   {
     type: 'speedster', title: 'SPEEDSTER', color: 0x00ccff,
     info: 'High top speed, but slower acceleration. Built for long straights.',
-    titleClass: 'text-cyan-400', borderClass: 'border-cyan-500', bgClass: 'bg-cyan-900',
+    titleClass: 'text-cyan-400',
     stats: [
       { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
       { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
@@ -337,20 +339,6 @@ function App() {
     });
   };
 
-  // Small "PAINT" chip overlaid on each ship card. Clicking it opens the paint
-  // customizer for that ship instead of racing immediately.
-  const PaintChip = ({ type, defaultColor }: { type: ShipType, defaultColor: number }) => (
-    <button
-      type="button"
-      onClick={(e) => { e.stopPropagation(); openShipCustomizer(type, defaultColor); }}
-      onMouseEnter={(e) => { e.stopPropagation(); audioManager.playHover(); }}
-      title="Customize paint"
-      className="absolute top-3 right-3 px-3 py-1 bg-gray-900 bg-opacity-80 hover:bg-gray-700 text-xs text-gray-200 font-bold rounded border border-gray-600 transition-colors z-10"
-    >
-      <span aria-hidden="true" className="mr-1">🎨</span>PAINT
-    </button>
-  );
-
   const confirmShipCustomization = () => {
     if (!customizeType) return;
     handleShipSelect({
@@ -391,8 +379,8 @@ function App() {
   return (
     <div className="w-full h-screen bg-black text-white font-mono overflow-hidden relative">
 
-      {/* BACKGROUND (Simple for now) */}
-      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-slate-900 z-0"></div>
+      {/* BACKGROUND: nebula backdrop shared by every menu (see .screen-bg) */}
+      <div className="screen-bg absolute inset-0 z-0 overflow-hidden"></div>
 
       {/* LOADING OVERLAY */}
       {isLoading && (
@@ -407,26 +395,32 @@ function App() {
       {/* START SCREEN */}
       {screen === 'start' && (
         <div className="relative z-10 flex flex-col items-center justify-center h-full">
-          <h1 className="text-6xl md:text-8xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-600 mb-12 animate-pulse">
-            NEBULA RUSH
+          {/* Live attract-mode race, dimmed so the menu stays readable. */}
+          <AttractBackground className="z-0" />
+          <div className="absolute inset-0 z-0 pointer-events-none menu-scrim" />
+
+          <div className="relative z-10 flex flex-col items-center">
+          <h1 className="menu-title mb-14" aria-label="Nebula Rush">
+            <span className="menu-title-word menu-title-nebula" data-text="NEBULA">NEBULA</span>
+            <span className="menu-title-word menu-title-rush" data-text="RUSH">RUSH</span>
           </h1>
 
-          <div className="flex flex-col space-y-4 w-64">
+          <div className="flex flex-col gap-4 w-[22rem] max-w-[86vw]">
             <AudioButton
               onClick={handleNewGame}
-              className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
+              className="menu-btn menu-btn-primary"
             >
               NEW CAMPAIGN
             </AudioButton>
             <AudioButton
               onClick={handleTutorial}
-              className={`px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all ${showTutorialPulse ? 'tutorial-pulse' : ''}`}
+              className={`menu-btn menu-btn-indigo ${showTutorialPulse ? 'tutorial-pulse' : ''}`}
             >
               TUTORIAL
             </AudioButton>
             <AudioButton
               onClick={handleTrackSelectMode}
-              className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
+              className="menu-btn menu-btn-fuchsia"
             >
               SINGLE RACE
             </AudioButton>
@@ -475,18 +469,20 @@ function App() {
               TRACK ANALYSIS
             </AudioButton>
 */}
-            <AudioButton
-              onClick={() => setShowHelp(true)}
-              className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold rounded shadow-lg transform hover:scale-105 transition-all"
-            >
-              HELP
-            </AudioButton>
-            <AudioButton
-              onClick={() => setShowSettings(true)}
-              className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg transform hover:scale-105 transition-all border border-gray-600"
-            >
-              ⚙ SETTINGS
-            </AudioButton>
+            <div className="grid grid-cols-2 gap-4 mt-2">
+              <AudioButton
+                onClick={() => setShowHelp(true)}
+                className="menu-btn menu-btn-ghost"
+              >
+                HELP
+              </AudioButton>
+              <AudioButton
+                onClick={() => setShowSettings(true)}
+                className="menu-btn menu-btn-ghost"
+              >
+                ⚙ SETTINGS
+              </AudioButton>
+            </div>
             {/* Physics Test (dev tool for A/B-ing pilot-stat physics mappings) —
                 delinked from the menu; re-enable this button or call
                 setScreen('physics_test') to reach it.
@@ -498,8 +494,9 @@ function App() {
             </AudioButton>
             */}
           </div>
+          </div>
 
-          <div className="absolute bottom-8 text-gray-500 text-sm">
+          <div className="absolute bottom-8 z-10 text-gray-400 text-sm">
             © 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)
           </div>
 
@@ -539,68 +536,38 @@ function App() {
       {
         screen === 'selection' && (
           <div className="relative z-10 flex flex-col items-center h-full p-8">
-            <h2 className="text-4xl font-bold text-white mb-8">SELECT YOUR SHIP</h2>
+            <div className="mb-6"><h2 className="screen-title">SELECT YOUR SHIP</h2><div className="screen-rule" /></div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 content-start gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
-              {SHIP_CARDS.map(card => {
-                const locked = !unlockedShips.includes(card.type);
-                const recommended = !locked && card.type === signatureShip;
-                return (
-                  <div
-                    key={card.type}
-                    onClick={() => { if (!locked) selectShipAndRace(card.type, card.color); }}
-                    onMouseEnter={() => { if (!locked) audioManager.playHover(); }}
-                    className={locked
-                      ? 'relative bg-gray-800 bg-opacity-60 p-6 pb-8 rounded-xl border-2 border-gray-700 opacity-70 cursor-default'
-                      : `relative bg-gray-800 bg-opacity-80 p-6 pb-8 rounded-xl border-2 ${card.borderClass} hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 hover:z-50 group ${recommended ? 'ring-2 ring-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.25)]' : ''}`}
-                  >
-                    {!locked && <PaintChip type={card.type} defaultColor={card.color} />}
-                    {recommended && selectedPilot && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-amber-500 text-black text-xs font-extrabold z-10 whitespace-nowrap">
-                        ★ {selectedPilot.name.toUpperCase()}'S PICK
-                      </div>
-                    )}
-                    <div
-                      className={`h-48 ${locked ? 'bg-gray-900' : card.bgClass} bg-opacity-30 rounded mb-4 flex items-center justify-center overflow-hidden relative`}
-                      style={locked ? { filter: 'grayscale(1) brightness(0.6)' } : undefined}
-                    >
-                      <ShipPreview color={card.color} type={card.type} />
-                    </div>
-                    {locked && (
-                      <div className="absolute inset-x-0 top-16 flex flex-col items-center z-10 pointer-events-none">
-                        <div className="text-4xl">🔒</div>
-                        <div className="mt-2 px-3 py-1 rounded bg-black/80 text-xs font-bold text-amber-300">
-                          {getUnlockHint('ship', card.type)}
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 mb-6">
-                      <h3 className={`text-2xl font-bold ${locked ? 'text-gray-500' : card.titleClass}`}>{card.title}</h3>
-                      {!locked && <InfoTip text={card.info} />}
-                    </div>
-
-                    <div className="space-y-2">
-                      {card.stats.map(s => (
-                        <StatBar key={s.label} label={s.label} value={getDisplayStats(card.type)[s.key]} color={s.barClass} />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <ShipCarousel
+              ships={SHIP_CARDS.map(card => ({
+                type: card.type,
+                title: card.title,
+                color: card.color,
+                info: card.info,
+                locked: !unlockedShips.includes(card.type),
+                unlockHint: getUnlockHint('ship', card.type),
+                stats: card.stats.map(st => ({ label: st.label, value: getDisplayStats(card.type)[st.key], barClass: st.barClass })),
+              }))}
+              initialType={signatureShip}
+              recommendedType={signatureShip}
+              pilotName={selectedPilot?.name}
+              paused={customizeType !== null}
+              onSelect={selectShipAndRace}
+              onPaint={openShipCustomizer}
+            />
 
             <div className="flex space-x-6 mt-8">
               <button
                 onClick={() => { audioManager.playClick(); handleBackFromShipSelect(); }}
                 onMouseEnter={() => audioManager.playHover()}
-                className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
+                className="menu-btn menu-btn-back"
               >
                 BACK TO PILOT
               </button>
               <button
                 onClick={() => { audioManager.playClick(); setScreen('start'); }}
                 onMouseEnter={() => audioManager.playHover()}
-                className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
+                className="menu-btn menu-btn-back"
               >
                 MAIN MENU
               </button>
@@ -620,7 +587,7 @@ function App() {
       {
         screen === 'track_selection' && (
           <div className="relative z-10 flex flex-col items-center h-full p-8">
-            <h2 className="text-4xl font-bold text-white mb-8">SELECT TRACK</h2>
+            <div className="mb-8"><h2 className="screen-title">SELECT TRACK</h2><div className="screen-rule" /></div>
 
             <div className="w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide space-y-10">
               {[
@@ -640,7 +607,7 @@ function App() {
                   <div className="flex items-center gap-4 mb-5">
                     <div className="h-0.5 flex-1 rounded" style={{ backgroundColor: numToCss(group.accent), opacity: 0.4 }} />
                     <div className="text-center px-2">
-                      <div className="text-xl font-extrabold" style={{ color: numToCss(group.accent), opacity: group.locked ? 0.5 : 1 }}>{group.label}</div>
+                      <div className="neon-card-title text-xl font-extrabold" style={{ color: numToCss(group.accent), opacity: group.locked ? 0.5 : 1 }}>{group.label}</div>
                       <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500">{group.sub}</div>
                       {group.locked && (
                         <div className="text-xs font-bold text-amber-300 mt-1">🔒 {group.unlockHint}</div>
@@ -650,32 +617,38 @@ function App() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {group.tracks.map(track => {
+                    {group.tracks.map((track, i) => {
                       const index = TRACKS.indexOf(track);
                       return group.locked ? (
                         <div
                           key={track.id}
-                          className="bg-gray-800 bg-opacity-50 p-6 rounded-xl border-2 border-gray-700 opacity-60 cursor-default"
+                          className="neon-card neon-card-locked"
                         >
-                          <div className="h-48 bg-black bg-opacity-50 rounded mb-4 flex items-center justify-center overflow-hidden border border-gray-700 relative" style={{ filter: 'grayscale(1) brightness(0.6)' }}>
-                            <TrackPreview points={track.points} />
+                          <div className="track-map" style={{ filter: 'grayscale(1) brightness(0.6)' }}>
+                            <TrackPreview points={track.points} color="#64748b" />
                           </div>
-                          <h3 className="text-2xl font-bold mb-2 text-gray-500">{track.name}</h3>
-                          <p className="text-gray-600 text-sm">{track.description}</p>
+                          <div className="px-5 py-4 flex items-center justify-between gap-3">
+                            <h3 className="neon-card-title text-lg text-gray-500">{track.name}</h3>
+                            <TrackStats track={track} />
+                          </div>
                         </div>
                       ) : (
                         <div
                           key={track.id}
                           onClick={() => { audioManager.playClick(); handleTrackSelect(index); }}
                           onMouseEnter={() => audioManager.playHover()}
-                          className="bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 group"
-                          style={{ borderColor: numToCss(group.accent) }}
+                          className="neon-card neon-card-live group"
+                          style={{ '--card-accent': numToCss(group.accent) } as React.CSSProperties}
+                          title={track.description}
                         >
-                          <div className="h-48 bg-black bg-opacity-50 rounded mb-4 flex items-center justify-center overflow-hidden border border-gray-700">
-                            <TrackPreview points={track.points} />
+                          <div className="track-map">
+                            <TrackPreview points={track.points} color={numToCss(group.accent)} />
+                            <span className="card-tag">{String(i + 1).padStart(2, '0')}</span>
                           </div>
-                          <h3 className="text-2xl font-bold mb-2" style={{ color: numToCss(group.accent) }}>{track.name}</h3>
-                          <p className="text-gray-400 text-sm">{track.description}</p>
+                          <div className="px-5 py-4 flex items-center justify-between gap-3">
+                            <h3 className="neon-card-title text-lg text-white">{track.name}</h3>
+                            <TrackStats track={track} />
+                          </div>
                         </div>
                       );
                     })}
@@ -688,7 +661,7 @@ function App() {
               <button
                 onClick={() => { audioManager.playClick(); setScreen('start'); }}
                 onMouseEnter={() => audioManager.playHover()}
-                className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
+                className="menu-btn menu-btn-back"
               >
                 BACK TO MENU
               </button>
@@ -812,13 +785,13 @@ function App() {
       {/* HELP MODAL */}
       {
         showHelp && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90">
-            <div className="bg-gray-800 p-8 rounded-lg max-w-lg w-full max-h-[85vh] overflow-y-auto border border-gray-600">
-              <h2 className="text-3xl font-bold text-white mb-6">HOW TO PLAY</h2>
+          <div className="neon-modal-backdrop absolute inset-0 z-50 flex items-center justify-center">
+            <div className="neon-modal p-8 max-w-lg w-full max-h-[85vh] overflow-y-auto">
+              <h2 className="screen-title mb-6">HOW TO PLAY</h2>
 
               <div className="space-y-5 text-gray-300">
                 <div>
-                  <strong className="text-cyan-400 block mb-2">CONTROLS</strong>
+                  <strong className="neon-label text-cyan-400 block mb-2">Controls</strong>
                   <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
                     <span className="text-white font-mono">W&nbsp;/&nbsp;↑</span><span>Accelerate</span>
                     <span className="text-white font-mono">Q&nbsp;/&nbsp;E&nbsp;·&nbsp;←&nbsp;/&nbsp;→</span><span>Steer left / right</span>
@@ -830,7 +803,7 @@ function App() {
                 </div>
 
                 <div>
-                  <strong className="text-purple-400 block mb-2">TIPS</strong>
+                  <strong className="neon-label text-purple-400 block mb-2">Tips</strong>
                   <ul className="list-disc pl-5 space-y-1 text-sm">
                     <li>Launch the instant the start lights turn <span className="text-green-400">green</span>.</li>
                     <li>Drive through the glowing <span className="text-cyan-300">boost arrows</span> for a speed burst.</li>
@@ -841,11 +814,11 @@ function App() {
                 </div>
 
                 <div>
-                  <strong className="text-yellow-400 block mb-2">GOAL</strong>
+                  <strong className="neon-label text-yellow-400 block mb-2">Goal</strong>
                   <p className="text-sm">Finish 5 laps and beat the rival pilots to top the leaderboard.</p>
                 </div>
 
-                <div className="pt-4 border-t border-gray-700 text-xs text-gray-500">
+                <div className="pt-4 border-t border-white/10 text-xs text-gray-500">
                   <p>© 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)</p>
                   <p>Website: <a href="https://edthomson.com" className="text-blue-400 hover:underline">edthomson.com</a></p>
                 </div>
@@ -853,13 +826,13 @@ function App() {
 
               <button
                 onClick={handleTutorial}
-                className="mt-8 w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded uppercase tracking-wide"
+                className="menu-btn menu-btn-indigo mt-8 w-full uppercase"
               >
                 ▶ Start the interactive tutorial
               </button>
               <button
                 onClick={() => setShowHelp(false)}
-                className="mt-3 w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded"
+                className="menu-btn menu-btn-back mt-3 w-full"
               >
                 CLOSE
               </button>
@@ -875,10 +848,10 @@ function App() {
 
       {/* PAINT CUSTOMIZER */}
       {customizeType && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-4">
-          <div className="bg-gray-800 p-8 rounded-lg max-w-lg w-full border border-gray-600">
-            <h2 className="text-3xl font-bold text-white mb-2">CUSTOMIZE PAINT</h2>
-            <p className="text-gray-400 text-sm mb-4">{customizeType.toUpperCase()} — drag to rotate</p>
+        <div className="neon-modal-backdrop absolute inset-0 z-50 flex items-center justify-center p-4">
+          <div className="neon-modal p-8 max-w-lg w-full">
+            <h2 className="screen-title mb-2">CUSTOMIZE PAINT</h2>
+            <p className="screen-subtitle mb-4">{customizeType} — drag to rotate</p>
 
             <div className="h-64 bg-black bg-opacity-50 rounded mb-6 flex items-center justify-center overflow-hidden border border-gray-700">
               <ShipPreview color={primaryColor} accentColor={accentColor} type={customizeType} interactive />
@@ -886,7 +859,7 @@ function App() {
 
             <div className="space-y-4 mb-6">
               <div>
-                <div className="text-gray-300 mb-2">Primary (Body)</div>
+                <div className="neon-label text-gray-300 mb-2">Primary (Body)</div>
                 <div className="flex flex-wrap gap-2">
                   {PAINT_PALETTE.map(({ name, value }) => (
                     <button
@@ -901,7 +874,7 @@ function App() {
                 </div>
               </div>
               <div>
-                <div className="text-gray-300 mb-2">Secondary (Wings / Trim)</div>
+                <div className="neon-label text-gray-300 mb-2">Secondary (Wings / Trim)</div>
                 <div className="flex flex-wrap gap-2">
                   {PAINT_PALETTE.map(({ name, value }) => (
                     <button
@@ -920,13 +893,13 @@ function App() {
             <div className="flex gap-4">
               <AudioButton
                 onClick={() => setCustomizeType(null)}
-                className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded"
+                className="menu-btn menu-btn-back flex-1 min-w-0"
               >
                 CANCEL
               </AudioButton>
               <AudioButton
                 onClick={confirmShipCustomization}
-                className="flex-1 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded"
+                className="menu-btn menu-btn-primary flex-1"
               >
                 RACE
               </AudioButton>
@@ -939,26 +912,17 @@ function App() {
   )
 }
 
-// Small "i" badge that reveals descriptive text on hover. stopPropagation so
-// clicking the badge doesn't trigger the parent card's onClick (ship select).
-function InfoTip({ text }: { text: string }) {
+// Track card stats: boost pads and hazards counted from the track data.
+function TrackStats({ track }: { track: TrackConfig }) {
+  const hazards = track.hazards?.length ?? 0;
   return (
-    <span className="group/tip relative inline-flex" onClick={(e) => e.stopPropagation()}>
-      <span className="w-5 h-5 flex items-center justify-center rounded-full bg-black/60 border border-gray-500 text-gray-300 text-[10px] font-bold cursor-help select-none">i</span>
-      <span className="pointer-events-none absolute left-0 top-7 w-56 p-3 rounded-lg bg-gray-950 bg-opacity-95 border border-cyan-700 text-gray-300 text-xs leading-snug shadow-xl z-30 opacity-0 invisible transition-opacity duration-150 group-hover/tip:opacity-100 group-hover/tip:visible">
-        {text}
+    <div className="track-stats">
+      <span className="track-stat track-stat-boost" title={`${track.pads.length} boost pad${track.pads.length === 1 ? '' : 's'}`}>
+        {track.pads.length}<span className="stat-label">{track.pads.length === 1 ? 'BOOST' : 'BOOSTS'}</span>
       </span>
-    </span>
-  );
-}
-
-function StatBar({ label, value, color }: { label: string, value: number, color: string }) {
-  return (
-    <div className="flex items-center text-xs">
-      <span className="w-16 text-gray-400">{label}</span>
-      <div className="flex-1 h-2 bg-gray-900 rounded overflow-hidden">
-        <div className={`h-full ${color}`} style={{ width: `${value}%` }}></div>
-      </div>
+      <span className={`track-stat ${hazards ? 'track-stat-hazard' : 'text-gray-500'}`} title={`${hazards} hazard${hazards === 1 ? '' : 's'}`}>
+        {hazards}<span className="stat-label">{hazards === 1 ? 'HAZARD' : 'HAZARDS'}</span>
+      </span>
     </div>
   );
 }

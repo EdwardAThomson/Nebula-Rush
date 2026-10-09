@@ -13,6 +13,155 @@
   animation: tutorial-pulse-glow 1.6s ease-in-out infinite;
 }
 
+/* ---- Start screen ---------------------------------------------------- */
+
+/* Dims the attract-mode race behind the menu: darkest in the middle where the
+   buttons sit, letting the action show at the edges. */
+.menu-scrim {
+  background:
+    radial-gradient(ellipse 55% 65% at 50% 50%, rgba(2, 4, 12, 0.66) 0%, rgba(2, 4, 12, 0.38) 55%, rgba(2, 4, 12, 0.12) 100%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.25), transparent 30%, transparent 70%, rgba(0, 0, 0, 0.45));
+  backdrop-filter: blur(1px) saturate(1.15);
+}
+
+/* Title: Orbitron, italicised by skew, chrome-gradient letters with a hard
+   horizon line (cyan for NEBULA, magenta for RUSH), neon glow, speed streaks
+   trailing off the left, and a periodic light glint across the letters. */
+.menu-title {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 0.32em;
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 900;
+  font-size: clamp(3rem, 9vw, 8rem);
+  line-height: 1;
+  letter-spacing: 0.06em;
+  transform: skewX(-10deg);
+  /* Thin neon rule under the title, cyan to magenta. */
+  padding-bottom: 0.18em;
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.9) 20%, rgba(217, 70, 239, 0.9) 80%, transparent) bottom / 100% 2px no-repeat;
+}
+.menu-title-word {
+  --glow: 34, 211, 238;
+  background:
+    linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, 0.95) 50%, transparent 58%) no-repeat,
+    var(--chrome);
+  background-size: 300% 100%, 100% 100%;
+  background-position: 150% 0, 0 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 2px rgba(var(--glow), 0.9)) drop-shadow(0 0 22px rgba(var(--glow), 0.55));
+  animation: menu-title-glint 7s ease-in-out infinite;
+}
+.menu-title-nebula {
+  --chrome: linear-gradient(180deg, #ffffff 0%, #d9faff 38%, #67e8f9 50%, #0891b2 51%, #22d3ee 78%, #a5f3fc 100%);
+}
+.menu-title-rush {
+  --glow: 217, 70, 239;
+  --chrome: linear-gradient(180deg, #ffffff 0%, #fae8ff 38%, #f0abfc 50%, #a21caf 51%, #d946ef 78%, #f5d0fe 100%);
+  animation-delay: 0.25s;
+}
+@keyframes menu-title-glint {
+  0%, 70% { background-position: 150% 0, 0 0; }
+  85%, 100% { background-position: -50% 0, 0 0; }
+}
+/* Speed streaks trailing off the left of the title. */
+.menu-title::before,
+.menu-title::after {
+  content: '';
+  position: absolute;
+  right: 100%;
+  margin-right: 0.25em;
+  height: 0.05em;
+  border-radius: 999px;
+  background: linear-gradient(to left, rgba(34, 211, 238, 0.9), transparent);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.6);
+}
+.menu-title::before { top: 38%; width: 1.8em; }
+.menu-title::after { top: 62%; width: 1.1em; opacity: 0.7; }
+
+
+/* Neon menu buttons: dark glass, an angled cut corner, coloured edge + glow.
+   Each variant just sets --accent. */
+.menu-btn {
+  --accent: 34, 211, 238;
+  position: relative;
+  overflow: hidden;
+  padding: 1.05rem 1.5rem;
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: #e6f6ff;
+  background: linear-gradient(100deg, rgba(var(--accent), 0.22), rgba(10, 14, 28, 0.72) 55%);
+  border: 1px solid rgba(var(--accent), 0.55);
+  border-left: 3px solid rgb(var(--accent));
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+  box-shadow: inset 0 0 18px rgba(var(--accent), 0.12);
+  backdrop-filter: blur(6px);
+  text-shadow: 0 0 10px rgba(var(--accent), 0.6);
+  transition: transform 150ms ease, background 200ms ease, box-shadow 200ms ease, color 200ms ease;
+  cursor: pointer;
+}
+/* Light sweep on hover. */
+.menu-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.28) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 500ms ease;
+  pointer-events: none;
+}
+.menu-btn:hover,
+.menu-btn:focus-visible {
+  color: #fff;
+  transform: translateX(4px);
+  background: linear-gradient(100deg, rgba(var(--accent), 0.5), rgba(var(--accent), 0.12) 70%);
+  box-shadow: inset 0 0 24px rgba(var(--accent), 0.35);
+  outline: none;
+}
+.menu-btn:hover::after,
+.menu-btn:focus-visible::after {
+  transform: translateX(120%);
+}
+.menu-btn:active {
+  transform: translateX(4px) scale(0.98);
+}
+
+.menu-btn-primary {
+  --accent: 34, 211, 238;
+  padding-top: 1.35rem;
+  padding-bottom: 1.35rem;
+  font-size: 1.3rem;
+}
+.menu-btn-indigo { --accent: 129, 140, 248; }
+.menu-btn-fuchsia { --accent: 217, 70, 239; }
+.menu-btn-ghost {
+  --accent: 148, 163, 184;
+  padding: 0.85rem 0.75rem;
+  font-size: 0.9rem;
+  letter-spacing: 0.15em;
+  color: #cbd5e1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-btn, .menu-btn::after { transition: none; }
+  .menu-title-word { animation: none; }
+}
+
+/* The tutorial nudge's outer glow is clipped by the cut corners, so on menu
+   buttons it pulses inside the button instead. */
+@keyframes menu-tutorial-pulse {
+  0%, 100% { box-shadow: inset 0 0 18px rgba(var(--accent), 0.15); }
+  50% { box-shadow: inset 0 0 30px rgba(var(--accent), 0.75); border-color: rgb(var(--accent)); }
+}
+.menu-btn.tutorial-pulse {
+  animation: menu-tutorial-pulse 1.6s ease-in-out infinite;
+}
+
 /* Cup Selection cards: on hover the trophy art zooms a touch, the border glows
    in the cup's accent colour (--accent, set inline per card), a light sweep
    passes across the art once, and the live 3D trophy (.cup-trophy-live, see
@@ -51,6 +200,185 @@
   animation: cup-card-shine 0.9s ease-out forwards;
 }
 
+/* ---- Menu screens (shared) ---------------------------------------------
+   One look for every menu after the start screen: a nebula backdrop, an
+   Orbitron chrome heading, glass cards with a coloured edge, and the same
+   .menu-btn buttons as the start screen. */
+
+/* Backdrop behind all menus: two soft nebula glows over deep space, a faint
+   perspective grid along the bottom, and a scatter of stars. */
+.screen-bg {
+  background:
+    radial-gradient(ellipse 60% 50% at 15% 10%, rgba(34, 211, 238, 0.16), transparent 70%),
+    radial-gradient(ellipse 55% 45% at 90% 85%, rgba(217, 70, 239, 0.16), transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 120%, rgba(99, 102, 241, 0.18), transparent 70%),
+    linear-gradient(180deg, #05060f 0%, #070a1a 55%, #0a0618 100%);
+}
+.screen-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 12% 22%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 33% 68%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1.5px 1.5px at 58% 14%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 72% 44%, rgba(255, 255, 255, 0.55), transparent),
+    radial-gradient(1px 1px at 86% 26%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1.5px 1.5px at 22% 82%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 46% 38%, rgba(255, 255, 255, 0.45), transparent),
+    radial-gradient(1px 1px at 94% 62%, rgba(255, 255, 255, 0.5), transparent);
+  background-size: 420px 420px;
+  opacity: 0.8;
+}
+.screen-bg::after {
+  content: '';
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  bottom: 0;
+  height: 38%;
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.18) 1px, transparent 1px);
+  background-size: 60px 60px;
+  transform: perspective(500px) rotateX(62deg);
+  transform-origin: bottom;
+  mask-image: linear-gradient(to top, black, transparent 85%);
+  -webkit-mask-image: linear-gradient(to top, black, transparent 85%);
+}
+
+/* Screen heading: the start-screen chrome treatment at section size. */
+.screen-title {
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 900;
+  font-size: clamp(1.8rem, 4vw, 2.75rem);
+  line-height: 1.1;
+  letter-spacing: 0.12em;
+  text-align: center;
+  transform: skewX(-8deg);
+  background: linear-gradient(180deg, #ffffff 0%, #d9faff 40%, #67e8f9 52%, #0891b2 53%, #22d3ee 80%, #a5f3fc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 2px rgba(34, 211, 238, 0.8)) drop-shadow(0 0 16px rgba(34, 211, 238, 0.4));
+}
+/* Thin cyan-to-magenta rule; put it right after a .screen-title. */
+.screen-rule {
+  width: min(28rem, 70vw);
+  height: 2px;
+  margin: 0.6rem auto 0;
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.9) 20%, rgba(217, 70, 239, 0.9) 80%, transparent);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.45);
+}
+.screen-subtitle {
+  font-size: 0.8rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(165, 243, 252, 0.6);
+  text-align: center;
+}
+/* Section label inside a screen (e.g. TIME OF DAY). */
+.screen-section {
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.3em;
+  color: rgba(203, 213, 225, 0.85);
+  text-align: center;
+}
+
+/* Glass card with a coloured edge. Set --card-accent (any CSS colour) inline
+   or via a variant; defaults to cyan. Add .neon-card-live for hover lift. */
+.neon-card {
+  --card-accent: #22d3ee;
+  position: relative;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--card-accent) 14%, transparent), transparent 45%),
+    rgba(10, 14, 28, 0.78);
+  border: 1px solid color-mix(in srgb, var(--card-accent) 45%, transparent);
+  border-top: 2px solid var(--card-accent);
+  border-radius: 6px;
+  box-shadow: inset 0 0 24px color-mix(in srgb, var(--card-accent) 8%, transparent), 0 10px 30px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  transition: transform 180ms ease, box-shadow 220ms ease, border-color 220ms ease, background 220ms ease;
+}
+.neon-card-live { cursor: pointer; }
+.neon-card-live:hover {
+  transform: translateY(-6px);
+  border-color: var(--card-accent);
+  box-shadow:
+    inset 0 0 30px color-mix(in srgb, var(--card-accent) 16%, transparent),
+    0 0 26px color-mix(in srgb, var(--card-accent) 45%, transparent),
+    0 16px 32px rgba(0, 0, 0, 0.55);
+}
+.neon-card-locked {
+  --card-accent: #475569;
+  opacity: 0.6;
+  cursor: default;
+}
+.neon-card-title {
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* Back / navigation buttons along the bottom of a menu. */
+.menu-btn-back {
+  --accent: 148, 163, 184;
+  min-width: 13rem;
+  padding: 0.8rem 2rem;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+.menu-btn-gold { --accent: 251, 191, 36; color: #fff7d6; }
+/* A selectable option button (environment picker): dim until chosen. */
+.menu-btn-option {
+  padding: 0.95rem 1.25rem;
+  font-size: 0.95rem;
+  color: #94a3b8;
+  text-shadow: none;
+  background: rgba(10, 14, 28, 0.72);
+  border-color: rgba(var(--accent), 0.3);
+}
+.menu-btn-option.is-selected {
+  color: #fff;
+  text-shadow: 0 0 10px rgba(var(--accent), 0.7);
+  background: linear-gradient(100deg, rgba(var(--accent), 0.55), rgba(var(--accent), 0.15) 75%);
+  border-color: rgb(var(--accent));
+  box-shadow: inset 0 0 24px rgba(var(--accent), 0.35), 0 0 18px rgba(var(--accent), 0.35);
+}
+.menu-btn-cyan { --accent: 34, 211, 238; }
+
+/* Modal panel (Help, Settings, Paint): a neon card that doesn't lift. */
+.neon-modal-backdrop {
+  background: rgba(2, 4, 12, 0.82);
+  backdrop-filter: blur(4px);
+}
+.neon-modal {
+  --card-accent: #22d3ee;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--card-accent) 12%, transparent), transparent 40%),
+    rgba(8, 11, 24, 0.94);
+  border: 1px solid color-mix(in srgb, var(--card-accent) 45%, transparent);
+  border-top: 2px solid var(--card-accent);
+  border-radius: 6px;
+  box-shadow: 0 0 40px color-mix(in srgb, var(--card-accent) 22%, transparent), 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+.neon-label {
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.menu-btn-sm {
+  padding: 0.6rem 0.5rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+}
+.menu-btn-green { --accent: 34, 197, 94; }
+.menu-btn-amber { --accent: 251, 191, 36; }
+.menu-btn-red { --accent: 239, 68, 68; }
 /* Living backdrop: two particle layers drift over the card art (themed per cup
    via Cup.ambient) and a soft pool of the accent colour pulses under the
    trophy. The layers only add light (screen blend) so the trophy stays crisp.
@@ -171,4 +499,198 @@
   .cup-card-ambient::after {
     animation: none;
   }
+}
+
+/* ---- Selection cards ---------------------------------------------------- */
+
+/* Track map well: dark inset the neon track line glows in. */
+.track-map {
+  position: relative;
+  height: 12rem;
+  background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--card-accent) 12%, transparent), transparent 70%), #04060d;
+  border-bottom: 1px solid color-mix(in srgb, var(--card-accent) 30%, transparent);
+  border-radius: 5px 5px 0 0;
+  overflow: hidden;
+}
+.track-map canvas { transition: filter 220ms ease, transform 400ms ease; }
+.neon-card-live:hover .track-map canvas { filter: brightness(1.35) saturate(1.2); transform: scale(1.04); }
+
+/* Small corner tag (track number in its cup, etc.). */
+.card-tag {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  padding: 0.15rem 0.5rem;
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--card-accent);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid color-mix(in srgb, var(--card-accent) 45%, transparent);
+  border-radius: 3px;
+}
+
+/* Track card stats: boost-pad and hazard counts from the track data. */
+.track-stats { display: flex; flex-direction: column; align-items: flex-end; gap: 0.15rem; flex-shrink: 0; }
+.track-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #e2e8f0;
+}
+.track-stat .stat-label { font-size: 0.55rem; }
+.track-stat-boost { color: #67e8f9; text-shadow: 0 0 8px rgba(34, 211, 238, 0.6); }
+.track-stat-hazard { color: #fbbf24; text-shadow: 0 0 8px rgba(245, 158, 11, 0.5); }
+
+/* Ship carousel: one hangar stage, a glowing turntable, chevrons either side. */
+.carousel-stage {
+  position: relative;
+  height: clamp(15rem, 38vh, 24rem);
+  overflow: hidden;
+  border-radius: 6px;
+  background:
+    radial-gradient(ellipse 55% 60% at 50% 40%, rgba(34, 211, 238, 0.22), transparent 70%),
+    linear-gradient(180deg, #050810, #0a1020);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  box-shadow: 0 0 40px rgba(34, 211, 238, 0.12), inset 0 0 60px rgba(0, 0, 0, 0.6);
+}
+.carousel-stage::before {
+  content: '';
+  position: absolute;
+  left: -40%;
+  right: -40%;
+  bottom: 0;
+  height: 50%;
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.25) 1px, transparent 1px);
+  background-size: 34px 34px;
+  transform: perspective(300px) rotateX(60deg);
+  transform-origin: bottom;
+  mask-image: linear-gradient(to top, black, transparent 90%);
+  -webkit-mask-image: linear-gradient(to top, black, transparent 90%);
+  pointer-events: none;
+}
+.carousel-turntable {
+  position: absolute;
+  left: 50%;
+  bottom: 14%;
+  width: 52%;
+  height: 18%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  border: 2px solid rgba(103, 232, 249, 0.7);
+  background: radial-gradient(ellipse at center, rgba(34, 211, 238, 0.35), rgba(34, 211, 238, 0.05) 60%, transparent 72%);
+  box-shadow: 0 0 30px rgba(34, 211, 238, 0.45), inset 0 0 24px rgba(34, 211, 238, 0.35);
+  pointer-events: none;
+}
+.carousel-arrow {
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-size: 3rem;
+  line-height: 1;
+  color: #67e8f9;
+  background: rgba(8, 15, 30, 0.7);
+  border: 1px solid rgba(34, 211, 238, 0.45);
+  border-radius: 4px;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.8);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.carousel-arrow:hover { background: rgba(34, 211, 238, 0.2); color: #fff; transform: scale(1.06); }
+.carousel-dot {
+  width: 1.6rem;
+  height: 5px;
+  transform: skewX(-20deg);
+  background: rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.carousel-dot.is-locked { background: rgba(255, 255, 255, 0.06); }
+.carousel-dot.is-active { background: #22d3ee; box-shadow: 0 0 10px rgba(34, 211, 238, 0.8); }
+.carousel-pick {
+  position: absolute;
+  top: 0.9rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.2rem 0.9rem;
+  border-radius: 999px;
+  background: #f59e0b;
+  color: #000;
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.6);
+}
+.carousel-count {
+  position: absolute;
+  top: 0.8rem;
+  right: 1rem;
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: rgba(103, 232, 249, 0.75);
+}
+
+/* Segmented stat bar (ship + pilot cards). */
+.seg-bar { display: flex; gap: 3px; flex: 1; }
+.seg-bar span {
+  flex: 1;
+  height: 9px;
+  transform: skewX(-20deg);
+  border-radius: 1px;
+}
+/* Unlit: a recessed slot. Only :not(.on), because lit segments take their
+   colour from a Tailwind bg-* class, which this unlayered rule would override. */
+.seg-bar span:not(.on) {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(255, 255, 255, 0.07));
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+/* Lit: a raised bevel. A highlight-to-shade gradient over the bg colour, a
+   bright top edge, a dark bottom lip and a soft glow. */
+.seg-bar span.on {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.12) 45%, rgba(0, 0, 0, 0.3) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    0 2px 0 rgba(0, 0, 0, 0.55),
+    0 0 6px rgba(255, 255, 255, 0.18);
+}
+.stat-label {
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+/* Pilot portrait: name sits on a fade at the bottom of the image. */
+.pilot-portrait { position: relative; height: 16rem; overflow: hidden; border-radius: 5px 5px 0 0; }
+.pilot-portrait::after {
+  content: '';
+  position: absolute;
+  inset: 45% 0 0 0;
+  background: linear-gradient(to bottom, transparent, rgba(10, 14, 28, 0.96));
+  pointer-events: none;
+}
+.pilot-portrait img { transition: transform 500ms ease; }
+.neon-card-live:hover .pilot-portrait img { transform: scale(1.08); }
+.pilot-name {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 0.7rem;
+  z-index: 1;
+  text-shadow: 0 0 12px rgba(0, 0, 0, 0.9);
 }

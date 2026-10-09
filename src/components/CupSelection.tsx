@@ -22,8 +22,11 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
 
     return (
         <div className="relative z-10 flex flex-col items-center h-full p-8">
-            <h2 className="text-4xl font-bold text-white mb-2">SELECT CUP</h2>
-            <p className="text-gray-400 text-sm mb-6">Win a cup (finish top 3) to unlock the next.</p>
+            <div className="mb-6">
+                <h2 className="screen-title">SELECT CUP</h2>
+                <div className="screen-rule" />
+                <p className="screen-subtitle mt-3">Win a cup (finish top 3) to unlock the next</p>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 content-start gap-8 w-full max-w-6xl overflow-y-auto flex-1 min-h-0 p-4 scrollbar-hide">
                 {CUPS.map((cup) => {
@@ -97,7 +100,7 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
                 <button
                     onClick={() => { audioManager.playClick(); onBack(); }}
                     onMouseEnter={() => audioManager.playHover()}
-                    className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg border border-gray-600 transition-all"
+                    className="menu-btn menu-btn-back"
                 >
                     BACK TO MENU
                 </button>
@@ -105,7 +108,7 @@ export default function CupSelection({ onSelect, onRaceAll, onBack }: CupSelecti
                     <button
                         onClick={() => { audioManager.playClick(); onRaceAll(); }}
                         onMouseEnter={() => audioManager.playHover()}
-                        className="px-8 py-3 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold rounded shadow-lg transition-all transform hover:scale-105"
+                        className="menu-btn menu-btn-back menu-btn-gold"
                         title="Race every built cup back-to-back"
                     >
                         🏆 RACE ALL
