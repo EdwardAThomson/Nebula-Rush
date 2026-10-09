@@ -12,3 +12,38 @@
 .tutorial-pulse {
   animation: tutorial-pulse-glow 1.6s ease-in-out infinite;
 }
+
+/* Cup Selection cards: on hover the trophy art zooms a touch, the border glows
+   in the cup's accent colour (--accent, set inline per card) and a light sweep
+   passes across the art once. Only selectable cards get it. */
+.cup-card.cup-card-live:hover {
+  box-shadow:
+    0 0 28px 2px color-mix(in srgb, var(--accent) 55%, transparent),
+    0 16px 32px rgba(0, 0, 0, 0.55);
+}
+.cup-card-art {
+  position: relative;
+  overflow: hidden;
+}
+.cup-card-art img {
+  transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.cup-card-live:hover .cup-card-art img {
+  transform: scale(1.07);
+}
+.cup-card-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.22) 50%, transparent 62%);
+  transform: translateX(-110%);
+}
+@keyframes cup-card-shine {
+  to {
+    transform: translateX(110%);
+  }
+}
+.cup-card-live:hover .cup-card-art::after {
+  animation: cup-card-shine 0.9s ease-out forwards;
+}
