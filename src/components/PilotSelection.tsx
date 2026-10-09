@@ -67,8 +67,8 @@ export default function PilotSelection({ onSelect, onBack, backLabel = 'BACK', o
                         )}
 
                         {/* Info */}
-                        <div className="p-4 flex-1 flex flex-col">
-                            <h3 className={`text-xl font-bold mb-4 ${locked ? 'text-gray-500' : 'text-white group-hover:text-cyan-400'}`}>
+                        <div className="p-5 pb-6 flex-1 flex flex-col">
+                            <h3 className={`text-xl font-bold mb-8 ${locked ? 'text-gray-500' : 'text-white group-hover:text-cyan-400'}`}>
                                 {pilot.name}
                             </h3>
 

@@ -551,8 +551,8 @@ function App() {
                     onClick={() => { if (!locked) selectShipAndRace(card.type, card.color); }}
                     onMouseEnter={() => { if (!locked) audioManager.playHover(); }}
                     className={locked
-                      ? 'relative bg-gray-800 bg-opacity-60 p-6 rounded-xl border-2 border-gray-700 opacity-70 cursor-default'
-                      : `relative bg-gray-800 bg-opacity-80 p-6 rounded-xl border-2 ${card.borderClass} hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 hover:z-50 group ${recommended ? 'ring-2 ring-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.25)]' : ''}`}
+                      ? 'relative bg-gray-800 bg-opacity-60 p-6 pb-8 rounded-xl border-2 border-gray-700 opacity-70 cursor-default'
+                      : `relative bg-gray-800 bg-opacity-80 p-6 pb-8 rounded-xl border-2 ${card.borderClass} hover:bg-gray-700 cursor-pointer transition-all transform hover:-translate-y-2 hover:z-50 group ${recommended ? 'ring-2 ring-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.25)]' : ''}`}
                   >
                     {!locked && <PaintChip type={card.type} defaultColor={card.color} />}
                     {recommended && selectedPilot && (
@@ -574,7 +574,7 @@ function App() {
                         </div>
                       </div>
                     )}
-                    <div className="flex items-center gap-2 mb-4">
+                    <div className="flex items-center gap-2 mb-6">
                       <h3 className={`text-2xl font-bold ${locked ? 'text-gray-500' : card.titleClass}`}>{card.title}</h3>
                       {!locked && <InfoTip text={card.info} />}
                     </div>
