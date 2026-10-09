@@ -19,7 +19,7 @@ import { WorldReference } from '../game/WorldReference';
 
 const TRACK_POOL = ['track_1', 'track_2', 'track_3', 'track_4', 'track_5'];
 const TIMES: TimeOfDay[] = ['evening', 'night', 'night', 'morning'];
-const SHIP_TYPES: ShipType[] = ['fighter', 'speedster', 'tank', 'interceptor', 'corsair'];
+const SHIP_TYPES: ShipType[] = ['lancer', 'rapier', 'sledge', 'kestrel'];
 const COLORS = [0xcc0000, 0x00ccff, 0xcccc00, 0x00ff00, 0x5500aa, 0xff6600, 0xff00aa, 0xffffff];
 const RACERS = 8;
 const LAP_SECONDS = 38; // average lap time of the pack

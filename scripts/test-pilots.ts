@@ -17,7 +17,7 @@ interface PilotSimResult {
     acceleration: number;
     handling: number;
     statTotal: number;
-    // Effective stats when applied to fighter (baseline ship)
+    // Effective stats when applied to the lancer (baseline ship)
     effectiveTopSpeed: number;
     effectiveAccel: number;
     effectiveTurnSpeed: number;
@@ -25,8 +25,8 @@ interface PilotSimResult {
 }
 
 function simulatePilot(pilot: typeof PILOTS[0]): PilotSimResult {
-    // Use fighter as baseline ship
-    const baseStats = { ...SHIP_STATS.fighter };
+    // Use the lancer as baseline ship
+    const baseStats = { ...SHIP_STATS.lancer };
     
     // Apply pilot modifiers (same logic as Game.tsx, decoupled mapping)
     const handlingModifier = 1 + (pilot.stats.handling * 0.1);
@@ -131,7 +131,7 @@ console.log(
 console.log('-'.repeat(100));
 
 const results = PILOTS.map(simulatePilot);
-const baseTopSpeed = SHIP_STATS.fighter.accelFactor / (1 - SHIP_STATS.fighter.friction);
+const baseTopSpeed = SHIP_STATS.lancer.accelFactor / (1 - SHIP_STATS.lancer.friction);
 
 // Sort by top speed
 results.sort((a, b) => b.effectiveTopSpeed - a.effectiveTopSpeed);

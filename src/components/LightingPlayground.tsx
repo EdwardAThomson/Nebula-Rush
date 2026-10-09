@@ -108,7 +108,7 @@ export default function LightingPlayground({ onBack }: LightingPlaygroundProps) 
         scene.add(plane);
 
         // Ship
-        const ship = new Ship(scene, true, { ...SHIP_STATS.fighter, color: 0xcc0000, type: 'fighter' });
+        const ship = new Ship(scene, true, { ...SHIP_STATS.lancer, color: 0xd9531e, type: 'lancer' });
         ship.mesh.position.y = 5;
 
         // --- POINT LIGHTS TEST ---

@@ -30,7 +30,7 @@ I originally started building this game for free using Claude in the web browser
     -   Multi-race championship with cumulative points.
     -   Unlockable tracks (planned).
 -   **Ship & Pilot Selection**:
-    -   **5 Ship Classes**: *Fighter* (Balanced), *Speedster* (Top Speed), *Tank* (Grip), *Interceptor* (Agile), *Corsair* (Drift).
+    -   **4 Ship Classes**: *Lancer* (Balanced), *Rapier* (Acceleration & Drift), *Sledgehammer* (Grip & Armour), *Kestrel* (Top Speed).
     -   **Ship paint customization**: primary + secondary colours with a live preview.
     -   **8 Unique Pilots**: Generated avatars with unique modifiers for Acceleration, Handling, and Velocity.
 -   **Dynamic Environments**:
