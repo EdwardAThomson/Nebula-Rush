@@ -167,6 +167,59 @@ class AudioManager {
         this.playSfx('raceFinish');
     }
 
+    // Shield impact: a short synthesized thud (filtered noise crack + falling
+    // low sine), so no asset is needed. intensity 0..1 scales volume/pitch.
+    private impactCtx: AudioContext | null = null;
+    private lastImpactTime = 0;
+    public playImpact(intensity: number = 1) {
+        if (!this.config.sfxEnabled) return;
+        const nowMs = performance.now();
+        if (nowMs - this.lastImpactTime < 80) return; // don't stack on multi-hit frames
+        this.lastImpactTime = nowMs;
+        try {
+            if (!this.impactCtx) this.impactCtx = new AudioContext();
+            const ctx = this.impactCtx;
+            if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+            const t = ctx.currentTime;
+            const vol = Math.min(1, this.config.sfxVolume * (0.5 + 0.9 * intensity));
+
+            const out = ctx.createGain();
+            out.gain.value = vol;
+            out.connect(ctx.destination);
+
+            // Body: low sine sweeping down.
+            const osc = ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(140 + 60 * intensity, t);
+            osc.frequency.exponentialRampToValueAtTime(45, t + 0.25);
+            const og = ctx.createGain();
+            og.gain.setValueAtTime(0.9, t);
+            og.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+            osc.connect(og).connect(out);
+            osc.start(t);
+            osc.stop(t + 0.32);
+
+            // Crack: band-passed noise burst (the shield "zap").
+            const len = Math.floor(ctx.sampleRate * 0.18);
+            const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+            const noise = ctx.createBufferSource();
+            noise.buffer = buf;
+            const bp = ctx.createBiquadFilter();
+            bp.type = 'bandpass';
+            bp.frequency.value = 1800;
+            bp.Q.value = 0.8;
+            const ng = ctx.createGain();
+            ng.gain.setValueAtTime(0.5, t);
+            ng.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+            noise.connect(bp).connect(ng).connect(out);
+            noise.start(t);
+        } catch {
+            // No Web Audio (very old browser / headless) — feedback stays visual.
+        }
+    }
+
     public playBoost() {
         // Louder than the default sfx level — at 0.5 it sinks into the
         // music + engine-rumble bed and pad pickups go unnoticed.

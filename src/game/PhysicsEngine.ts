@@ -29,9 +29,8 @@ export interface GameState {
     lastBoostPadIndex: number; // Track which pad was last hit (for sound effects)
     // Energy (F-Zero style): drains on hazard-block hits and wall scraping,
     // recharges on the strip past the start line. 0 = retired (DNF).
-    // PLAYER-ONLY for now — enabled via energyEnabled, which the AI never sets:
-    // opponents have no hazard avoidance yet, so damage parity would DNF the
-    // whole field every race. Revisit when AI steering learns to dodge.
+    // Enabled via energyEnabled: the player (except in the tutorial) and every
+    // AI rival, which dodges blocks / seeks the pad in OpponentManager.
     energy: number;
     maxEnergy: number; // per-ship capacity (SHIP_STATS.maxEnergy; Tank highest)
     energyEnabled?: boolean;
