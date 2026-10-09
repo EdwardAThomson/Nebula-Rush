@@ -12,3 +12,95 @@
 .tutorial-pulse {
   animation: tutorial-pulse-glow 1.6s ease-in-out infinite;
 }
+
+/* ---- Start screen ---------------------------------------------------- */
+
+/* Dims the attract-mode race behind the menu: darkest in the middle where the
+   buttons sit, letting the action show at the edges. */
+.menu-scrim {
+  background:
+    radial-gradient(ellipse 55% 65% at 50% 50%, rgba(2, 4, 12, 0.82) 0%, rgba(2, 4, 12, 0.55) 55%, rgba(2, 4, 12, 0.25) 100%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.35), transparent 30%, transparent 70%, rgba(0, 0, 0, 0.6));
+  backdrop-filter: blur(1.5px) saturate(1.15);
+}
+
+.menu-title {
+  filter: drop-shadow(0 0 18px rgba(34, 211, 238, 0.45)) drop-shadow(0 0 40px rgba(217, 70, 239, 0.25));
+  letter-spacing: 0.04em;
+}
+
+/* Neon menu buttons: dark glass, an angled cut corner, coloured edge + glow.
+   Each variant just sets --accent. */
+.menu-btn {
+  --accent: 34, 211, 238;
+  position: relative;
+  overflow: hidden;
+  padding: 0.8rem 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: #e6f6ff;
+  background: linear-gradient(100deg, rgba(var(--accent), 0.22), rgba(10, 14, 28, 0.72) 55%);
+  border: 1px solid rgba(var(--accent), 0.55);
+  border-left: 3px solid rgb(var(--accent));
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  box-shadow: inset 0 0 18px rgba(var(--accent), 0.12);
+  backdrop-filter: blur(6px);
+  text-shadow: 0 0 10px rgba(var(--accent), 0.6);
+  transition: transform 150ms ease, background 200ms ease, box-shadow 200ms ease, color 200ms ease;
+  cursor: pointer;
+}
+/* Light sweep on hover. */
+.menu-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.28) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 500ms ease;
+  pointer-events: none;
+}
+.menu-btn:hover,
+.menu-btn:focus-visible {
+  color: #fff;
+  transform: translateX(4px);
+  background: linear-gradient(100deg, rgba(var(--accent), 0.5), rgba(var(--accent), 0.12) 70%);
+  box-shadow: inset 0 0 24px rgba(var(--accent), 0.35);
+  outline: none;
+}
+.menu-btn:hover::after,
+.menu-btn:focus-visible::after {
+  transform: translateX(120%);
+}
+.menu-btn:active {
+  transform: translateX(4px) scale(0.98);
+}
+
+.menu-btn-primary {
+  --accent: 34, 211, 238;
+  padding-top: 1.05rem;
+  padding-bottom: 1.05rem;
+  font-size: 1.1rem;
+}
+.menu-btn-indigo { --accent: 129, 140, 248; }
+.menu-btn-fuchsia { --accent: 217, 70, 239; }
+.menu-btn-ghost {
+  --accent: 148, 163, 184;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.15em;
+  color: #cbd5e1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-btn, .menu-btn::after { transition: none; }
+}
+
+/* The tutorial nudge's outer glow is clipped by the cut corners, so on menu
+   buttons it pulses inside the button instead. */
+@keyframes menu-tutorial-pulse {
+  0%, 100% { box-shadow: inset 0 0 18px rgba(var(--accent), 0.15); }
+  50% { box-shadow: inset 0 0 30px rgba(var(--accent), 0.75); border-color: rgb(var(--accent)); }
+}
+.menu-btn.tutorial-pulse {
+  animation: menu-tutorial-pulse 1.6s ease-in-out infinite;
+}

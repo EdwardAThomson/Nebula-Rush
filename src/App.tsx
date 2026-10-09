@@ -4,6 +4,7 @@ import type { ShipConfig } from './game/Ship';
 import { SHIP_STATS, type ShipType } from './game/ShipFactory';
 import { audioManager } from './game/AudioManager';
 import ShipPreview from './components/ShipPreview';
+import AttractBackground from './components/AttractBackground';
 import TrackPreview from './components/TrackPreview';
 import TrackAnalysis from './components/TrackAnalysis';
 import EnvironmentTest from './components/EnvironmentTest';
@@ -407,26 +408,32 @@ function App() {
       {/* START SCREEN */}
       {screen === 'start' && (
         <div className="relative z-10 flex flex-col items-center justify-center h-full">
-          <h1 className="text-6xl md:text-8xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-600 mb-12 animate-pulse">
+          {/* Live attract-mode race, dimmed so the menu stays readable. */}
+          <AttractBackground className="z-0" />
+          <div className="absolute inset-0 z-0 pointer-events-none menu-scrim" />
+
+          <div className="relative z-10 flex flex-col items-center">
+          <h1 className="menu-title text-6xl md:text-8xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 via-sky-400 to-fuchsia-500">
             NEBULA RUSH
           </h1>
+          <div className="mt-3 mb-10 text-xs md:text-sm tracking-[0.5em] text-cyan-200/70">ANTI-GRAVITY RACING</div>
 
-          <div className="flex flex-col space-y-4 w-64">
+          <div className="flex flex-col gap-3 w-72">
             <AudioButton
               onClick={handleNewGame}
-              className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
+              className="menu-btn menu-btn-primary"
             >
               NEW CAMPAIGN
             </AudioButton>
             <AudioButton
               onClick={handleTutorial}
-              className={`px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all ${showTutorialPulse ? 'tutorial-pulse' : ''}`}
+              className={`menu-btn menu-btn-indigo ${showTutorialPulse ? 'tutorial-pulse' : ''}`}
             >
               TUTORIAL
             </AudioButton>
             <AudioButton
               onClick={handleTrackSelectMode}
-              className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded shadow-lg transform hover:scale-105 transition-all"
+              className="menu-btn menu-btn-fuchsia"
             >
               SINGLE RACE
             </AudioButton>
@@ -475,18 +482,20 @@ function App() {
               TRACK ANALYSIS
             </AudioButton>
 */}
-            <AudioButton
-              onClick={() => setShowHelp(true)}
-              className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold rounded shadow-lg transform hover:scale-105 transition-all"
-            >
-              HELP
-            </AudioButton>
-            <AudioButton
-              onClick={() => setShowSettings(true)}
-              className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded shadow-lg transform hover:scale-105 transition-all border border-gray-600"
-            >
-              ⚙ SETTINGS
-            </AudioButton>
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              <AudioButton
+                onClick={() => setShowHelp(true)}
+                className="menu-btn menu-btn-ghost"
+              >
+                HELP
+              </AudioButton>
+              <AudioButton
+                onClick={() => setShowSettings(true)}
+                className="menu-btn menu-btn-ghost"
+              >
+                ⚙ SETTINGS
+              </AudioButton>
+            </div>
             {/* Physics Test (dev tool for A/B-ing pilot-stat physics mappings) —
                 delinked from the menu; re-enable this button or call
                 setScreen('physics_test') to reach it.
@@ -498,8 +507,9 @@ function App() {
             </AudioButton>
             */}
           </div>
+          </div>
 
-          <div className="absolute bottom-8 text-gray-500 text-sm">
+          <div className="absolute bottom-8 z-10 text-gray-400 text-sm">
             © 2026 Edward Thomson (<a href="https://octonion.io" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white underline">Octonion Software</a>)
           </div>
 
