@@ -110,7 +110,8 @@ function buildEngine(level: number, m: Mats): THREE.Group {
 // --- Thrusters: ONE vectoring thruster, refined per level rather than
 // multiplied (a ship would only ever carry one). Stock / Mk I: a plain bell
 // on a combustion chamber. Mk II: a bigger bell with cooling rings. Mk III:
-// vectoring vanes round the lip and a brighter, double-ringed throat.
+// a glowing lip, a lit coil round the chamber and a brighter, double-ringed
+// throat. Nothing bolts on outside the bell: ships don't show parts.
 // The thrust axis runs along Z, nozzle exit at +Z.
 function buildThrusters(level: number, m: Mats): THREE.Group {
     const g = new THREE.Group();
@@ -137,7 +138,7 @@ function buildThrusters(level: number, m: Mats): THREE.Group {
         turned.add(halo);
     }
     // Exit lip.
-    const lip = new THREE.Mesh(new THREE.TorusGeometry(0.505 * flare, 0.028, 10, 48), level > 0 ? m.trim : m.metal);
+    const lip = new THREE.Mesh(new THREE.TorusGeometry(0.505 * flare, 0.028, 10, 48), level >= 3 ? m.glow : level > 0 ? m.trim : m.metal);
     lip.rotation.x = Math.PI / 2;
     lip.position.y = 0.92;
     turned.add(lip);
@@ -155,18 +156,14 @@ function buildThrusters(level: number, m: Mats): THREE.Group {
     flange.position.y = -0.7;
     turned.add(flange);
     g.add(turned);
-    // Mk III: four vectoring vanes standing off the lip, angled into the exhaust.
+    // Mk III: a lit coil wound round the chamber (no external hardware, so
+    // it never implies parts the ship models don't carry).
     if (level >= 3) {
-        const vane = createAerofoilGeometry({ span: 0.34, rootChord: 0.36, tipChord: 0.22, sweep: 0.08, thickness: 0.12, tipRound: 0.5 });
-        for (let k = 0; k < 4; k++) {
-            const pivot = new THREE.Group();
-            pivot.rotation.z = k * Math.PI / 2 + Math.PI / 4;
-            const v = new THREE.Mesh(vane, m.trim);
-            // Span radial (+X) from just outside the lip, chord along the axis.
-            v.position.set(0.5 * flare, 0, 1.02);
-            v.rotation.y = -0.25;              // toe the trailing edge inward
-            pivot.add(v);
-            g.add(pivot);
+        // Between the Mk II cooling rings (chamber sits behind the throat, -Z).
+        for (const [z, r] of [[-0.5, 0.378], [-0.28, 0.35]] as const) {
+            const coil = new THREE.Mesh(new THREE.TorusGeometry(r, 0.018, 8, 40), m.glow);
+            coil.position.z = z;
+            g.add(coil);
         }
     }
     return g;
