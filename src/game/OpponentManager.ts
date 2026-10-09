@@ -129,7 +129,7 @@ export class OpponentManager {
 
             // Create Ship with Config
             // We'll calculate base stats for the type, then apply some variance
-            let basetoConfig = {
+            const basetoConfig = {
                 ...SHIP_STATS[type],
                 color: colors[i % colors.length],
                 type: type

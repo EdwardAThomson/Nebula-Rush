@@ -4,7 +4,7 @@
 //
 // Run: with `npm run dev`, open http://localhost:5173/sandbox/ship.html
 // Query params:
-//   type=lancer|fighter|...   ship type (default lancer)
+//   type=lancer|rapier|sledge|kestrel   ship type (default lancer)
 //   types=lancer,rapier,...   lineup: several ships side by side (overrides type/view)
 //   color=d9531e              primary paint (hex, no #; lineup uses each ship's default)
 //   accent=eeeeee             trim paint (hex, no #)
@@ -16,9 +16,8 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { createShip, type ShipType } from '../src/game/ShipFactory';
 
-const DEFAULT_COLORS: Partial<Record<ShipType, number>> = {
+const DEFAULT_COLORS: Record<ShipType, number> = {
     lancer: 0xd9531e, rapier: 0x2e7bd6, sledge: 0xc8a34a, kestrel: 0x9b1b3c,
-    fighter: 0xcc0000, speedster: 0x00ccff, tank: 0xcccc00, interceptor: 0x00ff00, corsair: 0x5500aa,
 };
 
 const params = new URLSearchParams(location.search);

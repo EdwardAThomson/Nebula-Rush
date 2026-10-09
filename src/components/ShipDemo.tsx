@@ -14,12 +14,7 @@ export default function ShipDemo({ onBack }: ShipDemoProps) {
 
     // Default colors for each type for the demo
     const shipColors: Record<ShipType, number> = {
-        speedster: 0x00ccff, // Cyan
-        fighter: 0xcc0000,   // Red
-        tank: 0xcccc00,      // Yellow
-        interceptor: 0x00ff00, // Green
-        corsair: 0x5500aa,   // Purple
-        lancer: 0xd9531e,    // Burnt orange (design mockups)
+        lancer: 0xd9531e,    // Burnt orange
         rapier: 0x2e7bd6,    // Blue
         sledge: 0xc8a34a,    // Sand gold
         kestrel: 0x9b1b3c    // Crimson
