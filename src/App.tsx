@@ -917,11 +917,11 @@ function TrackStats({ track }: { track: TrackConfig }) {
   const hazards = track.hazards?.length ?? 0;
   return (
     <div className="track-stats">
-      <span className="track-stat track-stat-boost" title={`${track.pads.length} boost pads`}>
-        {track.pads.length}<span className="stat-label">BOOST</span>
+      <span className="track-stat track-stat-boost" title={`${track.pads.length} boost pad${track.pads.length === 1 ? '' : 's'}`}>
+        {track.pads.length}<span className="stat-label">{track.pads.length === 1 ? 'BOOST' : 'BOOSTS'}</span>
       </span>
-      <span className={`track-stat ${hazards ? 'track-stat-hazard' : 'text-gray-500'}`} title={`${hazards} hazards`}>
-        {hazards}<span className="stat-label">HAZARD</span>
+      <span className={`track-stat ${hazards ? 'track-stat-hazard' : 'text-gray-500'}`} title={`${hazards} hazard${hazards === 1 ? '' : 's'}`}>
+        {hazards}<span className="stat-label">{hazards === 1 ? 'HAZARD' : 'HAZARDS'}</span>
       </span>
     </div>
   );
