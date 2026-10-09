@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { createShip, type ShipType } from '../game/ShipFactory';
+import { type ShipType } from '../game/ShipFactory';
+import { Ship } from '../game/Ship';
 import { createTrackCurve, createTrackMesh, createBoostPadMeshes, createStartLineMesh, getTrackFrame } from '../game/TrackFactory';
 import { TRACKS } from '../game/TrackDefinitions';
 import { EnvironmentManager, type TimeOfDay } from '../game/EnvironmentManager';
@@ -11,7 +12,10 @@ import { WorldReference } from '../game/WorldReference';
 // Cup track, filmed by a cycling set of TV-style camera shots. The ships are
 // moved kinematically (no physics) — each rides the track at a speed that
 // oscillates around a shared base, so the pack shuffles places but stays
-// together forever. Rendered behind the menu, which dims it with an overlay.
+// together. Ships that cross a boost pad surge ahead with the in-game boost
+// effects, then drift back to the pack. The opening shot always follows the
+// red ship onto the track's first boost pad. Rendered behind the menu, which
+// dims it with an overlay.
 
 const TRACK_POOL = ['track_1', 'track_2', 'track_3', 'track_4', 'track_5'];
 const TIMES: TimeOfDay[] = ['evening', 'night', 'night', 'morning'];
@@ -20,10 +24,21 @@ const COLORS = [0xcc0000, 0x00ccff, 0xcccc00, 0x00ff00, 0x5500aa, 0xff6600, 0xff
 const RACERS = 8;
 const LAP_SECONDS = 38; // average lap time of the pack
 const SHOT_SECONDS = 7;
+const OPENING_SECONDS = 9;  // first shot: long enough to see the boost land
+const OPENING_LEAD = 2.5;   // seconds from start until the red ship hits the pad
+const BOOST_SECONDS = 3;
+const BOOST_GAIN = 0.55;    // extra speed at full boost
+// Grid slots in world units along the track (+ = ahead of the red ship), so the
+// opening chase shot has rivals ahead and alongside it; the ones behind start
+// back past the chase camera so none of them fills the lens.
+const SLOTS = [0, 34, 18, 52, -45, 8, -60, 70];
 const FADE_SECONDS = 0.6;
 
 interface Racer {
+    ship: Ship;
     mesh: THREE.Group;
+    boost: number;       // eased 0..1 speed surge
+    padIndex: number;    // pad currently under the ship (-1 = none), so each pad fires once
     t: number;
     speedPhase: number;
     lane: number;
@@ -84,25 +99,47 @@ export default function AttractBackground({ className = '' }: AttractBackgroundP
             worldRef.setup(curve, track.surface?.accent ?? 0x3388ff);
         }
 
-        // Grid the pack a few ship-lengths apart, staggered across lanes.
-        const startT = Math.random();
+        const baseSpeed = 1 / LAP_SECONDS; // track-t per second
+
+        // Grid the pack so the red ship (racer 0) reaches the first boost pad
+        // OPENING_LEAD seconds in, lined up on the pad's lane.
+        const firstPad = track.pads[0];
+        const startT = firstPad
+            ? (firstPad.trackProgress - OPENING_LEAD * baseSpeed + 1) % 1
+            : Math.random();
         const racers: Racer[] = [];
         for (let i = 0; i < RACERS; i++) {
-            const { mesh } = createShip(COLORS[i % COLORS.length], SHIP_TYPES[i % SHIP_TYPES.length]);
-            scene.add(mesh);
+            const ship = new Ship(scene, false, { color: COLORS[i % COLORS.length], type: SHIP_TYPES[i % SHIP_TYPES.length] });
+            ship.state.throttle = 1; // full-length engine flames
+            const isRed = i === 0;
             racers.push({
-                mesh,
-                t: (startT - (i * 14) / trackLength + 1) % 1,
+                ship,
+                mesh: ship.mesh,
+                boost: 0,
+                padIndex: -1,
+                t: (startT + SLOTS[i] / trackLength + 1) % 1,
                 speedPhase: Math.random() * Math.PI * 2,
-                lane: (i % 2 === 0 ? -1 : 1) * (8 + (i % 3) * 10),
-                laneAmp: 6 + Math.random() * 10,
+                lane: isRed && firstPad ? firstPad.lateralPosition : (i % 2 === 0 ? -1 : 1) * (8 + (i % 3) * 10),
+                laneAmp: isRed ? 3 : 6 + Math.random() * 10,
                 laneFreq: 0.25 + Math.random() * 0.3,
                 lanePhase: Math.random() * Math.PI * 2,
                 lateral: 0,
             });
         }
 
-        const baseSpeed = 1 / LAP_SECONDS; // track-t per second
+        // Fire a pad's boost once when a ship first rolls onto it.
+        const checkPads = (r: Racer) => {
+            let hit = -1;
+            track.pads.forEach((pad, i) => {
+                const along = (r.t - pad.trackProgress + 1) % 1;
+                if (along < pad.length && Math.abs(r.lateral - pad.lateralPosition) < pad.width / 2) hit = i;
+            });
+            if (hit >= 0 && hit !== r.padIndex) {
+                r.ship.state.boostTimer = BOOST_SECONDS;
+                r.ship.triggerBoostFlash();
+            }
+            r.padIndex = hit;
+        };
         const up = new THREE.Vector3(0, 1, 0);
         const tmp = new THREE.Vector3();
         const lookAt = new THREE.Vector3();
@@ -110,8 +147,9 @@ export default function AttractBackground({ className = '' }: AttractBackgroundP
         const camUp = new THREE.Vector3(0, 1, 0);
         const fixedCam = new THREE.Vector3(); // trackside camera anchor, chosen per shot
 
-        let shotIndex = pinnedShot >= 0 ? pinnedShot : Math.floor(Math.random() * SHOTS.length);
+        let shotIndex = pinnedShot >= 0 ? pinnedShot : SHOTS.indexOf('chase');
         let shotStart = 0;
+        let shotLength = OPENING_SECONDS;
         let subject = 0;
         let side = 1; // which side of the menu the subject is framed on
         let elapsed = 0;
@@ -149,25 +187,33 @@ export default function AttractBackground({ className = '' }: AttractBackgroundP
             camera.setViewOffset(w, h, side * w * 0.24, 0, w, h);
         };
 
-        const startShot = (index: number) => {
+        const startShot = (index: number, opening = false) => {
             shotIndex = index % SHOTS.length;
             shotStart = elapsed;
-            subject = Math.floor(Math.random() * RACERS);
+            shotLength = opening ? OPENING_SECONDS : SHOT_SECONDS;
+            subject = opening ? 0 : Math.floor(Math.random() * RACERS);
             side = -side;
             frameOffset();
             if (SHOTS[shotIndex] === 'trackside') pickTrackside();
         };
-        startShot(shotIndex);
+        startShot(shotIndex, true);
 
         const frameCamera = () => {
             const shot = SHOTS[shotIndex];
             const s = racers[subject];
             const f = getTrackFrame(curve, s.t);
             const p = s.mesh.position;
-            const k = (elapsed - shotStart) / SHOT_SECONDS; // 0..1 through the shot
+            const k = (elapsed - shotStart) / shotLength; // 0..1 through the shot
+
+            // Boost camera, as in-game: widen the FOV and pull back on a surge.
+            const fov = 60 + (shot === 'chase' ? 12 * s.boost : 0);
+            if (Math.abs(camera.fov - fov) > 0.01) {
+                camera.fov = fov;
+                camera.updateProjectionMatrix();
+            }
 
             if (shot === 'chase') {
-                camPos.copy(p).addScaledVector(f.tangent, -22).addScaledVector(f.normal, 7);
+                camPos.copy(p).addScaledVector(f.tangent, -22 - 6 * s.boost).addScaledVector(f.normal, 7);
                 lookAt.copy(p).addScaledVector(f.tangent, 30);
                 camUp.copy(f.normal);
             } else if (shot === 'side') {
@@ -204,20 +250,33 @@ export default function AttractBackground({ className = '' }: AttractBackgroundP
             last = now;
             elapsed += dt;
 
+            // Pack centre (circular mean around the red ship) for rubber-banding.
+            let spread = 0;
+            for (const r of racers) spread += ((r.t - racers[0].t + 1.5) % 1) - 0.5;
+            const centreT = racers[0].t + spread / RACERS;
+
             for (const r of racers) {
-                const speed = baseSpeed * (1 + 0.035 * Math.sin(elapsed * 0.37 + r.speedPhase));
+                const s = r.ship.state;
+                s.boostTimer = Math.max(0, s.boostTimer - dt);
+                r.boost += ((s.boostTimer > 0 ? 1 : 0) - r.boost) * Math.min(1, dt * (s.boostTimer > 0 ? 4 : 1));
+                // Drift back toward the pack once more than ~8 ship-lengths out.
+                const gap = (((r.t - centreT + 1.5) % 1) - 0.5) * trackLength;
+                const pull = Math.max(-0.12, Math.min(0.12, -Math.sign(gap) * Math.max(0, Math.abs(gap) - 90) / 600));
+                const speed = baseSpeed * (1 + 0.035 * Math.sin(elapsed * 0.37 + r.speedPhase) + BOOST_GAIN * r.boost + pull);
                 r.t = (r.t + speed * dt) % 1;
                 placeRacer(r, elapsed);
+                checkPads(r);
+                r.ship.updateVisuals(dt * 60);
             }
 
             const shotAge = elapsed - shotStart;
-            if (shotAge > SHOT_SECONDS) startShot(pinnedShot >= 0 ? pinnedShot : shotIndex + 1);
+            if (shotAge > shotLength) startShot(pinnedShot >= 0 ? pinnedShot : shotIndex + 1);
             frameCamera();
 
             // Dip to black around each cut.
             if (fadeRef.current) {
                 const age = elapsed - shotStart;
-                const edge = Math.min(age, SHOT_SECONDS - age);
+                const edge = Math.min(age, shotLength - age);
                 fadeRef.current.style.opacity = String(Math.max(0, 1 - edge / FADE_SECONDS));
             }
 

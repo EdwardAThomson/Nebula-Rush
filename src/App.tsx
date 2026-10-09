@@ -413,10 +413,9 @@ function App() {
           <div className="absolute inset-0 z-0 pointer-events-none menu-scrim" />
 
           <div className="relative z-10 flex flex-col items-center">
-          <h1 className="menu-title text-6xl md:text-8xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 via-sky-400 to-fuchsia-500">
+          <h1 className="menu-title text-6xl md:text-8xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 via-sky-400 to-fuchsia-500 mb-12">
             NEBULA RUSH
           </h1>
-          <div className="mt-3 mb-10 text-xs md:text-sm tracking-[0.5em] text-cyan-200/70">ANTI-GRAVITY RACING</div>
 
           <div className="flex flex-col gap-3 w-72">
             <AudioButton
