@@ -27,7 +27,44 @@ const SHIELD_HEALTHY = new THREE.Color(0x55ddff);
 const SHIELD_LOW = new THREE.Color(0xff3322);
 const SHIELD_CHARGE = new THREE.Color(0x44ff88);
 const SPARK_COUNT = 24;
-const SHIELD_SCALE = new THREE.Vector3(3.3, 1.8, 4.9); // sized to enclose the four-ship roster
+const SHIELD_PAD = 1.1; // clearance between the furthest hull point and the bubble
+
+// Fit an ellipsoid round a hull (engine flames excluded): proportioned to the
+// hull's bounding box, then grown until every vertex is inside. Cached per
+// ship type, since all hulls of a type share geometry.
+const shieldFitCache = new Map<string, { center: THREE.Vector3; radii: THREE.Vector3 }>();
+const fitShield = (type: string, mesh: THREE.Object3D, glows: THREE.Object3D[]) => {
+    const cached = shieldFitCache.get(type);
+    if (cached) return cached;
+    const skip = new Set<THREE.Object3D>();
+    glows.forEach(g => g.traverse(o => skip.add(o)));
+    mesh.updateMatrixWorld(true);
+    const inv = mesh.matrixWorld.clone().invert();
+    const pts: THREE.Vector3[] = [];
+    const box = new THREE.Box3();
+    mesh.traverse(o => {
+        const m = o as THREE.Mesh;
+        if (!m.isMesh || skip.has(o)) return;
+        const pos = m.geometry.getAttribute('position');
+        if (!pos) return;
+        const toShip = inv.clone().multiply(m.matrixWorld);
+        for (let i = 0; i < pos.count; i++) {
+            const v = new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(toShip);
+            pts.push(v);
+            box.expandByPoint(v);
+        }
+    });
+    const center = box.getCenter(new THREE.Vector3());
+    const half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5).max(new THREE.Vector3(0.5, 0.5, 0.5));
+    let k = 0;
+    for (const v of pts) {
+        const d = v.clone().sub(center).divide(half);
+        k = Math.max(k, d.length());
+    }
+    const fit = { center, radii: half.multiplyScalar(Math.max(k, 1) * SHIELD_PAD) };
+    shieldFitCache.set(type, fit);
+    return fit;
+};
 
 // Soft round dot for spark points (shared; built once on first use).
 let sparkTexture: THREE.Texture | null = null;
@@ -134,6 +171,7 @@ export class Ship {
     // point. Driven from energy deltas, so every damage source (blocks, wall
     // scraping, contact) and the recharge pad show up without extra wiring.
     private shield: THREE.Group;
+    private shieldScale = new THREE.Vector3(1, 1, 1); // per-hull ellipsoid radii (fitShield)
     private shieldUniforms: {
         uColor: { value: THREE.Color }; uOpacity: { value: number }; uHitPos: { value: THREE.Vector3 };
         uHit: { value: number }; uRing: { value: number }; uFocus: { value: number };
@@ -257,8 +295,10 @@ export class Ship {
         this.shield.add(new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), shieldMat(0.9)));
         this.shield.add(new THREE.LineSegments(
             new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(1.01, 2)), shieldMat(1.6)));
-        this.shield.scale.copy(SHIELD_SCALE);
-        this.shield.position.y = 0.5;
+        const fit = fitShield(type, this.mesh, this.glows);
+        this.shieldScale.copy(fit.radii);
+        this.shield.scale.copy(this.shieldScale);
+        this.shield.position.copy(fit.center);
         this.shield.visible = false;
         this.mesh.add(this.shield);
 
@@ -405,7 +445,7 @@ export class Ship {
             u.uColor.value.copy(SHIELD_LOW).lerp(SHIELD_HEALTHY, Math.min(1, frac * 1.6))
                 .lerp(SHIELD_CHARGE, this.shieldCharge * (1 - this.shieldHit));
             const wobble = 1 + 0.04 * this.shieldHit * Math.sin(performance.now() * 0.05);
-            this.shield.scale.copy(SHIELD_SCALE).multiplyScalar(wobble);
+            this.shield.scale.copy(this.shieldScale).multiplyScalar(wobble);
         }
 
         // Sparks: ballistic drift in ship space with drag, fading out.
@@ -428,8 +468,7 @@ export class Ship {
 
     private emitSparks(strength: number) {
         const pos = this.sparks.geometry.getAttribute('position') as THREE.BufferAttribute;
-        const origin = this.hitDir.clone().multiply(SHIELD_SCALE);
-        origin.y += 0.5;
+        const origin = this.hitDir.clone().multiply(this.shieldScale).add(this.shield.position);
         const v = this.sparkVel;
         const speed = 0.25 + 0.35 * strength;
         const dir = new THREE.Vector3();
