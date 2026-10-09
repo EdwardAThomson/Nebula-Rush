@@ -171,20 +171,80 @@ const createLoftGeometry = (
     return geo;
 };
 
-// Swept trapezoid panel (wing stub / fin / canard) in plan view, built per
-// side so mirroring never flips normals. Shape X = outward span (sign of dir),
-// Y = chord with +Y forward. The leading edge sweeps back by `sweep` across
-// the span; the trailing edge follows from the tip chord.
-const createSweptPanelShape = (span: number, rootChord: number, tipChord: number, sweep: number, dir: 1 | -1) => {
-    const tipLead = rootChord / 2 - sweep;
-    const pts: [number, number][] = [
-        [0, rootChord / 2], [span, tipLead], [span, tipLead - tipChord], [0, -rootChord / 2]
-    ];
-    if (dir < 0) pts.reverse();
-    const s = new THREE.Shape();
-    pts.forEach(([x, y], i) => (i === 0 ? s.moveTo(x * dir, y) : s.lineTo(x * dir, y)));
-    s.closePath();
-    return s;
+// Lofted aerofoil panel: a wing, fin, strut or spoiler with a real section
+// (rounded leading edge, sharp trailing edge) instead of an extruded slab
+// with a blunt face all the way round. Built in ship space: span runs along
+// +X from the root at x = 0, chord along +Z with the root chord centred on
+// z = 0 (leading edge forward, at lower Z), thickness along Y, symmetric
+// about y = 0. Mirror with dir = -1.
+//   sweep        — how far aft the tip's leading edge sits from the root's
+//   thickness    — root max thickness as a fraction of chord (NACA 00xx)
+//   tipRound     — fraction of span over which the leading edge curves aft
+//                  to meet the trailing edge in a rounded tip (0 = square
+//                  tip, capped, for a panel that buries its tip in something)
+interface AerofoilOpts {
+    span: number; rootChord: number; tipChord: number; sweep?: number;
+    thickness?: number; tipThickness?: number; tipRound?: number; dir?: 1 | -1;
+    spanSegments?: number; chordSegments?: number;
+}
+const createAerofoilGeometry = (o: AerofoilOpts): THREE.BufferGeometry => {
+    const {
+        span, rootChord, tipChord, sweep = 0, thickness = 0.1, tipThickness = thickness * 0.75,
+        tipRound = 0.3, dir = 1, spanSegments = 14, chordSegments = 14,
+    } = o;
+    const M = chordSegments * 2;          // points around one section: TE -> upper -> LE -> lower -> TE
+    // NACA 00xx half-thickness as a fraction of chord (closed trailing edge).
+    const half = (x: number, t: number) =>
+        5 * t * (0.2969 * Math.sqrt(x) - 0.1260 * x - 0.3516 * x * x + 0.2843 * x ** 3 - 0.1036 * x ** 4);
+    const rootTE = rootChord / 2;
+    const tipTE = -rootChord / 2 + sweep + tipChord;
+    const positions: number[] = [];
+    const indices: number[] = [];
+    for (let i = 0; i <= spanSegments; i++) {
+        const u = i / spanSegments;
+        let chord = rootChord + (tipChord - rootChord) * u;
+        if (tipRound > 0 && u > 1 - tipRound) {
+            const k = (u - (1 - tipRound)) / tipRound;
+            chord *= Math.sqrt(Math.max(0, 1 - k * k));   // elliptical fall-off into the tip
+        }
+        chord = Math.max(chord, 0.01);
+        const te = rootTE + (tipTE - rootTE) * u;
+        const le = te - chord;
+        const t = thickness + (tipThickness - thickness) * u;
+        for (let k = 0; k <= M; k++) {
+            const xc = (1 + Math.cos((k / M) * Math.PI * 2)) / 2;      // cosine spacing: dense at LE and TE
+            const y = (k <= M / 2 ? 1 : -1) * half(xc, t) * chord;
+            positions.push(dir * u * span, y, le + xc * chord);
+        }
+    }
+    const tri = (a: number, b: number, c: number) => (dir > 0 ? indices.push(a, b, c) : indices.push(a, c, b));
+    for (let i = 0; i < spanSegments; i++) {
+        for (let k = 0; k < M; k++) {
+            const a = i * (M + 1) + k, b = a + 1, c = a + M + 1, d = c + 1;
+            tri(a, c, b);
+            tri(b, c, d);
+        }
+    }
+    // Flat caps: always at the root (buried in whatever carries the panel),
+    // and at the tip when it is square rather than rounded.
+    const cap = (ring: number, flip: boolean) => {
+        const base = positions.length / 3;
+        let cz = 0, cy = 0;
+        for (let k = 0; k < M; k++) { cy += positions[(ring + k) * 3 + 1]; cz += positions[(ring + k) * 3 + 2]; }
+        positions.push(positions[ring * 3], cy / M, cz / M);
+        for (let k = 0; k <= M; k++) positions.push(positions[(ring + k) * 3], positions[(ring + k) * 3 + 1], positions[(ring + k) * 3 + 2]);
+        for (let k = 0; k < M; k++) {
+            if (flip) tri(base, base + 2 + k, base + 1 + k);
+            else tri(base, base + 1 + k, base + 2 + k);
+        }
+    };
+    cap(0, false);
+    if (tipRound <= 0) cap(spanSegments * (M + 1), true);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
 };
 
 export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter', accentColor: number = 0xeeeeee, buggyWing: boolean = false): ShipParts => {
@@ -358,27 +418,25 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         return { pod, glowZ: 3.9 * ls };
     };
 
-    // Swept fin with a rounded tip, in the XY plane: X = chord running aft
-    // from the leading root, Y = height. Lay it with rotation.y = -PI/2 so X
-    // maps to world +Z, then cant with a parent pivot's rotation.z.
-    const makeFinGeometry = (key: string, chord: number, height: number, thickness = 0.08) =>
+    // Swept fin with an aerofoil section and a rounded tip, standing in the
+    // YZ plane: root leading edge at the origin, chord running aft along +Z,
+    // height along +Y. `thickness` is the root's max thickness in world
+    // units. Cant it with a parent pivot's rotation.z.
+    const makeFinGeometry = (key: string, chord: number, height: number, thickness = 0.12) =>
         getGeometry(key, () => {
-            const s = new THREE.Shape();
-            s.moveTo(0, 0);
-            s.lineTo(chord, 0);
-            s.lineTo(chord, 0.29 * height);
-            s.quadraticCurveTo(0.93 * chord, 0.95 * height, 0.64 * chord, height);   // rounded tip
-            s.lineTo(0, 0);                                                           // swept leading edge
-            return new THREE.ExtrudeGeometry(s, { depth: thickness, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 2 });
+            const geo = createAerofoilGeometry({
+                span: height, rootChord: chord, tipChord: 0.5 * chord, sweep: 0.45 * chord,
+                thickness: thickness / chord, tipRound: 0.4,
+            });
+            geo.rotateZ(Math.PI / 2);                  // span +X -> +Y (up)
+            geo.translate(0, 0, chord / 2);            // root leading edge at z = 0
+            return geo;
         });
     const addFin = (geo: THREE.BufferGeometry, material: THREE.Material, pos: THREE.Vector3, cant: number) => {
         const pivot = new THREE.Group();
         pivot.position.copy(pos);
         pivot.rotation.z = cant;
-        const fin = new THREE.Mesh(geo, material);
-        fin.rotation.y = -Math.PI / 2;                 // shape X -> world +Z (aft)
-        fin.position.x = 0.04;                         // centre the thickness
-        pivot.add(fin);
+        pivot.add(new THREE.Mesh(geo, material));
         ship.add(pivot);
         return pivot;
     };
@@ -1149,12 +1207,12 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         //    buried in the hull side, tip buried in the nacelle, so the engines
         //    are visibly attached rather than floating alongside.
         const nacelleX = 2.1, nacelleY = 0.06, nacelleFront = -1.5;
-        const stubSettings = { steps: 1, depth: 0.2, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.05, bevelSegments: 3 };
         ([1, -1] as const).forEach(dir => {
-            const geo = getGeometry(`lancer_stub_${dir}`, () => new THREE.ExtrudeGeometry(createSweptPanelShape(1.6, 2.6, 1.6, 0.8, dir), stubSettings));
+            const geo = getGeometry(`lancer_stub_${dir}`, () => createAerofoilGeometry({
+                span: 1.6, rootChord: 2.6, tipChord: 1.6, sweep: 0.8, thickness: 0.09, tipRound: 0, dir,
+            }));
             const stub = new THREE.Mesh(geo, hullMat);
-            stub.rotation.x = -Math.PI / 2;                 // shape +Y (forward) -> world -Z, thickness -> +Y
-            stub.position.set(dir * 0.75, nacelleY - 0.04, 0.0);
+            stub.position.set(dir * 0.75, nacelleY, 0.0);
             ship.add(stub);
         });
 
@@ -1181,12 +1239,12 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         });
 
         // 7. Nose canards: small swept foreplanes.
-        const canardSettings = { steps: 1, depth: 0.06, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.015, bevelSegments: 2 };
         ([1, -1] as const).forEach(dir => {
-            const geo = getGeometry(`lancer_canard_${dir}`, () => new THREE.ExtrudeGeometry(createSweptPanelShape(0.75, 0.7, 0.35, 0.3, dir), canardSettings));
+            const geo = getGeometry(`lancer_canard_${dir}`, () => createAerofoilGeometry({
+                span: 0.75, rootChord: 0.7, tipChord: 0.4, sweep: 0.28, thickness: 0.1, tipRound: 0.35, dir,
+            }));
             const canard = new THREE.Mesh(geo, trimMat);
-            canard.rotation.x = -Math.PI / 2;
-            canard.position.set(dir * 0.45, 0.42, -2.6);
+            canard.position.set(dir * 0.45, 0.45, -2.6);
             ship.add(canard);
         });
 
@@ -1293,14 +1351,15 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
 
         // 1. Hull: squared-shoulder slab, flat belly, rounded nose.
         const hullGeo = getGeometry('sledge_hull', () => createLoftGeometry([
-            { z: -3.6, w: 0.30, h: 0.10, y: 0.30 },
+            { z: -3.7, w: 0.08, h: 0.04, y: 0.31 },
+            { z: -3.4, w: 0.55, h: 0.14, y: 0.31 },
             { z: -3.0, w: 0.95, h: 0.22, y: 0.32 },
             { z: -2.0, w: 1.55, h: 0.32, y: 0.36 },
             { z: -0.8, w: 1.85, h: 0.40, y: 0.40 },
             { z: 0.6, w: 1.85, h: 0.42, y: 0.42 },
             { z: 1.8, w: 1.65, h: 0.40, y: 0.44 },
             { z: 2.6, w: 1.30, h: 0.34, y: 0.46 },
-        ], { n: 3.2, belly: 0.55, capEnd: true }));
+        ], { n: 3.2, belly: 0.55, capStart: true, capEnd: true }));
         ship.add(new THREE.Mesh(hullGeo, hullMat));
 
         // 2. Bonnet stripe (trim ribbon riding just above the hull top) and
@@ -1352,24 +1411,27 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
             enginePositions.push(new THREE.Vector3(0, 0.72, 2.2 + glowZ));
         }
 
-        // 5. Side skirts along the lower flanks and a low rear spoiler on struts.
-        const skirtGeo = getGeometry('sledge_skirt', () => new THREE.BoxGeometry(0.12, 0.18, 3.6));
-        [-1.86, 1.86].forEach(sx => {
-            const skirt = new THREE.Mesh(skirtGeo, nacelleMat);
-            skirt.position.set(sx, 0.24, 0.3);
-            ship.add(skirt);
+        // 5. Rear spoiler: an aerofoil (two halves meeting at the centre, with
+        //    rounded ends) on two aerofoil-section posts. It rides high, just
+        //    ahead of the turbines, so it sits over the hull rather than
+        //    across the engine mouths.
+        ([1, -1] as const).forEach(dir => {
+            const geo = getGeometry(`sledge_spoiler_${dir}`, () => createAerofoilGeometry({
+                span: 1.15, rootChord: 0.44, tipChord: 0.40, thickness: 0.14, tipThickness: 0.12, tipRound: 0.25, dir,
+            }));
+            const half = new THREE.Mesh(geo, trimMat);
+            half.position.set(0, 1.3, 1.6);
+            half.rotation.x = -0.15;
+            ship.add(half);
         });
-        // Spoiler rides high on tall posts just ahead of the turbines, so it
-        // sits over the hull rather than across the engine mouths.
-        const spoilerGeo = getGeometry('sledge_spoiler', () => new THREE.BoxGeometry(2.3, 0.06, 0.42));
-        const spoiler = new THREE.Mesh(spoilerGeo, trimMat);
-        spoiler.position.set(0, 1.3, 1.6);
-        spoiler.rotation.x = -0.15;
-        ship.add(spoiler);
-        const postGeo = getGeometry('sledge_post', () => new THREE.BoxGeometry(0.08, 0.5, 0.3));
+        const postGeo = getGeometry('sledge_post', () => {
+            const geo = createAerofoilGeometry({ span: 0.5, rootChord: 0.3, tipChord: 0.3, thickness: 0.25, tipThickness: 0.25, tipRound: 0 });
+            geo.rotateZ(Math.PI / 2);                  // stand it up
+            return geo;
+        });
         [-0.9, 0.9].forEach(px => {
             const post = new THREE.Mesh(postGeo, nacelleMat);
-            post.position.set(px, 1.06, 1.6);
+            post.position.set(px, 0.81, 1.6);
             ship.add(post);
         });
 
@@ -1413,18 +1475,21 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         ship.add(new THREE.Mesh(canopyGeo, canopyMat));
 
         // 3. Main wing (hull colour, so the mass reads as one) and canards (trim).
-        const wingSettings = { steps: 1, depth: 0.14, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 3 };
-        const canardSettings = { steps: 1, depth: 0.06, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.015, bevelSegments: 2 };
+        //    The wing is a proper aerofoil: moderate sweep, tapered, rounded
+        //    tips and a little dihedral, like an air racer's.
         ([1, -1] as const).forEach(dir => {
-            const wingGeo = getGeometry(`kestrel_wing_${dir}`, () => new THREE.ExtrudeGeometry(createSweptPanelShape(2.4, 2.8, 1.0, 1.7, dir), wingSettings));
+            const wingGeo = getGeometry(`kestrel_wing_${dir}`, () => createAerofoilGeometry({
+                span: 2.5, rootChord: 2.8, tipChord: 1.1, sweep: 1.2, thickness: 0.085, tipThickness: 0.06, tipRound: 0.3, dir,
+            }));
             const wing = new THREE.Mesh(wingGeo, hullMat);
-            wing.rotation.x = -Math.PI / 2;
-            wing.position.set(dir * 0.5, 0.3, 0.9);
+            wing.position.set(dir * 0.45, 0.36, 0.9);
+            wing.rotation.z = dir * 0.08;              // dihedral
             ship.add(wing);
-            const canardGeo = getGeometry(`kestrel_canard_${dir}`, () => new THREE.ExtrudeGeometry(createSweptPanelShape(0.9, 0.8, 0.4, 0.4, dir), canardSettings));
+            const canardGeo = getGeometry(`kestrel_canard_${dir}`, () => createAerofoilGeometry({
+                span: 0.9, rootChord: 0.8, tipChord: 0.45, sweep: 0.35, thickness: 0.1, tipRound: 0.35, dir,
+            }));
             const canard = new THREE.Mesh(canardGeo, trimMat);
-            canard.rotation.x = -Math.PI / 2;
-            canard.position.set(dir * 0.45, 0.52, -2.6);
+            canard.position.set(dir * 0.45, 0.55, -2.6);
             ship.add(canard);
         });
 
@@ -1459,7 +1524,7 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         // 5. Twin tails canted outward on the wing, plus a small ventral fin.
         const tailGeo = makeFinGeometry('kestrel_tail', 1.3, 1.0);
         ([1, -1] as const).forEach(dir => {
-            addFin(tailGeo, trimMat, new THREE.Vector3(dir * 1.35, 0.42, 1.5), -dir * 0.35);
+            addFin(tailGeo, trimMat, new THREE.Vector3(dir * 1.35, 0.44, 1.2), -dir * 0.35);
         });
         const ventralGeo = makeFinGeometry('kestrel_ventral', 0.8, 0.45);
         addFin(ventralGeo, trimMat, new THREE.Vector3(0, 0.1, 2.3), Math.PI);
