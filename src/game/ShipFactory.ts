@@ -3,6 +3,9 @@ import * as THREE from 'three';
 export interface ShipParts {
     mesh: THREE.Group;
     glows: THREE.Mesh[];
+    // Energy beams (e.g. the Rapier's binders): additive cylinders with a
+    // bright core as children[0]; Ship.ts animates their flicker and colour.
+    beams: THREE.Mesh[];
 }
 
 export type ShipType = 'fighter' | 'speedster' | 'tank' | 'interceptor' | 'corsair' | 'lancer' | 'rapier' | 'sledge' | 'kestrel';
@@ -118,7 +121,10 @@ const createLoftGeometry = (
         for (let j = 0; j <= segments; j++) {
             const th = (j / segments) * Math.PI * 2;
             const cx = sp(Math.cos(th)), cy = sp(Math.sin(th));
-            ring.push([s.y * cx, yc + s.z * cy * (cy < 0 ? belly : 1), s.x]);
+            // Belly squash eases in from the equator (zero slope there) so the
+            // lower half flattens without a crease along the hull sides.
+            const squash = cy < 0 ? 1 - (1 - belly) * cy * cy : 1;
+            ring.push([s.y * cx, yc + s.z * cy * squash, s.x]);
         }
         return { ring, centre: [0, yc, s.x] as [number, number, number] };
     };
@@ -152,6 +158,16 @@ const createLoftGeometry = (
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geo.setIndex(indices);
     geo.computeVertexNormals();
+    // Each ring's first and last vertex share a position but not faces, so
+    // their normals come out one-sided; average them to hide the seam.
+    const nrm = geo.getAttribute('normal') as THREE.BufferAttribute;
+    const avg = new THREE.Vector3();
+    for (let i = 0; i <= rings; i++) {
+        const a = i * (segments + 1), b = a + segments;
+        avg.set(nrm.getX(a) + nrm.getX(b), nrm.getY(a) + nrm.getY(b), nrm.getZ(a) + nrm.getZ(b)).normalize();
+        nrm.setXYZ(a, avg.x, avg.y, avg.z);
+        nrm.setXYZ(b, avg.x, avg.y, avg.z);
+    }
     return geo;
 };
 
@@ -174,6 +190,7 @@ const createSweptPanelShape = (span: number, rootChord: number, tipChord: number
 export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter', accentColor: number = 0xeeeeee, buggyWing: boolean = false): ShipParts => {
     const ship = new THREE.Group();
     const glows: THREE.Mesh[] = [];
+    const beams: THREE.Mesh[] = [];
 
     // Helper: Get or Create Material
     const getMaterial = (
@@ -1209,27 +1226,31 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
             addFin(vaneGeo, trimMat, new THREE.Vector3(ex, engY + engR - 0.06, engFront + 1.9), 0);
         });
 
-        // 2. Energy binder: a cyan beam between the intakes, with dark emitter
-        //    nubs at each end, plus a structural crossbar further back.
-        const binderGeo = getGeometry('rapier_binder', () => new THREE.CylinderGeometry(0.05, 0.05, 1, 10));
-        const binder = new THREE.Mesh(binderGeo, glowMaterial);
-        binder.rotation.z = Math.PI / 2;
-        binder.scale.y = 2 * (engX - engR) + 0.2;
-        binder.position.set(0, engY + 0.15, engFront + 1.0);
-        ship.add(binder);
+        // 2. Energy binders: two violet beams spanning the engines (one near
+        //    the intakes, one further back), each with a bright core and dark
+        //    emitter nubs at both ends. Ship.ts animates their flicker/colour.
+        const beamGeo = getGeometry('rapier_beam', () => new THREE.CylinderGeometry(0.09, 0.09, 1, 12, 1, true));
+        const beamCoreGeo = getGeometry('rapier_beam_core', () => new THREE.CylinderGeometry(0.032, 0.032, 1, 8));
+        const beamMat = getMaterial('rapier_beam', { color: 0x8a5cff, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }, THREE.MeshBasicMaterial);
+        const beamCoreMat = getMaterial('rapier_beam_core', { color: 0xeef4ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }, THREE.MeshBasicMaterial);
         const nubGeo = getGeometry('rapier_nub', () => new THREE.BoxGeometry(0.22, 0.22, 0.3));
-        [-1, 1].forEach(dir => {
-            const nub = new THREE.Mesh(nubGeo, nacelleMat);
-            nub.position.set(dir * (engX - engR + 0.02), engY + 0.15, engFront + 1.0);
-            ship.add(nub);
+        ([[engFront + 1.0, engY + 0.15], [engFront + 3.1, engY - 0.1]] as [number, number][]).forEach(([bz, by]) => {
+            const beam = new THREE.Mesh(beamGeo, beamMat);
+            beam.rotation.z = Math.PI / 2;
+            beam.scale.y = 2 * (engX - engR) + 0.2;        // the core child inherits the length
+            beam.position.set(0, by, bz);
+            beam.add(new THREE.Mesh(beamCoreGeo, beamCoreMat));
+            ship.add(beam);
+            beams.push(beam);
+            [-1, 1].forEach(dir => {
+                const nub = new THREE.Mesh(nubGeo, nacelleMat);
+                nub.position.set(dir * (engX - engR + 0.02), by, bz);
+                ship.add(nub);
+            });
         });
-        const crossGeo = getGeometry('rapier_crossbar', () => new THREE.BoxGeometry(2 * (engX - engR) + 0.3, 0.14, 0.32));
-        const cross = new THREE.Mesh(crossGeo, nacelleMat);
-        cross.position.set(0, engY - 0.1, engFront + 3.1);
-        ship.add(cross);
 
-        // 3. Pod: a small lofted cockpit tub, low and behind the engines, with
-        //    an open cockpit (dark well + raked windscreen + headrest fairing).
+        // 3. Pod: a small lofted cockpit tub, low and behind the engines, under
+        //    an enclosed bubble canopy with a dark sill.
         const tubGeo = getGeometry('rapier_tub', () => createLoftGeometry([
             { z: 0.9, w: 0.08, h: 0.06, y: 0.30 },
             { z: 1.4, w: 0.42, h: 0.30, y: 0.34 },
@@ -1238,21 +1259,20 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
             { z: 3.8, w: 0.30, h: 0.28, y: 0.46 },
         ], { n: 2.6, belly: 0.5, capEnd: true }));
         ship.add(new THREE.Mesh(tubGeo, hullMat));
-        const wellGeo = getGeometry('rapier_well', () => new THREE.BoxGeometry(0.66, 0.1, 1.1));
-        const well = new THREE.Mesh(wellGeo, intakeMat);
-        well.position.set(0, 0.78, 2.5);
-        ship.add(well);
-        const screenGeo = getGeometry('rapier_screen', () => new THREE.BoxGeometry(0.66, 0.34, 0.04));
-        const screen = new THREE.Mesh(screenGeo, canopyMat);
-        screen.position.set(0, 0.96, 1.9);
-        screen.rotation.x = -0.5;
-        ship.add(screen);
-        const headrestGeo = getGeometry('rapier_headrest', () => createLoftGeometry([
-            { z: 2.95, w: 0.22, h: 0.26, y: 0.86 },
-            { z: 3.4, w: 0.16, h: 0.16, y: 0.82 },
-            { z: 3.85, w: 0.05, h: 0.04, y: 0.72 },
-        ], { n: 2.2, belly: 0.3, capEnd: true }));
-        ship.add(new THREE.Mesh(headrestGeo, hullMat));
+        const podCanopy: LoftStation[] = [
+            { z: 1.5, w: 0.05, h: 0.04, y: 0.66 },
+            { z: 2.0, w: 0.34, h: 0.26, y: 0.72 },
+            { z: 2.6, w: 0.40, h: 0.32, y: 0.76 },
+            { z: 3.2, w: 0.32, h: 0.24, y: 0.78 },
+            { z: 3.7, w: 0.10, h: 0.06, y: 0.76 },
+        ];
+        const podCanopyGeo = getGeometry('rapier_canopy', () => createLoftGeometry(podCanopy, { n: 2.2, belly: 0.6, capEnd: true }));
+        ship.add(new THREE.Mesh(podCanopyGeo, canopyMat));
+        const podSillGeo = getGeometry('rapier_canopy_sill', () => createLoftGeometry(
+            podCanopy.map(s => ({ z: s.z, w: s.w + 0.05, h: Math.max(0.03, s.h * 0.3), y: s.y - 0.02 })),
+            { n: 2.2, belly: 0.6, capEnd: true }
+        ));
+        ship.add(new THREE.Mesh(podSillGeo, nacelleMat));
 
         // 4. Tow struts: from each engine's rear to the pod's nose.
         const strutGeo = getGeometry('rapier_strut', () => new THREE.CylinderGeometry(0.05, 0.05, 1, 8));
@@ -1269,7 +1289,7 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         // across the tail. Reads as a hover car rather than a plane.
         // Forward is -Z; hull Z -3.6 .. +2.6, turbines out to +4.0.
         const mats = protoMats();
-        const { hullMat, trimMat, nacelleMat, intakeMat, canopyMat } = mats;
+        const { hullMat, trimMat, nacelleMat, canopyMat } = mats;
 
         // 1. Hull: squared-shoulder slab, flat belly, rounded nose.
         const hullGeo = getGeometry('sledge_hull', () => createLoftGeometry([
@@ -1299,26 +1319,23 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
             ship.add(light);
         });
 
-        // 3. Open cockpit: dark well in the top, raked windscreen, twin headrests.
-        const wellGeo = getGeometry('sledge_well', () => new THREE.BoxGeometry(1.3, 0.1, 1.5));
-        const well = new THREE.Mesh(wellGeo, intakeMat);
-        well.position.set(0, 0.82, 0.1);
-        ship.add(well);
-        const screenGeo = getGeometry('sledge_screen', () => new THREE.BoxGeometry(1.34, 0.4, 0.04));
-        const screen = new THREE.Mesh(screenGeo, canopyMat);
-        screen.position.set(0, 1.0, -0.78);
-        screen.rotation.x = -0.55;
-        ship.add(screen);
-        const headrestGeo = getGeometry('sledge_headrest', () => createLoftGeometry([
-            { z: 0.8, w: 0.18, h: 0.22, y: 0.92 },
-            { z: 1.3, w: 0.16, h: 0.16, y: 0.90 },
-            { z: 1.9, w: 0.06, h: 0.04, y: 0.86 },
-        ], { n: 2.2, belly: 0.4, capEnd: true }));
-        [-0.36, 0.36].forEach(hx => {
-            const headrest = new THREE.Mesh(headrestGeo, hullMat);
-            headrest.position.x = hx;
-            ship.add(headrest);
-        });
+        // 3. Enclosed cockpit: a wide, low bubble canopy on a dark sill, its
+        //    lower half buried in the slab so there is no exposed pane.
+        const canopyStations: LoftStation[] = [
+            { z: -1.3, w: 0.06, h: 0.04, y: 0.70 },
+            { z: -0.7, w: 0.50, h: 0.30, y: 0.76 },
+            { z: 0.1, w: 0.62, h: 0.40, y: 0.80 },
+            { z: 0.9, w: 0.56, h: 0.34, y: 0.82 },
+            { z: 1.7, w: 0.30, h: 0.14, y: 0.82 },
+            { z: 2.1, w: 0.08, h: 0.04, y: 0.80 },
+        ];
+        const canopyGeo = getGeometry('sledge_canopy', () => createLoftGeometry(canopyStations, { n: 2.4, belly: 0.6, capEnd: true }));
+        ship.add(new THREE.Mesh(canopyGeo, canopyMat));
+        const sillGeo = getGeometry('sledge_canopy_sill', () => createLoftGeometry(
+            canopyStations.map(s => ({ z: s.z, w: s.w + 0.06, h: Math.max(0.03, s.h * 0.25), y: s.y - 0.02 })),
+            { n: 2.4, belly: 0.6, capEnd: true }
+        ));
+        ship.add(new THREE.Mesh(sillGeo, nacelleMat));
 
         // 4. Three turbines across the tail: a big outer pair and a smaller,
         //    higher centre unit.
@@ -1342,15 +1359,17 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
             skirt.position.set(sx, 0.24, 0.3);
             ship.add(skirt);
         });
+        // Spoiler rides high on tall posts just ahead of the turbines, so it
+        // sits over the hull rather than across the engine mouths.
         const spoilerGeo = getGeometry('sledge_spoiler', () => new THREE.BoxGeometry(2.3, 0.06, 0.42));
         const spoiler = new THREE.Mesh(spoilerGeo, trimMat);
-        spoiler.position.set(0, 1.0, 2.2);
+        spoiler.position.set(0, 1.3, 1.6);
         spoiler.rotation.x = -0.15;
         ship.add(spoiler);
-        const postGeo = getGeometry('sledge_post', () => new THREE.BoxGeometry(0.08, 0.26, 0.3));
+        const postGeo = getGeometry('sledge_post', () => new THREE.BoxGeometry(0.08, 0.5, 0.3));
         [-0.9, 0.9].forEach(px => {
             const post = new THREE.Mesh(postGeo, nacelleMat);
-            post.position.set(px, 0.88, 2.2);
+            post.position.set(px, 1.06, 1.6);
             ship.add(post);
         });
 
@@ -1409,16 +1428,26 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
             ship.add(canard);
         });
 
-        // 4. Side intakes feeding the buried engine, and the engine itself.
-        const intakeBodyGeo = getGeometry('kestrel_intake_body', () => new THREE.BoxGeometry(0.36, 0.5, 1.4));
-        const intakeFaceGeo = getGeometry('kestrel_intake_face', () => new THREE.BoxGeometry(0.3, 0.42, 0.04));
+        // 4. Side scoops feeding the buried engine: a rounded mouth that
+        //    narrows and sinks into the fuselage aft, with a dark throat.
+        const scoopGeo = getGeometry('kestrel_scoop', () => createLoftGeometry([
+            { z: 0.30, w: 0.19, h: 0.26, y: 0 },
+            { z: 0.60, w: 0.20, h: 0.27, y: 0 },
+            { z: 1.20, w: 0.17, h: 0.22, y: 0.02 },
+            { z: 1.90, w: 0.08, h: 0.10, y: 0.06 },
+            { z: 2.30, w: 0.02, h: 0.02, y: 0.08 },
+        ], { n: 2.4, belly: 0.9, capStart: true, capEnd: true }));
+        const throatGeo = getGeometry('kestrel_scoop_throat', () => createLoftGeometry([
+            { z: 0.26, w: 0.15, h: 0.21, y: 0 },
+            { z: 0.60, w: 0.12, h: 0.17, y: 0 },
+        ], { n: 2.4, belly: 0.9, capStart: true, capEnd: false }));
         [-0.84, 0.84].forEach(ix => {
-            const body = new THREE.Mesh(intakeBodyGeo, nacelleMat);
-            body.position.set(ix, 0.48, 1.0);
-            ship.add(body);
-            const face = new THREE.Mesh(intakeFaceGeo, intakeMat);
-            face.position.set(ix, 0.48, 0.29);
-            ship.add(face);
+            const scoop = new THREE.Mesh(scoopGeo, nacelleMat);
+            scoop.position.set(ix, 0.48, 0);
+            ship.add(scoop);
+            const throat = new THREE.Mesh(throatGeo, intakeMat);
+            throat.position.set(ix, 0.48, 0);
+            ship.add(throat);
         });
         {
             const { pod, glowZ } = makeNacelle('kestrel_engine', 0.48, 2.2, mats);
@@ -1682,5 +1711,5 @@ export const createShip = (color: number = 0xcc0000, type: ShipType = 'fighter',
         addGlow(pos);
     });
 
-    return { mesh: ship, glows: glows };
+    return { mesh: ship, glows, beams };
 };

@@ -109,7 +109,7 @@ const SHIP_CARDS: {
     ],
   },
   {
-    type: 'sledge', title: 'SLEDGE', color: 0xc8a34a,
+    type: 'sledge', title: 'SLEDGEHAMMER', color: 0xc8a34a,
     info: 'Mockup: landspeeder. Low wide slab, open cockpit, three turbines across the tail.',
     titleClass: 'text-amber-400', borderClass: 'border-amber-500', bgClass: 'bg-amber-900',
     stats: [

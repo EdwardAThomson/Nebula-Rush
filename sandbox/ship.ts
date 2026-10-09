@@ -72,6 +72,17 @@ const lightExhaust = (glows: THREE.Mesh[]) => glows.forEach(g => {
     if (core) core.scale.set(core.scale.x, 1.8, core.scale.z);
 });
 
+// Energy beams flicker here too (a light version of Ship.ts's animation).
+const beams: THREE.Mesh[] = [];
+const animateBeams = (time: number) => beams.forEach((beam, i) => {
+    const t = time * 6 + i * 1.7;
+    const mat = beam.material as THREE.MeshBasicMaterial;
+    mat.opacity = 0.55 * (0.78 + 0.16 * Math.sin(t * 2.3) + 0.06 * Math.sin(t * 7.1));
+    mat.color.set(0x8a5cff).lerp(new THREE.Color(0x4fb8ff), 0.5 + 0.5 * Math.sin(time * 1.3 + i));
+    const core = beam.children[0] as THREE.Mesh | undefined;
+    if (core) core.scale.set(1 + 0.3 * Math.sin(t * 5.3), 1, 1 + 0.3 * Math.sin(t * 5.3));
+});
+
 let mesh: THREE.Group;
 if (lineup.length) {
     // Side by side, each turned a little so the three-quarter view reads,
@@ -85,6 +96,7 @@ if (lineup.length) {
         ship.mesh.position.set(-(i - (lineup.length - 1) / 2) * spacing, -0.5, 0);
         ship.mesh.rotation.y = 0.55;
         lightExhaust(ship.glows);
+        beams.push(...ship.beams);
         mesh.add(ship.mesh);
     });
     ground.scale.setScalar(2.2);
@@ -93,6 +105,7 @@ if (lineup.length) {
     mesh = ship.mesh;
     mesh.position.y = -0.5;
     lightExhaust(ship.glows);
+    beams.push(...ship.beams);
 }
 scene.add(mesh);
 
@@ -131,6 +144,7 @@ addEventListener('resize', () => {
 
 let frames = 0;
 const animate = () => {
+    animateBeams(performance.now() * 0.001);
     renderer.render(scene, camera);
     frames++;
     if (frames === 3) (window as unknown as { __shipReady: boolean }).__shipReady = true; // screenshot hook

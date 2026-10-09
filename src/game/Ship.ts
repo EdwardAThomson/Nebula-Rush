@@ -12,6 +12,9 @@ const FLAME_BASE = new THREE.Color(0x00ffff);
 const FLAME_BOOST = new THREE.Color(0xff8c2a);
 const CORE_BASE = new THREE.Color(0xeaf6ff);
 const CORE_BOOST = new THREE.Color(0xffe8c0);
+// Energy-beam colour drift (Rapier binders): violet <-> electric blue.
+const BEAM_A = new THREE.Color(0x8a5cff);
+const BEAM_B = new THREE.Color(0x4fb8ff);
 const AURA_BASE = new THREE.Color(0x44ccff);
 const AURA_BOOST = new THREE.Color(0xffa040);
 // Lightning arcs crackling over the aura: electric blue-white, warmed slightly
@@ -50,6 +53,7 @@ export class Ship {
 
     // Visual components if we need to animate them (e.g. engine glow)
     private glows: THREE.Mesh[] = [];
+    private beams: THREE.Mesh[] = [];           // energy binders (Rapier); own material clones
     private aura: THREE.Mesh | null = null;     // additive shell around the hull while boosting
     private arcs: THREE.Line[] = [];            // lightning crackling over the aura shell
     private lastArcTime = 0;                    // when the arc shapes were last re-rolled
@@ -85,9 +89,17 @@ export class Ship {
         // Initialize Visuals
         const color = config?.color !== undefined ? config.color : 0xcc0000;
         const type = config?.type || 'fighter';
-        const { mesh, glows } = createShip(color, type, config?.accentColor);
+        const { mesh, glows, beams } = createShip(color, type, config?.accentColor);
         this.mesh = mesh;
         this.glows = glows;
+        this.beams = beams;
+        this.beams.forEach(b => {
+            if (b.material) b.material = (b.material as THREE.Material).clone();
+            b.children.forEach(child => {
+                const m = child as THREE.Mesh;
+                if (m.material) m.material = (m.material as THREE.Material).clone();
+            });
+        });
         // Own our glow/flame materials so brightness animates per-ship
         // (createShip shares them across ships via a cache otherwise).
         this.glows.forEach(g => {
@@ -253,6 +265,22 @@ export class Ship {
                         core.material.opacity = 0.5 + 0.35 * heat; // hot centre brightens on boost
                         core.material.color.copy(CORE_BASE).lerp(CORE_BOOST, this.boostLevel);
                     }
+                }
+            });
+
+            // Energy beams: a lazy violet-to-blue drift with a nervous flicker,
+            // the core swelling in and out; brighter and whiter under boost.
+            this.beams.forEach((beam, i) => {
+                const t = time * 6 + i * 1.7;
+                const flick = 0.78 + 0.16 * Math.sin(t * 2.3) + 0.06 * Math.sin(t * 7.1) + (Math.random() - 0.5) * 0.06;
+                const mat = beam.material as THREE.MeshBasicMaterial;
+                mat.opacity = Math.min(1, flick * (0.55 + 0.35 * heat));
+                mat.color.copy(BEAM_A).lerp(BEAM_B, 0.5 + 0.5 * Math.sin(time * 1.3 + i)).lerp(CORE_BOOST, 0.4 * this.boostLevel);
+                const core = beam.children[0] as THREE.Mesh | undefined;
+                if (core) {
+                    const swell = 1 + 0.3 * Math.sin(t * 5.3) + 0.6 * heat;
+                    core.scale.set(swell, 1, swell);
+                    if (core.material instanceof THREE.MeshBasicMaterial) core.material.opacity = 0.6 + 0.3 * flick;
                 }
             });
 
