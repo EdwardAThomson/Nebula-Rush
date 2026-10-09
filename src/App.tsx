@@ -84,6 +84,19 @@ const SHIP_CARDS: {
   stats: { label: string; key: 'speed' | 'accel' | 'handling' | 'drift' | 'energy'; barClass: string }[];
 }[] = [
   {
+    // Design experiment (lofted hull, twin nacelles). Listed first and
+    // unlocked from the start so the new look can be raced and judged.
+    type: 'lancer', title: 'LANCER', color: 0xd9531e,
+    info: 'Prototype hull. Balanced stats while the new design is evaluated.',
+    titleClass: 'text-orange-400', borderClass: 'border-orange-500', bgClass: 'bg-orange-900',
+    stats: [
+      { label: 'Speed', key: 'speed', barClass: 'bg-cyan-500' },
+      { label: 'Accel', key: 'accel', barClass: 'bg-yellow-500' },
+      { label: 'Handling', key: 'handling', barClass: 'bg-green-500' },
+      { label: 'Energy', key: 'energy', barClass: 'bg-emerald-400' },
+    ],
+  },
+  {
     type: 'fighter', title: 'FIGHTER', color: 0xcc0000,
     info: 'Perfectly balanced stats. Good for beginners and pros alike.',
     titleClass: 'text-red-500', borderClass: 'border-red-500', bgClass: 'bg-red-900',

@@ -12,7 +12,9 @@ import type { ShipType } from './ShipFactory';
 // the hard-to-drive speed option). The FORGIVING speed pilots (Jax, Lyra:
 // +2 velocity with decent launch) stay campaign rewards.
 const BASE_PILOTS = ['echo_7', 'orion_reinhardt', 'dennis_grimshaw', 'nova_starling'];
-const BASE_SHIPS: ShipType[] = ['fighter', 'interceptor'];
+// The lancer is a design prototype, unlocked from the start so it can be
+// raced and judged; fold it into the cup rewards once the look is settled.
+const BASE_SHIPS: ShipType[] = ['fighter', 'interceptor', 'lancer'];
 
 // Rewards granted when a cup is cleared. Later cups aren't authored yet, so a
 // full pass of today's campaign intentionally does NOT unlock everything —
