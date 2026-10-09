@@ -1313,7 +1313,7 @@ export const createShip = (color: number = 0xd9531e, type: ShipType = 'lancer', 
         });
 
         // 3. Pod: a small lofted cockpit tub, low and behind the engines, under
-        //    an enclosed bubble canopy with a dark sill. The stations behind the
+        //    an enclosed bubble canopy. The stations behind the
         //    canopy follow a rounded boat tail down to a point, so the rear is
         //    a dome rather than a flat cut.
         const tubGeo = getGeometry('rapier_tub', () => createLoftGeometry([
@@ -1328,25 +1328,20 @@ export const createShip = (color: number = 0xd9531e, type: ShipType = 'lancer', 
             { z: 4.5, w: 0.02, h: 0.02, y: 0.485 },
         ], { n: 2.6, belly: 0.5, capEnd: true }));
         ship.add(new THREE.Mesh(tubGeo, hullMat));
-        // The glass is a near-flat-bottomed bubble (belly 0.15) whose base
-        // ring rides a hair above the hull's top line, so it never skims the
-        // hull as a sliver; the dark coaming under it drops far enough to
-        // meet the hull where the top curves away at the sides.
-        const podCanopy: LoftStation[] = [
-            { z: 1.7, w: 0.05, h: 0.05, y: 0.70 },
-            { z: 2.1, w: 0.28, h: 0.21, y: 0.77 },
-            { z: 2.5, w: 0.34, h: 0.28, y: 0.81 },
-            { z: 2.9, w: 0.32, h: 0.25, y: 0.84 },
-            { z: 3.2, w: 0.22, h: 0.16, y: 0.835 },
-            { z: 3.45, w: 0.07, h: 0.05, y: 0.82 },
-        ];
-        const podCanopyGeo = getGeometry('rapier_canopy', () => createLoftGeometry(podCanopy, { n: 2.2, belly: 0.15, capEnd: true }));
+        // The glass is a full bubble seated the Kestrel way: its equator sits
+        // about a tenth below the hull's top line and both tips dive under
+        // the hull before they taper, so the dome emerges from the hull along
+        // one clean curve. No sill: a separate frame piece always showed as a
+        // plate under the glass wherever the hull's shoulder curved away.
+        const podCanopyGeo = getGeometry('rapier_canopy', () => createLoftGeometry([
+            { z: 1.6, w: 0.06, h: 0.05, y: 0.58 },
+            { z: 2.0, w: 0.30, h: 0.28, y: 0.66 },
+            { z: 2.5, w: 0.38, h: 0.36, y: 0.70 },
+            { z: 3.0, w: 0.34, h: 0.32, y: 0.72 },
+            { z: 3.35, w: 0.22, h: 0.20, y: 0.72 },
+            { z: 3.6, w: 0.07, h: 0.06, y: 0.68 },
+        ], { n: 2.2, belly: 0.6, capEnd: true }));
         ship.add(new THREE.Mesh(podCanopyGeo, canopyMat));
-        const podSillGeo = getGeometry('rapier_canopy_sill', () => createLoftGeometry(
-            podCanopy.map(s => ({ z: s.z, w: s.w + 0.035, h: Math.min(0.055, s.h + 0.01), y: s.y - 0.04 })),
-            { n: 2.2, belly: 1.0, capEnd: true }
-        ));
-        ship.add(new THREE.Mesh(podSillGeo, nacelleMat));
 
         // 4. Tow struts: from each engine's rear to the pod's nose.
         const strutGeo = getGeometry('rapier_strut', () => new THREE.CylinderGeometry(0.05, 0.05, 1, 8));
