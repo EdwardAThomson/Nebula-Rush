@@ -8,6 +8,7 @@ import { TRACKS, RECHARGE_ZONE } from '../src/game/TrackDefinitions';
 import { createTrackCurve } from '../src/game/TrackFactory';
 import { createCanyonWallLimit } from '../src/game/CanyonTerrain';
 import { createWind } from '../src/game/WindSystem';
+import { rivalTier } from '../src/game/CupDefinitions';
 
 const RACES = Number(process.argv[2] ?? 3);
 const ONLY = process.argv[3] !== undefined ? Number(process.argv[3]) : undefined;
@@ -29,7 +30,7 @@ for (const [ti, track] of TRACKS.entries()) {
     for (let r = 0; r < RACES; r++) {
         const scene = new THREE.Scene();
         const roster = OpponentManager.generateRoster(19);
-        const om = new OpponentManager(scene, curve, roster, true, wallLimit, wind.enabled ? wind.lateralForce : undefined, track.recharge);
+        const om = new OpponentManager(scene, curve, roster, true, wallLimit, wind.enabled ? wind.lateralForce : undefined, track.recharge, rivalTier(track.id));
         const last = om.opponents.map(o => o.state.energy);
         const minE = om.opponents.map(o => o.state.energy / o.state.maxEnergy);
         const charged = om.opponents.map(() => false);

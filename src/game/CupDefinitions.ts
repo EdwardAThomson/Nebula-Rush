@@ -92,6 +92,14 @@ export const CUPS: Cup[] = [
 ];
 
 // Resolve a cup's track ids to TrackConfig objects, in order (skips unbuilt ids).
+// How strong the rival field is on a track: the index of the cup it belongs
+// to (Nebula 0, Sunscorch 1, ...). Tracks outside any cup race at tier 0.
+// OpponentManager maps this onto rival skill and pilot strength.
+export function rivalTier(trackId: string): number {
+    const i = CUPS.findIndex((c) => c.trackIds.includes(trackId));
+    return Math.max(0, i);
+}
+
 export function resolveCupTracks(cup: Cup): TrackConfig[] {
     return cup.trackIds
         .map((id) => TRACKS.find((t) => t.id === id))

@@ -86,6 +86,17 @@ export const ENERGY_BLOCK_HIT = 18;   // flat cost per hazard-block strike
 export const ENERGY_WALL_DRAIN = 10;  // per second while scraping a wall
 export const ENERGY_RECHARGE = 35;    // per second on the recharge strip
 
+// Knockback is sized by how far it carries the ship, not as a raw velocity.
+// Lateral speed decays by slideFactor every frame, so a kick v slides
+// v * s / (1 - s) in total: the same 2.0 kick moved a grippy Sledgehammer ~23
+// units but a loose Rapier ~130 (wall to wall). This returns the kick that
+// slides `distance` world units on this hull, so every ship gets the same nudge.
+export const BLOCK_KNOCK_DISTANCE = 12;
+export function lateralKick(state: GameState, distance: number): number {
+    const s = state.slideFactor;
+    return distance * (1 - s) / s;
+}
+
 export const updatePhysics = (
     state: GameState,
     inputManager: InputSource,
@@ -258,7 +269,7 @@ export const updatePhysics = (
             if (onLane && h.trackProgress >= sweepLo && h.trackProgress <= sweepHi && state.hazardCooldown <= 0) {
                 state.velocity.y *= 0.4; // bleed most of the speed
                 const side = state.lateralPosition >= h.lateralPosition ? 1 : -1;
-                state.velocity.x += side * 3.0; // shove sideways, away from the block
+                state.velocity.x += side * lateralKick(state, BLOCK_KNOCK_DISTANCE); // nudge away from the block
                 state.hazardCooldown = 0.6; // brief immunity → no cluster re-trigger / vibration
                 if (state.energyEnabled) state.energy = Math.max(0, state.energy - ENERGY_BLOCK_HIT);
                 if (onLapComplete) onLapComplete("HAZARD");
