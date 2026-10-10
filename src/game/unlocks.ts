@@ -12,10 +12,10 @@ import type { ShipType } from './ShipFactory';
 // the hard-to-drive speed option). The FORGIVING speed pilots (Jax, Lyra:
 // +2 velocity with decent launch) stay campaign rewards.
 const BASE_PILOTS = ['echo_7', 'orion_reinhardt', 'dennis_grimshaw', 'nova_starling'];
-// Lancer is the all-rounder and the Rapier the hard-charging, loose-tailed
-// option; the grip hull (Sledgehammer) and the top-speed hull (Kestrel) are
-// campaign rewards.
-const BASE_SHIPS: ShipType[] = ['lancer', 'rapier'];
+// Only the all-rounder (Lancer) is open from the start; every other hull is a
+// campaign reward, one per cup: the hard-charging Rapier first, then the grip
+// hull (Sledgehammer), then the top-speed hull (Kestrel).
+const BASE_SHIPS: ShipType[] = ['lancer'];
 
 // Rewards granted when a cup is cleared. Later cups aren't authored yet, so a
 // full pass of today's campaign intentionally does NOT unlock everything —
@@ -24,8 +24,8 @@ const CUP_REWARDS: Record<string, { pilots?: string[]; ships?: ShipType[] }> = {
     // Escalating desirability (65 → 68 → 72 → 72-but-hard top speed), and each
     // pilot fits their cup: outer-rim Darius in the desert, city hotshot Jax
     // under the Skyline neon, icy Lyra in Cryo.
-    nebula: { pilots: ['zara_qel'], ships: ['sledge'] },
-    sunscorch: { pilots: ['darius_wraith'] },
+    nebula: { pilots: ['zara_qel'], ships: ['rapier'] },
+    sunscorch: { pilots: ['darius_wraith'], ships: ['sledge'] },
     skyline: { pilots: ['jax_ace_strider'], ships: ['kestrel'] },
     cryo: { pilots: ['lyra_vane'] },
 };
@@ -34,10 +34,10 @@ const CUP_REWARDS: Record<string, { pilots?: string[]; ships?: ShipType[] }> = {
 // the default path is one click. Falls back to the Lancer while locked.
 const PILOT_SIGNATURE_SHIP: Record<string, ShipType> = {
     echo_7: 'lancer',
-    orion_reinhardt: 'rapier',      // precision pilot, sharpest-turning hull
+    orion_reinhardt: 'rapier',      // precision pilot, sharpest-turning hull; Lancer until the Nebula Cup is cleared
     jax_ace_strider: 'kestrel',     // speed pilot, fastest hull (both Skyline rewards)
-    nova_starling: 'sledge',        // acceleration pilot; Lancer until the Nebula Cup is cleared
-    zara_qel: 'rapier',
+    nova_starling: 'sledge',        // acceleration pilot; Lancer until the Sunscorch Cup is cleared
+    zara_qel: 'rapier',             // both Nebula rewards
     lyra_vane: 'kestrel',
     darius_wraith: 'rapier',        // the drift option
     dennis_grimshaw: 'lancer',
