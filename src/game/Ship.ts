@@ -28,6 +28,8 @@ const SHIELD_LOW = new THREE.Color(0xff3322);
 const SHIELD_CHARGE = new THREE.Color(0x44ff88);
 const SPARK_COUNT = 24;
 const SHIELD_PAD = 1.1; // clearance between the furthest hull point and the bubble
+const AURA_OVER_SHIELD = 1.06; // boost aura sits just outside the shield bubble
+const AURA_RING_SPAN = 2.2;    // unit-sphere distance nose → tail (+ a beat before the next ripple)
 
 // Fit an ellipsoid round a hull (engine flames excluded): proportioned to the
 // hull's bounding box, then grown until every vertex is inside. Cached per
@@ -128,6 +130,23 @@ void main() {
     gl_FragColor = vec4(uColor, a);
 }`;
 
+type ShieldUniforms = {
+    uColor: { value: THREE.Color }; uOpacity: { value: number }; uHitPos: { value: THREE.Vector3 };
+    uHit: { value: number }; uRing: { value: number }; uFocus: { value: number };
+};
+// One shell material over a shared uniform set (rim = fresnel strength).
+const makeShieldMaterial = (uniforms: ShieldUniforms, rim: number) => new THREE.ShaderMaterial({
+    uniforms: { ...uniforms, uRim: { value: rim } },
+    vertexShader: SHIELD_VERT,
+    fragmentShader: SHIELD_FRAG,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    // Both faces: from the chase cam a nose hit is on the FAR side of the
+    // bubble and must still read through it.
+    side: THREE.DoubleSide,
+});
+
 export interface ShipConfig {
     color: number;
     accentColor?: number; // Secondary livery color (wings/trim); defaults to white
@@ -160,7 +179,10 @@ export class Ship {
     // Visual components if we need to animate them (e.g. engine glow)
     private glows: THREE.Mesh[] = [];
     private beams: THREE.Mesh[] = [];           // energy binders (Rapier); own material clones
-    private aura: THREE.Mesh | null = null;     // additive shell around the hull while boosting
+    private aura: THREE.Group | null = null;    // shield-style shell around the hull while boosting
+    private auraUniforms: ShieldUniforms | null = null;
+    private auraScale = new THREE.Vector3(1, 1, 1);
+    private auraRing = 0;                       // 0..AURA_RING_SPAN, the bow-wave ripple sweeping nose → tail
     private arcs: THREE.Line[] = [];            // lightning crackling over the aura shell
     private lastArcTime = 0;                    // when the arc shapes were last re-rolled
     private boostFlash = 0;                     // 0..1, spikes on boost pickup, then decays
@@ -172,10 +194,7 @@ export class Ship {
     // scraping, contact) and the recharge pad show up without extra wiring.
     private shield: THREE.Group;
     private shieldScale = new THREE.Vector3(1, 1, 1); // per-hull ellipsoid radii (fitShield)
-    private shieldUniforms: {
-        uColor: { value: THREE.Color }; uOpacity: { value: number }; uHitPos: { value: THREE.Vector3 };
-        uHit: { value: number }; uRing: { value: number }; uFocus: { value: number };
-    };
+    private shieldUniforms: ShieldUniforms;
     private sparks: THREE.Points;
     private sparkVel = new Float32Array(SPARK_COUNT * 3);
     private sparkLife = 0;                      // 0..1, burst fades out as it decays
@@ -237,17 +256,29 @@ export class Ship {
             });
         });
 
-        // Boost aura: an additive shell around the whole hull that lights up
-        // only while boostTimer runs — invisible the rest of the time.
-        const auraMat = new THREE.MeshBasicMaterial({
-            color: 0x44ccff,
-            transparent: true,
-            opacity: 0,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-        });
-        this.aura = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), auraMat);
-        this.aura.scale.set(2.6, 1.5, 3.6);
+        // Hull-fitted ellipsoid shared by the boost aura and the shield bubble.
+        const fit = fitShield(type, this.mesh, this.glows);
+
+        // Boost aura: the shield's look (fresnel shell + icosphere lattice) on
+        // a slightly larger fitted ellipsoid, lit only while boostTimer runs.
+        // A bright bow wave sits on the nose and ripples sweep back along the
+        // hull, so it reads as speed rather than as a hit.
+        const auraUniforms: ShieldUniforms = {
+            uColor: { value: AURA_BASE.clone() },
+            uOpacity: { value: 0 },
+            uHitPos: { value: new THREE.Vector3(0, 0, -1) },
+            uHit: { value: 0 },
+            uRing: { value: 0 },
+            uFocus: { value: 0.6 },
+        };
+        this.auraUniforms = auraUniforms;
+        this.aura = new THREE.Group();
+        this.aura.add(new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), makeShieldMaterial(auraUniforms, 0.9)));
+        this.aura.add(new THREE.LineSegments(
+            new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(1.01, 2)), makeShieldMaterial(auraUniforms, 1.6)));
+        this.auraScale.copy(fit.radii).multiplyScalar(AURA_OVER_SHIELD);
+        this.aura.scale.copy(this.auraScale);
+        this.aura.position.copy(fit.center);
         this.aura.visible = false;
         this.mesh.add(this.aura);
 
@@ -271,7 +302,7 @@ export class Ship {
 
         // Shield bubble: two materials over shared uniforms — a soft fresnel
         // shell and a brighter icosphere lattice for the "energy shield" read.
-        const shared = {
+        const shared: ShieldUniforms = {
             uColor: { value: SHIELD_HEALTHY.clone() },
             uOpacity: { value: 0 },
             uHitPos: { value: new THREE.Vector3(0, 0, -1) },
@@ -280,22 +311,10 @@ export class Ship {
             uFocus: { value: 0 },
         };
         this.shieldUniforms = shared;
-        const shieldMat = (rim: number) => new THREE.ShaderMaterial({
-            uniforms: { ...shared, uRim: { value: rim } },
-            vertexShader: SHIELD_VERT,
-            fragmentShader: SHIELD_FRAG,
-            transparent: true,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            // Both faces: from the chase cam a nose hit is on the FAR side of
-            // the bubble and must still read through it.
-            side: THREE.DoubleSide,
-        });
         this.shield = new THREE.Group();
-        this.shield.add(new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), shieldMat(0.9)));
+        this.shield.add(new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), makeShieldMaterial(shared, 0.9)));
         this.shield.add(new THREE.LineSegments(
-            new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(1.01, 2)), shieldMat(1.6)));
-        const fit = fitShield(type, this.mesh, this.glows);
+            new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(1.01, 2)), makeShieldMaterial(shared, 1.6)));
         this.shieldScale.copy(fit.radii);
         this.shield.scale.copy(this.shieldScale);
         this.shield.position.copy(fit.center);
@@ -572,17 +591,22 @@ export class Ship {
                 }
             });
 
-            // Aura envelope: a glowing shell around the hull, only while boosting.
-            // Flares on pickup, breathes gently for the boost's duration.
-            if (this.aura) {
-                const auraOpacity = 0.16 * this.boostLevel + 0.25 * this.boostFlash;
+            // Aura envelope: the shield-style shell, only while boosting.
+            // Flares on pickup; a bow wave glows on the nose and ripples run
+            // nose → tail for the boost's duration.
+            if (this.aura && this.auraUniforms) {
+                const auraOpacity = 0.45 * this.boostLevel + 0.5 * this.boostFlash;
                 this.aura.visible = auraOpacity > 0.01;
                 if (this.aura.visible) {
-                    const pulse = 1 + 0.05 * Math.sin(time * 9) + 0.25 * this.boostFlash;
-                    this.aura.scale.set(2.6 * pulse, 1.5 * pulse, 3.6 * pulse);
-                    const mat = this.aura.material as THREE.MeshBasicMaterial;
-                    mat.opacity = auraOpacity;
-                    mat.color.copy(AURA_BASE).lerp(AURA_BOOST, this.boostLevel);
+                    const pulse = 1 + 0.03 * Math.sin(time * 9) + 0.12 * this.boostFlash;
+                    this.aura.scale.copy(this.auraScale).multiplyScalar(pulse);
+                    const u = this.auraUniforms;
+                    u.uOpacity.value = auraOpacity;
+                    u.uColor.value.copy(AURA_BASE).lerp(AURA_BOOST, this.boostLevel);
+                    u.uHit.value = Math.min(1, 0.3 * this.boostLevel + 0.7 * this.boostFlash);
+                    this.auraRing = (this.auraRing + 0.035 * dt) % AURA_RING_SPAN;
+                    if (this.boostFlash > 0.95) this.auraRing = 0; // pickup restarts the wave at the nose
+                    u.uRing.value = this.auraRing;
 
                     // Lightning: re-roll the jagged paths ~every 50ms so the
                     // arcs jump around the shell; flicker opacity per frame.
