@@ -158,6 +158,7 @@ export interface ShipConfig {
     throttleRate?: number; // throttle ramp/frame (pilot accel stat); default 0.05
     energyEnabled?: boolean; // hazard/wall/contact damage + DNF at zero
     maxEnergy?: number;      // per-ship capacity (from SHIP_STATS)
+    engineTune?: number;     // garage Engine level 0..3: longer, brighter exhaust (visual only)
     type: ShipType;
     id?: string;
     name?: string;
@@ -188,6 +189,7 @@ export class Ship {
     private boostFlash = 0;                     // 0..1, spikes on boost pickup, then decays
     private boostLevel = 0;                     // 0..1, eases toward 1 while boosting (drives color)
     private flamePhase = Math.random() * 100;   // desync flame flicker per ship
+    private engineTune = 0;                     // garage Engine level (exhaust size/brightness)
 
     // Damage feedback: shield bubble + lattice, a spark burst at the impact
     // point. Driven from energy deltas, so every damage source (blocks, wall
@@ -229,6 +231,7 @@ export class Ship {
             }
         }
 
+        this.engineTune = config?.engineTune ?? 0;
         this.id = config?.id || 'player';
         this.name = config?.name || 'Player';
 
@@ -534,11 +537,13 @@ export class Ship {
             const throttle = this.state.throttle;
 
             // Glow disc: steady size/brightness, expands on boost + pickup punch.
-            const glowScale = 1 + 0.4 * heat + 0.3 * this.boostFlash;
+            // Each garage Engine level adds a little size and length to the exhaust.
+            const tune = 1 + 0.08 * this.engineTune;
+            const glowScale = (1 + 0.4 * heat + 0.3 * this.boostFlash) * tune;
             const glowOpacity = Math.min(1, 0.7 + 0.2 * heat);
 
             // Outer flame: throttle-driven length, modest boost bump.
-            const outerLen = (0.5 + throttle * 1.5) * flicker * (1 + 0.2 * heat + 0.35 * this.boostFlash);
+            const outerLen = (0.5 + throttle * 1.5) * flicker * (1 + 0.2 * heat + 0.35 * this.boostFlash) * (1 + 0.12 * this.engineTune);
             const outerWide = 1 + 0.1 * heat;
             // Inner core: a touch shorter, grows/brightens more with heat.
             const coreLen = outerLen * 0.9 * (1 + 0.25 * heat);
@@ -569,7 +574,7 @@ export class Ship {
                 if (core) {
                     core.scale.set(coreWide, coreLen, coreWide);
                     if (core.material instanceof THREE.MeshBasicMaterial) {
-                        core.material.opacity = 0.5 + 0.35 * heat; // hot centre brightens on boost
+                        core.material.opacity = Math.min(1, 0.5 + 0.35 * heat + 0.06 * this.engineTune); // hot centre brightens on boost
                         core.material.color.copy(CORE_BASE).lerp(CORE_BOOST, this.boostLevel);
                     }
                 }

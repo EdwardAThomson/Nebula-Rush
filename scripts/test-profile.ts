@@ -40,7 +40,7 @@ check('cup write round-trips', p.cupsCleared.includes('skyline'));
 store.clear(); resetProfileCache();
 store.set('nebula-rush-profile', '{not json!!');
 p = getProfile();
-check('corrupt profile falls back to defaults', p.credits === 0 && p.version === 1);
+check('corrupt profile falls back to defaults', p.credits === 0 && p.version === 2);
 
 // 5. Corrupt fields sanitized
 store.clear(); resetProfileCache();
@@ -48,6 +48,19 @@ store.set('nebula-rush-profile', JSON.stringify({ version: 1, credits: -50, cups
 p = getProfile();
 check('negative credits sanitized', p.credits === 0);
 check('non-string cup ids dropped', p.cupsCleared.length === 1 && p.cupsCleared[0] === 'ok');
+
+// 6. v1 profile upgrades to v2 with stock parts, keeping credits and cups
+store.clear(); resetProfileCache();
+store.set('nebula-rush-profile', JSON.stringify({ version: 1, credits: 900, cupsCleared: ['nebula'] }));
+p = getProfile();
+check('v1 upgrades to v2', p.version === 2 && p.credits === 900 && p.cupsCleared[0] === 'nebula');
+check('v1 upgrade gets stock parts', p.parts.engine === 0 && p.parts.capacitor === 0);
+
+// 7. Part levels clamp to 0..3 and drop junk
+store.clear(); resetProfileCache();
+store.set('nebula-rush-profile', JSON.stringify({ version: 2, credits: 0, cupsCleared: [], parts: { engine: 9, fins: -2, thrusters: 'x', capacitor: 1.5 } }));
+p = getProfile();
+check('part levels sanitized', p.parts.engine === 3 && p.parts.fins === 0 && p.parts.thrusters === 0 && p.parts.capacitor === 0);
 
 console.log(failures === 0 ? '\nAll profile checks passed.' : `\n${failures} CHECK(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);

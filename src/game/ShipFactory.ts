@@ -103,9 +103,9 @@ const materialCache: Record<string, THREE.Material> = {};
 // with a Catmull-Rom curve so the taper blends between stations.
 //   n     — superellipse exponent: 2 = ellipse, higher squares the shoulders
 //   belly — squashes the lower half (1 = round, 0.5 = flat-bottomed)
-interface LoftStation { z: number; w: number; h: number; y: number }
+export interface LoftStation { z: number; w: number; h: number; y: number }
 
-const createLoftGeometry = (
+export const createLoftGeometry = (
     stations: LoftStation[],
     opts: { rings?: number; segments?: number; n?: number; belly?: number; capStart?: boolean; capEnd?: boolean } = {}
 ): THREE.BufferGeometry => {
@@ -185,12 +185,12 @@ const createLoftGeometry = (
 //   tipRound     — fraction of span over which the leading edge curves aft
 //                  to meet the trailing edge in a rounded tip (0 = square
 //                  tip, capped, for a panel that buries its tip in something)
-interface AerofoilOpts {
+export interface AerofoilOpts {
     span: number; rootChord: number; tipChord: number; sweep?: number;
     thickness?: number; tipThickness?: number; tipRound?: number; dir?: 1 | -1;
     spanSegments?: number; chordSegments?: number;
 }
-const createAerofoilGeometry = (o: AerofoilOpts): THREE.BufferGeometry => {
+export const createAerofoilGeometry = (o: AerofoilOpts): THREE.BufferGeometry => {
     const {
         span, rootChord, tipChord, sweep = 0, thickness = 0.1, tipThickness = thickness * 0.75,
         tipRound = 0.3, dir = 1, spanSegments = 14, chordSegments = 14,

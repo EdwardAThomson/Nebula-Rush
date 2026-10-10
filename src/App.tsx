@@ -17,6 +17,7 @@ import ShipDemo from './components/ShipDemo';
 import PhysicsTest from './components/PhysicsTest';
 import CaptureStudio from './components/CaptureStudio';
 import SettingsMenu from './components/SettingsMenu';
+import Garage from './components/Garage';
 import type { Pilot } from './game/PilotDefinitions';
 import type { EnvironmentConfig } from './game/EnvironmentManager';
 import { getUnlockedShipTypes, getSignatureShip, getUnlockHint } from './game/unlocks';
@@ -25,6 +26,8 @@ import { TRACKS, TUTORIAL_TRACK, type TrackConfig } from './game/TrackDefinition
 import { CUPS, resolveCupTracks, getCupForTrack, isCupReady, type Cup } from './game/CupDefinitions';
 import { OpponentManager, type OpponentConfig } from './game/OpponentManager';
 import { markCupCleared, isCupUnlocked } from './game/cupProgress';
+import { getProfile } from './game/profile';
+import { formatCredits } from './game/economy';
 
 // Calculate display stats (0-100) dynamically from SHIP_STATS
 const getDisplayStats = (type: ShipType) => {
@@ -166,7 +169,7 @@ const AudioButton = ({
 );
 
 function App() {
-  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'cup_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo' | 'capture' | 'tutorial' | 'physics_test'>('start');
+  const [screen, setScreen] = useState<'start' | 'pilot_selection' | 'selection' | 'track_selection' | 'cup_selection' | 'game' | 'analysis' | 'env_test' | 'lighting_debug' | 'env_selection' | 'night_test' | 'ship_demo' | 'capture' | 'tutorial' | 'physics_test' | 'garage'>('start');
   const [gameMode, setGameMode] = useState<'campaign' | 'single_race'>('campaign');
   const [isLoading, setIsLoading] = useState(false); // NEW: Loading state
   const [showHelp, setShowHelp] = useState(false);
@@ -400,6 +403,11 @@ function App() {
           <AttractBackground className="z-0" />
           <div className="absolute inset-0 z-0 pointer-events-none menu-scrim" />
 
+          {/* Credit balance (earned from race placement, spent in the Garage) */}
+          <div className="absolute top-6 right-6 z-10 credit-chip" title="Credits: earned from race placement">
+            {formatCredits(getProfile().credits)}
+          </div>
+
           <div className="relative z-10 flex flex-col items-center">
           <h1 className="menu-title mb-14" aria-label="Nebula Rush">
             <span className="menu-title-word menu-title-nebula" data-text="NEBULA">NEBULA</span>
@@ -424,6 +432,12 @@ function App() {
               className="menu-btn menu-btn-fuchsia"
             >
               SINGLE RACE
+            </AudioButton>
+            <AudioButton
+              onClick={() => setScreen('garage')}
+              className="menu-btn menu-btn-gold"
+            >
+              GARAGE
             </AudioButton>
             {/* Capture Studio (dev/vlog tool) — delinked from the menu; re-enable
                 this button or call setScreen('capture') to reach it.
@@ -574,6 +588,13 @@ function App() {
               </button>
             </div>
           </div>
+        )
+      }
+
+      {/* GARAGE (spend credits on parts) */}
+      {
+        screen === 'garage' && (
+          <Garage onBack={() => setScreen('start')} />
         )
       }
 

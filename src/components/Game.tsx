@@ -17,6 +17,10 @@ import type { Pilot } from '../game/PilotDefinitions';
 import { DebugLightingPanel } from './DebugLightingPanel';
 import { audioManager } from '../game/AudioManager';
 import { PLAYER_START_T } from '../game/PhysicsEngine';
+import { addCredits, cupBonus, getTrackTier, racePayout } from '../game/economy';
+import { aiPartPoints, ENERGY_PER_LEVEL, getPartLevels, partPoints } from '../game/garage';
+import { addPoints, applyTuning } from '../game/tuning';
+import type { CreditReward } from './Leaderboard';
 
 interface GameProps {
   shipConfig: ShipConfig;
@@ -93,6 +97,11 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
   // Results State
   const [raceResults, setRaceResults] = useState<RaceResult[]>([]);
+  // Installed garage parts the HUD and exhaust show (stock in the tutorial).
+  const [installedParts] = useState(() => tutorial ? { engine: 0, capacitor: 0 } : { ...getPartLevels() });
+  const capacitorLevel = installedParts.capacitor;
+  // Credits banked for this race (shown on the results screen); null = none.
+  const [creditReward, setCreditReward] = useState<CreditReward | null>(null);
 
   const minimapRef = useRef<HTMLDivElement>(null);
 
@@ -306,42 +315,21 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
     // Energy (hazard/wall/contact damage, DNF at zero) is skipped in the
     // tutorial. The AI field always has it (see OpponentManager).
     finalShipConfig.energyEnabled = !tutorial;
+    // Engine part level brightens and lengthens the exhaust (Ship.updateVisuals).
+    finalShipConfig.engineTune = installedParts.engine;
 
     if (pilot) {
       finalShipConfig.name = pilot.name;
       finalShipConfig.id = pilot.id;
-
-      // Apply Stats — the "decoupled" mapping, chosen by playtest on the
-      // Physics Test page (Aug 2026). Each stat owns exactly what its name
-      // says; top speed = accelFactor/(1-friction) at full throttle.
-      //
-      // Velocity → friction: SOLE owner of top speed (±0.0004/pt ≈ ±5%/pt).
-      // Applied first — the accel co-scaling below builds on the result.
-      if (pilot.stats.velocity !== 0) {
-        finalShipConfig.friction += (pilot.stats.velocity * 0.0004);
-      }
-
-      // Acceleration → thrust AND drag scaled together (×1.15/pt), so the
-      // ship converges on the SAME top speed proportionally faster, spools
-      // throttle quicker, and surges harder onto boosts. Off-throttle it also
-      // sheds speed faster (responsive vs floaty). Never changes top speed —
-      // the old accelFactor-only multiplier made accel a stronger top-speed
-      // stat than velocity itself.
-      if (pilot.stats.acceleration !== 0) {
-        const k = 1 + (pilot.stats.acceleration * 0.15);
-        finalShipConfig.accelFactor *= k;
-        finalShipConfig.friction = 1 - (1 - finalShipConfig.friction) * k;
-        finalShipConfig.throttleRate = 0.05 * k;
-      }
-
-      // Handling: +/- 10% per point to turnSpeed
-      if (pilot.stats.handling !== 0) {
-        const modifier = 1 + (pilot.stats.handling * 0.1);
-        finalShipConfig.turnSpeed *= modifier;
-        // Also affect strafe speed slightly?
-        finalShipConfig.strafeSpeed *= modifier;
-      }
     }
+
+    // Pilot stats plus installed garage parts, through the shared decoupled
+    // mapping (tuning.ts). The tutorial races a stock ship.
+    const zeroPoints = { velocity: 0, acceleration: 0, handling: 0 };
+    applyTuning(finalShipConfig, addPoints(
+      pilot ? pilot.stats : zeroPoints,
+      tutorial ? zeroPoints : partPoints(),
+    ));
 
     // Initialize Player Ship
     playerShip.current = new Ship(scene, true, finalShipConfig);
@@ -575,7 +563,10 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
     // Opponent Manager
     // Always create a new manager because 'scene' is new on every mount/effect run.
-    opponentManager.current = new OpponentManager(scene, trackCurve, roster, bankTrack, wallLimit, wind.enabled ? wind.lateralForce : undefined, currentTrack.recharge);
+    // Rivals carry the parts an average player has by this cup (garage.ts).
+    const aiPoints = aiPartPoints(getTrackTier(currentTrack.id));
+    const tunedRoster = roster.map(config => applyTuning({ ...config }, aiPoints));
+    opponentManager.current = new OpponentManager(scene, trackCurve, tunedRoster, bankTrack, wallLimit, wind.enabled ? wind.lateralForce : undefined, currentTrack.recharge);
 
 
 
@@ -920,6 +911,13 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
           setCampaignScores(updatedScores);
           setRaceResults(results);
 
+          // Credits for the player's placement (garage currency, economy.ts).
+          // The tutorial pays nothing; a cup podium adds a bonus on the last race.
+          const tier = getTrackTier(currentTrack.id);
+          const playerIndex = allShips.findIndex(s => s.isPlayer);
+          const racePay = tutorial ? 0 : racePayout(playerIndex + 1, playerShip.current.retired, tier, isCampaign);
+          let podiumPay = 0;
+
           // Cup complete: on the final race, rank everyone by cumulative cup
           // points and report whether the player placed top 3 (unlocks next cup).
           if (isCampaign && currentTrackIndex === tracks.length - 1 && onCupComplete) {
@@ -931,7 +929,13 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
               .map(s => ({ isPlayer: s.isPlayer, total: (updatedScores[s.id] || 0) - (base[s.id] || 0) }))
               .sort((a, b) => b.total - a.total);
             const playerCupRank = standings.findIndex(s => s.isPlayer) + 1;
+            podiumPay = cupBonus(playerCupRank, tier);
             onCupComplete(playerCupRank >= 1 && playerCupRank <= 3, updatedScores);
+          }
+
+          if (!tutorial) {
+            const balance = addCredits(racePay + podiumPay);
+            setCreditReward({ race: racePay, cupBonus: podiumPay, balance });
           }
         }
       }
@@ -1154,6 +1158,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
       setRaceState('intro');
       setCountdown(7);
       setRaceResults([]);
+      setCreditReward(null);
       raceStartedRef.current = false;
       raceFinishedRef.current = false;
       allFinishedRef.current = false;
@@ -1268,6 +1273,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
               onDownloadPhoto={downloadPhoto}
               onDownloadAll={downloadAllPhotos}
               onTutorial={onTutorial}
+              credits={creditReward}
               showTutorialHint={finalRank !== null && opponentCount >= 3 && finalRank >= opponentCount + 1 - 2}
             />
           </div>
@@ -1301,10 +1307,16 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
                       {pilot.name}
                     </div>
                   )}
-                  <div className="w-40 h-2.5 rounded bg-gray-900 overflow-hidden border border-gray-600">
+                  {/* A bigger Capacitor (garage) draws a longer bar with a green edge. */}
+                  <div
+                    className={`h-2.5 rounded bg-gray-900 overflow-hidden border ${capacitorLevel > 0 ? 'border-green-400/70' : 'border-gray-600'}`}
+                    style={{ width: `${10 * (1 + ENERGY_PER_LEVEL * capacitorLevel)}rem`, boxShadow: capacitorLevel > 0 ? `0 0 ${3 * capacitorLevel}px rgba(34,197,94,0.7)` : undefined }}
+                  >
                     <div ref={energyFillRef} className="h-full" style={{ width: '100%', backgroundColor: '#22c55e' }} />
                   </div>
-                  <div className="text-[10px] text-gray-400 font-bold tracking-widest">ENERGY</div>
+                  <div className="text-[10px] text-gray-400 font-bold tracking-widest">
+                    ENERGY{capacitorLevel > 0 && <span className="text-green-400"> +{Math.round(ENERGY_PER_LEVEL * capacitorLevel * 100)}%</span>}
+                  </div>
                 </div>
               </div>
             )}

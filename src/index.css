@@ -694,3 +694,75 @@
   z-index: 1;
   text-shadow: 0 0 12px rgba(0, 0, 0, 0.9);
 }
+
+/* Credits (garage currency): results-screen strip and the menu balance chip. */
+.credit-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-left: 3px solid #fbbf24;
+  border-radius: 4px;
+  background: linear-gradient(100deg, rgba(251, 191, 36, 0.14), transparent 70%), rgba(10, 14, 28, 0.7);
+}
+.credit-amount {
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: #fde68a;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.55);
+}
+.credit-bonus { color: #fcd34d; font-size: 1rem; }
+.credit-balance {
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #fff7d6;
+}
+.credit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.9rem;
+  font-family: 'Orbitron', ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: #fde68a;
+  background: rgba(10, 14, 28, 0.75);
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  border-radius: 4px;
+  box-shadow: 0 0 14px rgba(251, 191, 36, 0.2);
+  backdrop-filter: blur(6px);
+}
+
+/* Garage part cards: a quick accent pulse when a part is bought. */
+.garage-card-flash { animation: garage-flash 600ms ease-out; }
+@keyframes garage-flash {
+  0% { box-shadow: inset 0 0 40px color-mix(in srgb, var(--card-accent) 55%, transparent), 0 0 40px color-mix(in srgb, var(--card-accent) 70%, transparent); }
+  100% { box-shadow: inset 0 0 24px color-mix(in srgb, var(--card-accent) 8%, transparent), 0 10px 30px rgba(0, 0, 0, 0.45); }
+}
+/* Disabled menu button (e.g. a part you can't afford yet): no hover lift. */
+.menu-btn:disabled,
+.menu-btn:disabled:hover {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  background: linear-gradient(100deg, rgba(var(--accent), 0.12), rgba(10, 14, 28, 0.72) 55%);
+  box-shadow: none;
+}
+.menu-btn:disabled::after { display: none; }
+
+/* Garage turntable: the 3D part sits on a lit floor glow in the card accent. */
+.part-stage {
+  position: relative;
+  height: 10.5rem;
+  margin-left: -0.5rem;
+  margin-right: -0.5rem;
+  border-radius: 4px;
+  background:
+    radial-gradient(ellipse 60% 22% at 50% 88%, color-mix(in srgb, var(--card-accent) 35%, transparent), transparent 70%),
+    radial-gradient(ellipse 70% 60% at 50% 45%, color-mix(in srgb, var(--card-accent) 10%, transparent), transparent 75%);
+}
