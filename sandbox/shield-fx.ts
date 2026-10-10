@@ -1,5 +1,5 @@
 // Shield-hit FX preview: one ship, a frozen frame of the damage feedback.
-// Open sandbox/shield-fx.html?type=<ship>&mode=hit|side|low|charge&f=<frames after hit>
+// Open sandbox/shield-fx.html?type=<ship>&mode=hit|side|low|charge|boost&f=<frames after hit / pickup>
 // (&cx=&cz= move the camera). Used to tune the Ship shield / spark visuals.
 import * as THREE from 'three';
 import { Ship } from '../src/game/Ship';
@@ -34,7 +34,13 @@ const camera = new THREE.PerspectiveCamera(50, 900 / 560, 0.1, 500);
 camera.position.set(Number(params.get('cx') ?? 8), 5, Number(params.get('cz') ?? 11));
 camera.lookAt(0, 0.5, -1);
 
-if (mode === 'charge') {
+if (mode === 'boost') {
+    // Boost pad pickup: f frames after the pickup flash, mid-boost by ~f=40.
+    ship.state.throttle = 1;
+    ship.state.boostTimer = 5;
+    ship.triggerBoostFlash();
+    for (let i = 0; i < frames; i++) ship.updateVisuals(1);
+} else if (mode === 'charge') {
     ship.state.energy = 50;
     ship.updateVisuals(1);
     for (let i = 0; i < 30; i++) {
