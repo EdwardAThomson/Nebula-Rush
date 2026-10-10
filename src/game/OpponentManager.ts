@@ -27,6 +27,17 @@ const AI_SLICK_MARGIN = 3;    // lateral clearance kept beyond a slick patch's h
 
 const IDLE_INPUT: InputSource = { isKeyPressed: () => false };
 
+// Rival strength per cup tier (CupDefinitions.rivalTier): each rival's own
+// 0..1 skill is mapped into [skillLo, skillHi], and its pilot's stat points
+// are scaled by `pilot`. A rival keeps its rank in the field from cup to cup
+// (aces stay aces); the whole field sharpens as the cups go on. Tiers past
+// the end of the table use the last row.
+const RIVAL_TIERS = [
+    { pilot: 0.25, skillLo: 0.0, skillHi: 0.5 },  // Nebula Cup: small pilot edge, under half the pads read
+    { pilot: 0.5, skillLo: 0.15, skillHi: 0.7 },  // Sunscorch Cup
+    { pilot: 1.0, skillLo: 0.4, skillHi: 1.0 },   // Skyline Cup onward
+];
+
 // The lane nearest `want` that sits outside every [lo, hi] interval and
 // inside the walls, or null if there's no gap. Candidates are the interval
 // edges; ties go to the one nearer where the ship is now.
@@ -51,7 +62,7 @@ function nearestFreeLane(want: number, current: number, intervals: [number, numb
 // Rivals race with pilots too: a random pilot's stat line (velocity /
 // acceleration / handling points), mapped onto the physics knobs exactly as
 // the player's pilot is in Game.tsx.
-function applyPilotStats(config: ShipConfig, stats: { velocity: number; acceleration: number; handling: number }) {
+function applyPilotStats(config: ShipConfig, stats: PilotStats) {
     if (stats.velocity !== 0) config.friction += stats.velocity * 0.0004;
     if (stats.acceleration !== 0) {
         const k = 1 + stats.acceleration * 0.15;
@@ -72,10 +83,10 @@ class AIInputController implements InputSource {
     public baseLane: number = 0; // preferred lane before hazards / pad / walls
     // 0..1 racecraft: scales the two chances below.
     public skill: number;
-    // 0..1 chance of spotting each block / slick patch in time to avoid it.
+    // 0..1 chance of spotting each block in time to dodge it (energy safety).
     public alertness: number;
-    // 0..1 chance of lining up for each boost pad ahead.
-    public padSkill: number;
+    // 0..1 chance of reading each boost pad / slick patch ahead (pace).
+    public racecraft: number;
     // Energy fraction under which this rival heads for the recharge pad.
     public rechargeBelow: number;
     private seekingCharge = false;
@@ -94,7 +105,7 @@ class AIInputController implements InputSource {
         this.slideFactor = slideFactor;
         this.skill = skill;
         this.alertness = 0.86 + skill * 0.12; // 86–98%
-        this.padSkill = 0.45 + skill * 0.45;  // 45–90%
+        this.racecraft = skill * 0.9;         // 0–90%
         this.rechargeBelow = 0.45 + Math.random() * 0.2; // 45–65%
     }
 
@@ -143,7 +154,7 @@ class AIInputController implements InputSource {
                 this.padCalls.delete(i);
                 return;
             }
-            if (!this.call(this.padCalls, i, this.padSkill)) return;
+            if (!this.call(this.padCalls, i, this.racecraft)) return;
             const dd = over ? 0 : d;
             if (!nextPad || dd < nextPad.d) nextPad = { d: dd, pad };
         });
@@ -200,7 +211,7 @@ class AIInputController implements InputSource {
                 return;
             }
             const half = h.width / 2 + AI_SLICK_MARGIN;
-            if (this.call(this.slickCalls, i, this.alertness)) slicks.push([h.lateralPosition - half, h.lateralPosition + half]);
+            if (this.call(this.slickCalls, i, this.racecraft)) slicks.push([h.lateralPosition - half, h.lateralPosition + half]);
         });
 
         lane = nearestFreeLane(lane, state.lateralPosition, [...blocked, ...slicks], minL, maxL)
@@ -247,9 +258,14 @@ class AIInputController implements InputSource {
     }
 }
 
+type PilotStats = { velocity: number; acceleration: number; handling: number };
+
 export interface OpponentConfig extends ShipConfig {
     id: string;
     name: string;
+    // Applied per race, scaled by the cup tier (see RIVAL_TIERS).
+    pilotStats?: PilotStats;
+    skill?: number; // 0..1 rank within the field
 }
 
 export class OpponentManager {
@@ -270,7 +286,8 @@ export class OpponentManager {
         bank: boolean = true,
         wallLimit?: (t: number) => [number, number],
         windForce?: (t: number, ms: number) => number,
-        rechargeZone?: RechargeZone
+        rechargeZone?: RechargeZone,
+        tier: number = 0
     ) {
         this.scene = scene;
         this.trackCurve = trackCurve;
@@ -278,13 +295,18 @@ export class OpponentManager {
         this.wallLimit = wallLimit;
         this.windForce = windForce;
         this.rechargeZone = rechargeZone;
-        this.spawnOpponents(roster);
+        this.spawnOpponents(roster, RIVAL_TIERS[Math.min(Math.max(0, tier), RIVAL_TIERS.length - 1)]);
     }
 
-    private spawnOpponents(roster: OpponentConfig[]) {
-        roster.forEach((config, i) => {
+    private spawnOpponents(roster: OpponentConfig[], tier: typeof RIVAL_TIERS[number]) {
+        roster.forEach((rosterConfig, i) => {
             // Energy parity with the player: same damage sources, same DNF.
-            const opponent = new Ship(this.scene, false, { ...config, energyEnabled: true });
+            const config = { ...rosterConfig, energyEnabled: true };
+            if (config.pilotStats) {
+                const s = config.pilotStats;
+                applyPilotStats(config, { velocity: s.velocity * tier.pilot, acceleration: s.acceleration * tier.pilot, handling: s.handling * tier.pilot });
+            }
+            const opponent = new Ship(this.scene, false, config);
             opponent.state.rechargeZone = this.rechargeZone;
 
             // Grid Positioning
@@ -305,7 +327,8 @@ export class OpponentManager {
             // Create Controller
             // Assign a random preferred lane relative to their start side
             const randomLane = (Math.random() - 0.5) * 60;
-            const controller = new AIInputController(randomLane, opponent.state.slideFactor);
+            const skill = tier.skillLo + (tier.skillHi - tier.skillLo) * (config.skill ?? Math.random());
+            const controller = new AIInputController(randomLane, opponent.state.slideFactor, skill);
             this.controllers.push(controller);
 
             this.opponents.push(opponent);
@@ -342,12 +365,13 @@ export class OpponentManager {
             basetoConfig.color = colors[i % colors.length];
 
             const pilot = PILOTS[Math.floor(Math.random() * PILOTS.length)];
-            applyPilotStats(basetoConfig, pilot.stats);
 
             roster.push({
                 ...basetoConfig,
                 id: `ai_${i}`,
-                name: names[i]
+                name: names[i],
+                pilotStats: { ...pilot.stats },
+                skill: Math.random()
             });
         }
         return roster;

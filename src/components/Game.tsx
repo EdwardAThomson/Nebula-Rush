@@ -12,11 +12,12 @@ import { CanyonTerrain, createCanyonWallLimit } from '../game/CanyonTerrain';
 import { createWind } from '../game/WindSystem';
 import { Leaderboard, type RaceResult } from './Leaderboard';
 import { TRACKS, type TrackConfig } from '../game/TrackDefinitions';
+import { rivalTier } from '../game/CupDefinitions';
 import TutorialOverlay from './TutorialOverlay';
 import type { Pilot } from '../game/PilotDefinitions';
 import { DebugLightingPanel } from './DebugLightingPanel';
 import { audioManager } from '../game/AudioManager';
-import { PLAYER_START_T } from '../game/PhysicsEngine';
+import { PLAYER_START_T, lateralKick } from '../game/PhysicsEngine';
 
 interface GameProps {
   shipConfig: ShipConfig;
@@ -575,7 +576,7 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
 
     // Opponent Manager
     // Always create a new manager because 'scene' is new on every mount/effect run.
-    opponentManager.current = new OpponentManager(scene, trackCurve, roster, bankTrack, wallLimit, wind.enabled ? wind.lateralForce : undefined, currentTrack.recharge);
+    opponentManager.current = new OpponentManager(scene, trackCurve, roster, bankTrack, wallLimit, wind.enabled ? wind.lateralForce : undefined, currentTrack.recharge, rivalTier(currentTrack.id));
 
 
 
@@ -802,10 +803,14 @@ export default function Game({ shipConfig, initialTrackIndex = 0, isCampaign = t
             let dp = Math.abs(ps.trackProgress - opp.state.trackProgress);
             dp = Math.min(dp, 1 - dp); // closed-loop wrap
             if (dp * trackLength < 9 && Math.abs(ps.lateralPosition - opp.state.lateralPosition) < 7) {
-              bumpCooldownRef.current = 0.5;
               const side = ps.lateralPosition >= opp.state.lateralPosition ? 1 : -1;
-              ps.velocity.x += side * 2.0;
-              opp.state.velocity.x -= side * 1.6;
+              // Already sliding apart from an earlier nudge: let it finish
+              // instead of stacking another (loose hulls separate slowly).
+              if ((ps.velocity.x - opp.state.velocity.x) * side > 0.05) continue;
+              bumpCooldownRef.current = 0.5;
+              // Equal nudges, sized by slide distance (see lateralKick).
+              ps.velocity.x += side * lateralKick(ps, 8);
+              opp.state.velocity.x -= side * lateralKick(opp.state, 8);
               ps.velocity.y *= 0.96;
               // Contact hurts both ships; each shield lights on the facing side.
               if (ps.energyEnabled) ps.energy = Math.max(0, ps.energy - 5);
